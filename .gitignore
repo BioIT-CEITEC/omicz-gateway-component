@@ -24,5 +24,6 @@ build/
 *.iml
 .claude/
 .*/
-backend/alembic/versions/*
+backend/alembic/versions/__pycache__/
+backend/alembic/versions/*.py
 

@@ -24,4 +24,5 @@ build/
 *.iml
 .claude/
 .*/
+backend/alembic/versions/*
 

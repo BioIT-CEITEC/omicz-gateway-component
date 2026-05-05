@@ -1,0 +1,53 @@
+<header class="bg-[#7ac143] text-white shadow-md">
+  <nav class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+    <!-- Logo -->
+    <a href="/" class="text-xl font-bold tracking-wide text-white">
+      Sequencer Gateway
+    </a>
+
+    <!-- Nav links -->
+    <ul class="flex gap-6 text-sm font-medium">
+      <li>
+        <a
+          href="/"
+          class="hover:text-black transition pb-1 {% if request.url.path == '/' %}underline{% endif %}"
+        >
+          Home
+        </a>
+      </li>
+      <li>
+        <a
+          href="/sequencers-types"
+          class="hover:text-black transition pb-1 {% if request.url.path.startswith('/sequencers-types') %}underline{% endif %}"
+        >
+          Sequencer Types
+        </a>
+      </li>
+      <li>
+        <a
+          href="/sequencers"
+          class="hover:text-black transition pb-1 {% if request.url.path.startswith('/sequencers') and not request.url.path.startswith('/sequencers-types') %}underline{% endif %}"
+        >
+          Sequencers
+        </a>
+      </li>
+
+      <li>
+        <a
+          href="/runs"
+          class="hover:text-black transition pb-1 {% if request.url.path.startswith('/runs') %}underline{% endif %}"
+        >
+          Runs
+        </a>
+      </li>
+      <li>
+        <a
+          href="/users"
+          class="hover:text-black transition pb-1 {% if request.url.path.startswith('/users') %}underline{% endif %}"
+        >
+          Users
+        </a>
+      </li>
+    </ul>
+  </nav>
+</header>

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Runs{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">Runs</h1>
+</div>
+
+{% if data.results %}
+<div class="grid gap-4">
+    {% for run in data.results %}
+    <div class="bg-white rounded-xl shadow p-5 flex items-center justify-between">
+        <div>
+            <h2 class="font-semibold text-gray-900 text-lg">{{ run.name }}</h2>
+            <div class="flex flex-wrap items-center gap-2 mt-1">
+                <p class="text-sm text-gray-500">{{ run.sequencer_name or run.sequencer_uuid }}</p>
+                {% if run.sequencer_sent_to_tre %}
+                <span class="px-2 py-0.5 rounded-full text-xs font-semibold {% if run.sequencer_sent_to_tre == 'auto' %}bg-indigo-100 text-indigo-700{% else %}bg-gray-100 text-gray-500{% endif %}">
+                    TRE: {{ run.sequencer_sent_to_tre }}
+                </span>
+                {% endif %}
+                {% if run.sequencer_delete_after_confirmation %}
+                <span class="px-2 py-0.5 rounded-full text-xs font-semibold {% if run.sequencer_delete_after_confirmation == 'auto' %}bg-orange-100 text-orange-700{% else %}bg-gray-100 text-gray-500{% endif %}">
+                    Delete: {{ run.sequencer_delete_after_confirmation }}
+                </span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="flex items-center gap-4">
+            <span class="px-3 py-1 rounded-full text-xs font-semibold
+                {% if run.status == 'completed' %}bg-green-100 text-green-700
+                {% elif run.status == 'running' %}bg-blue-100 text-blue-700
+                {% elif run.status == 'running_finished' %}bg-purple-100 text-purple-700
+                {% elif run.status == 'zipping' %}bg-yellow-100 text-yellow-700
+                {% elif run.status == 'zip_failed' %}bg-orange-100 text-orange-700
+                {% elif run.status == 'moving' %}bg-indigo-100 text-indigo-700
+                {% elif run.status == 'move_failed' %}bg-red-100 text-red-700
+                {% elif run.status == 'confirmation' %}bg-teal-100 text-teal-700
+                {% elif run.status == 'deleting' %}bg-orange-100 text-orange-700
+                {% elif run.status == 'delete_failed' %}bg-red-100 text-red-700
+                {% elif run.status == 'failed' %}bg-red-100 text-red-700
+                {% else %}bg-gray-100 text-gray-500{% endif %}">
+                {{ run.status }}
+            </span>
+            <a href="/runs/{{ run.uuid }}" class="text-sm text-indigo-600 hover:underline">View</a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% set base_url = "/runs/" %}
+{% include "partials/pagination.html" %}
+{% else %}
+<div class="bg-white rounded-xl shadow p-10 text-center text-gray-400">
+    <p class="text-lg">No runs found.</p>
+    <p class="text-sm mt-2">Runs are created automatically by the watcher service.</p>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Edit {{ sequencer.name }}{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <a href="/sequencers/{{ sequencer.uuid }}" class="text-sm text-indigo-600 hover:underline">&larr; Back</a>
+</div>
+
+<div class="bg-white rounded-xl shadow p-8 max-w-lg">
+    <h1 class="text-xl font-bold text-gray-900 mb-6">Edit Sequencer</h1>
+
+    {% if error %}
+    <div class="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <form method="POST" action="/sequencers/{{ sequencer.uuid }}/edit" class="space-y-4">
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+            <!-- value="{{ sequencer.name }}" pre-fills the field with existing data -->
+            <input type="text" name="name" required minlength="3"
+                   value="{{ sequencer.name }}"
+                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Location</label>
+            <input type="text" name="location" required
+                   value="{{ sequencer.location }}"
+                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Sequencer Type</label>
+            <select name="type_uuid" required
+                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                {% for t in types %}
+                <option value="{{ t.uuid }}" {% if sequencer.type_uuid == t.uuid %}selected{% endif %}>
+                    {{ t.name | capitalize }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+            <select name="status"
+                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                <option value="active" {% if sequencer.status == "active" %}selected{% endif %}>Active</option>
+                <option value="inactive" {% if sequencer.status == "inactive" %}selected{% endif %}>Inactive</option>
+            </select>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Send to TRE</label>
+            <select name="sent_to_tre"
+                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                <option value="manual" {% if sequencer.sent_to_tre == "manual" %}selected{% endif %}>Manual (requires confirmation)</option>
+                <option value="auto" {% if sequencer.sent_to_tre == "auto" %}selected{% endif %}>Auto (triggers automatically)</option>
+            </select>
+            <p class="text-xs text-gray-400 mt-1">Controls whether zipping &amp; TRE upload starts automatically or waits for a button click.</p>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Delete after confirmation</label>
+            <select name="delete_after_confirmation"
+                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                <option value="manual" {% if sequencer.delete_after_confirmation == "manual" %}selected{% endif %}>Manual (requires confirmation)</option>
+                <option value="auto" {% if sequencer.delete_after_confirmation == "auto" %}selected{% endif %}>Auto (deletes automatically)</option>
+            </select>
+            <p class="text-xs text-gray-400 mt-1">Controls whether the local zip is deleted automatically after TRE upload or waits for a button click.</p>
+        </div>
+
+        <button type="submit"
+                class="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition">
+            Save Changes
+        </button>
+    </form>
+</div>
+{% endblock %}

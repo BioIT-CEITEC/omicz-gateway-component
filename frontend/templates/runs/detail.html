@@ -1,0 +1,121 @@
+{% extends "base.html" %} {% block title %}{{ run.name }}{% endblock %} {% block
+content %}
+<div class="mb-6">
+  <a href="/runs/" class="text-sm text-indigo-600 hover:underline"
+    >&larr; Back to runs</a
+  >
+</div>
+
+<div class="bg-white rounded-xl shadow p-8 max-w-2xl">
+  <div class="flex items-start justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">{{ run.name }}</h1>
+      <p class="text-sm text-gray-400 mt-1">{{ run.uuid }}</p>
+    </div>
+    <span
+      class="px-3 py-1 rounded-full text-xs font-semibold {% if run.status == 'completed' %}bg-green-100 text-green-700 {% elif run.status == 'running' %}bg-blue-100 text-blue-700 {% elif run.status == 'running_finished' %}bg-purple-100 text-purple-700 {% elif run.status == 'zipping' %}bg-yellow-100 text-yellow-700 {% elif run.status == 'zip_failed' %}bg-orange-100 text-orange-700 {% elif run.status == 'moving' %}bg-indigo-100 text-indigo-700 {% elif run.status == 'move_failed' %}bg-red-100 text-red-700 {% elif run.status == 'confirmation' %}bg-teal-100 text-teal-700 {% elif run.status == 'deleting' %}bg-orange-100 text-orange-700 {% elif run.status == 'delete_failed' %}bg-red-100 text-red-700 {% elif run.status == 'failed' %}bg-red-100 text-red-700 {% else %}bg-gray-100 text-gray-500{% endif %}"
+    >
+      {{ run.status }}
+    </span>
+  </div>
+
+  <dl class="grid grid-cols-2 gap-4 text-sm mb-8">
+    <div>
+      <dt class="text-gray-400 font-medium">Sequencer</dt>
+      <dd class="text-gray-800 mt-1">{{ run.sequencer_name or run.sequencer_uuid }}</dd>
+    </div>
+    <div>
+      <dt class="text-gray-400 font-medium">Internal ID</dt>
+      <dd class="text-gray-800 mt-1">{{ run.id }}</dd>
+    </div>
+    <div>
+      <dt class="text-gray-400 font-medium">Created</dt>
+      <dd class="text-gray-800 mt-1">{{ run.created_at }}</dd>
+    </div>
+    <div>
+      <dt class="text-gray-400 font-medium">Updated</dt>
+      <dd class="text-gray-800 mt-1">{{ run.updated_at }}</dd>
+    </div>
+  </dl>
+
+  <!-- Status history timeline -->
+  {% if history %}
+  <div class="mb-8">
+    <h2
+      class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4"
+    >
+      Status History
+    </h2>
+    <ol class="relative border-l border-gray-200 ml-3">
+      {% for entry in history %}
+      <li class="mb-6 ml-6">
+        <span
+          class="absolute -left-2 flex items-center justify-center w-4 h-4 rounded-full {% if entry.status == 'completed' %}bg-green-400 {% elif entry.status == 'running' %}bg-blue-400 {% elif entry.status == 'running_finished' %}bg-purple-400 {% elif entry.status == 'zipping' %}bg-yellow-400 {% elif entry.status == 'zip_failed' %}bg-orange-400 {% elif entry.status == 'moving' %}bg-indigo-400 {% elif entry.status == 'move_failed' %}bg-red-400 {% elif entry.status == 'confirmation' %}bg-teal-400 {% elif entry.status == 'deleting' %}bg-orange-400 {% elif entry.status == 'delete_failed' %}bg-red-400 {% elif entry.status == 'failed' %}bg-red-400 {% else %}bg-gray-400{% endif %}"
+        >
+          {% if loop.last and entry.status != 'completed' %}
+          <span
+            class="w-2 h-2 rounded-full bg-red-500 animate-ping"
+            style="animation-duration: 1s"
+          ></span>
+          {% endif %}
+        </span>
+        <span class="font-medium text-gray-800 text-sm"
+          >{{ entry.status }}</span
+        >
+        <p class="text-xs text-gray-400 mt-0.5">{{ entry.created_at }}</p>
+      </li>
+      {% endfor %}
+    </ol>
+  </div>
+  {% endif %}
+
+  <!-- Action buttons — shown only when the run is waiting for a manual trigger -->
+  <div class="flex flex-wrap gap-3 mb-4">
+    {% if run.status == 'running_finished' %}
+    <form
+      method="POST"
+      action="/runs/{{ run.uuid }}/start-zipping"
+      onsubmit="return confirm('Start zipping and send to TRE?');"
+    >
+      <button
+        type="submit"
+        class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition"
+      >
+        Send to TRE
+      </button>
+    </form>
+    {% endif %} {% if run.status == 'confirmation' %}
+    <form
+      method="POST"
+      action="/runs/{{ run.uuid }}/confirm-delete"
+      onsubmit="
+        return confirm(
+          'Confirm the zip was received in TRE and delete the local copy?',
+        );
+      "
+    >
+      <button
+        type="submit"
+        class="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-teal-700 transition"
+      >
+        Confirm &amp; Delete Zip
+      </button>
+    </form>
+    {% endif %}
+  </div>
+
+  <!-- Delete uses a form + POST because browsers can't send DELETE -->
+  <form
+    method="POST"
+    action="/runs/{{ run.uuid }}/delete"
+    onsubmit="return confirm('Delete this run?');"
+  >
+    <button
+      type="submit"
+      class="bg-red-100 text-red-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-200 transition"
+    >
+      Delete the Run
+    </button>
+  </form>
+</div>
+{% endblock %}

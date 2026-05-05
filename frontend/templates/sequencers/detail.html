@@ -1,0 +1,116 @@
+{% extends "base.html" %} {% block title %}{{ sequencer.name }}{% endblock %} {%
+block content %}
+<div class="mb-6">
+  <a href="/sequencers/" class="text-sm text-indigo-600 hover:underline"
+    >&larr; Back to sequencers</a
+  >
+</div>
+
+<div class="flex flex-col md:flex-row gap-6 items-start">
+  <!-- Aside: machine image -->
+  <aside
+    class="bg-white rounded-xl shadow p-6 flex items-center justify-center w-full md:w-[30%] shrink-0"
+  >
+    {% if 'illumina' in sequencer.slug %}
+    <img
+      src="/static/images/illumina.png"
+      alt="{{ sequencer.slug }}"
+      class="w-full"
+    />
+    {% elif 'aviti' in sequencer.slug %}
+    <img
+      src="/static/images/aviti.png"
+      alt="{{ sequencer.slug }}"
+      class="w-full"
+    />
+    {% elif 'ont' in sequencer.slug %}
+    <img
+      src="/static/images/ont.png"
+      alt="{{ sequencer.slug }}"
+      class="w-full"
+    />
+    {% else %}
+    <img
+      src="/static/images/default.png"
+      alt="{{ sequencer.slug }}"
+      class="w-full"
+    />
+    {% endif %}
+  </aside>
+
+  <!-- Main content -->
+  <div class="bg-white rounded-xl shadow p-8 w-full md:flex-1">
+    <div class="flex items-start justify-between mb-6">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">{{ sequencer.name }}</h1>
+        <p class="text-sm text-gray-400 mt-1">{{ sequencer.slug }}</p>
+      </div>
+      <span
+        class="px-3 py-1 rounded-full text-xs font-semibold {% if sequencer.status == 'active' %}bg-green-100 text-green-700 {% else %}bg-gray-100 text-gray-500{% endif %}"
+      >
+        {{ sequencer.status }}
+      </span>
+    </div>
+
+    <dl class="grid grid-cols-2 gap-4 text-sm mb-8">
+      <div>
+        <dt class="text-gray-400 font-medium">Location</dt>
+        <dd class="text-gray-800 mt-1">{{ sequencer.location }}</dd>
+      </div>
+      <div>
+        <dt class="text-gray-400 font-medium">Author ID</dt>
+        <dd class="text-gray-800 mt-1">{{ sequencer.author_id or "—" }}</dd>
+      </div>
+      <div>
+        <dt class="text-gray-400 font-medium">Type UUID</dt>
+        <dd class="text-gray-800 mt-1">{{ sequencer.type_uuid or "—" }}</dd>
+      </div>
+      <div>
+        <dt class="text-gray-400 font-medium">Created</dt>
+        <dd class="text-gray-800 mt-1">{{ sequencer.created_at }}</dd>
+      </div>
+      <div>
+        <dt class="text-gray-400 font-medium">Updated</dt>
+        <dd class="text-gray-800 mt-1">{{ sequencer.updated_at }}</dd>
+      </div>
+      <div>
+        <dt class="text-gray-400 font-medium">Send to TRE</dt>
+        <dd class="mt-1">
+          <span class="px-3 py-1 rounded-full text-xs font-semibold {% if sequencer.sent_to_tre == 'auto' %}bg-indigo-100 text-indigo-700{% else %}bg-gray-100 text-gray-500{% endif %}">
+            {{ sequencer.sent_to_tre }}
+          </span>
+        </dd>
+      </div>
+      <div>
+        <dt class="text-gray-400 font-medium">Delete after confirmation</dt>
+        <dd class="mt-1">
+          <span class="px-3 py-1 rounded-full text-xs font-semibold {% if sequencer.delete_after_confirmation == 'auto' %}bg-orange-100 text-orange-700{% else %}bg-gray-100 text-gray-500{% endif %}">
+            {{ sequencer.delete_after_confirmation }}
+          </span>
+        </dd>
+      </div>
+    </dl>
+
+    <div class="flex gap-3">
+      <a
+        href="/sequencers/{{ sequencer.uuid }}/edit"
+        class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition"
+      >
+        Edit
+      </a>
+      <form
+        method="POST"
+        action="/sequencers/{{ sequencer.uuid }}/delete"
+        onsubmit="return confirm('Delete this sequencer?');"
+      >
+        <button
+          type="submit"
+          class="bg-red-100 text-red-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-200 transition"
+        >
+          Delete
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

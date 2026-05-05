@@ -1,0 +1,40 @@
+{% set prev_skip = data.skip - data.limit %}
+{% set next_skip = data.skip + data.limit %}
+{% set total_pages = ((data.total + data.limit - 1) // data.limit) %}
+{% set current_page = (data.skip // data.limit) + 1 %}
+
+<div class="flex items-center justify-between mt-6">
+    <!-- Summary -->
+    <p class="text-sm text-gray-500">
+        Showing {{ data.skip + 1 }}–{{ [data.skip + data.limit, data.total] | min }} of {{ data.total }} results
+    </p>
+
+    <!-- Buttons -->
+    <div class="flex gap-2">
+        {% if data.skip > 0 %}
+        <a href="{{ base_url }}?skip={{ prev_skip }}&limit={{ data.limit }}"
+           class="px-4 py-2 text-sm rounded-lg border border-gray-300 bg-white hover:bg-gray-50 transition">
+            &larr; Previous
+        </a>
+        {% else %}
+        <span class="px-4 py-2 text-sm rounded-lg border border-gray-200 text-gray-300 cursor-not-allowed">
+            &larr; Previous
+        </span>
+        {% endif %}
+
+        <span class="px-4 py-2 text-sm text-gray-600">
+            Page {{ current_page }} of {{ total_pages }}
+        </span>
+
+        {% if next_skip < data.total %}
+        <a href="{{ base_url }}?skip={{ next_skip }}&limit={{ data.limit }}"
+           class="px-4 py-2 text-sm rounded-lg border border-gray-300 bg-white hover:bg-gray-50 transition">
+            Next &rarr;
+        </a>
+        {% else %}
+        <span class="px-4 py-2 text-sm rounded-lg border border-gray-200 text-gray-300 cursor-not-allowed">
+            Next &rarr;
+        </span>
+        {% endif %}
+    </div>
+</div>

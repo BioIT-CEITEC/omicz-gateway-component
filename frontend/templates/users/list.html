@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Users{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">Users</h1>
+    <a href="/users/create"
+       class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition">
+        + New User
+    </a>
+</div>
+
+{% if data.results %}
+<div class="grid gap-4">
+    {% for u in data.results %}
+    <div class="bg-white rounded-xl shadow p-5 flex items-center justify-between">
+        <div>
+            <h2 class="font-semibold text-gray-900 text-lg">{{ u.username }}</h2>
+            <p class="text-sm text-gray-500">{{ u.email }}</p>
+        </div>
+        <a href="/users/{{ u.uuid }}" class="text-sm text-indigo-600 hover:underline">View</a>
+    </div>
+    {% endfor %}
+</div>
+{% set base_url = "/users/" %}
+{% include "partials/pagination.html" %}
+{% else %}
+<div class="bg-white rounded-xl shadow p-10 text-center text-gray-400">
+    <p class="text-lg">No users found.</p>
+    <a href="/users/create" class="mt-4 inline-block text-indigo-600 hover:underline text-sm">
+        Create your first user
+    </a>
+</div>
+{% endif %}
+{% endblock %}

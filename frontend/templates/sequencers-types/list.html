@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Sequencer Types{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">Sequencer Types</h1>
+    <a href="/sequencers-types/create"
+       class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition">
+        + New Sequencer Type
+    </a>
+</div>
+
+{% if data.results %}
+<div class="grid gap-4">
+    {% for st in data.results %}
+    <div class="bg-white rounded-xl shadow p-5 flex items-center justify-between">
+        <div>
+            <h2 class="font-semibold text-gray-900 text-lg">{{ st.name }}</h2>
+            <p class="text-sm text-gray-500">{{ st.completion_signal }}</p>
+            <p class="text-sm text-gray-500">{{ st.signal_match }}</p>
+        </div>
+        <a href="/sequencers-types/{{ st.uuid }}" class="text-sm text-indigo-600 hover:underline">View</a>
+    </div>
+    {% endfor %}
+</div>
+{% set base_url = "/sequencers-types/" %}
+{% include "partials/pagination.html" %}
+{% else %}
+<div class="bg-white rounded-xl shadow p-10 text-center text-gray-400">
+    <p class="text-lg">No sequencer types found.</p>
+    <a href="/sequencers-types/create" class="mt-4 inline-block text-indigo-600 hover:underline text-sm">
+        Create your first sequencer type
+    </a>
+</div>
+{% endif %}
+{% endblock %}

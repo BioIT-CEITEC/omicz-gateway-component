@@ -8,7 +8,7 @@ from watchdog.events import FileSystemEventHandler
 # allow imports from the backend folder
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import db.base  # registers all models so SQLAlchemy can resolve all relationships
+import db.base  # registers all models so SQLAlchemy can resolve relationships
 from db.session import SESSION_LOCAL
 from db.models.sequencers import Sequencers
 from db.models.runs import Runs
@@ -110,6 +110,31 @@ def load_sequencers():
     sys.exit(1)
 
 
+def query_sequencers():
+    """
+    Simple one-shot DB query for active sequencers with a location.
+    Used by the polling loop — no retry (DB is already up by then).
+    """
+    db = SESSION_LOCAL()
+    try:
+        sequencers = (
+            db.query(Sequencers)
+            .filter(
+                Sequencers.is_deleted == False,
+                Sequencers.location != None,
+            )
+            .all()
+        )
+        for s in sequencers:
+            _ = s.type  # load relationship while session is open
+        return sequencers
+    except Exception as e:
+        logger.error(f"failed to query sequencers: {e}")
+        return []
+    finally:
+        db.close()
+
+
 def is_completed(run_folder: str, sequencer) -> bool:
     """
     Checks whether the completion signal file already exists inside a run folder.
@@ -124,7 +149,8 @@ def is_completed(run_folder: str, sequencer) -> bool:
     for filename in os.listdir(run_folder):
         matched = (
             (signal_match == "exact"  and filename == signal) or
-            (signal_match == "prefix" and filename.startswith(signal))
+            (signal_match == "prefix" and filename.startswith(signal)) or
+            (signal_match == "suffix" and filename.endswith(signal))
         )
         if matched:
             return True
@@ -160,34 +186,20 @@ def scan_existing_runs(sequencer):
 
             if existing:
                 skipped += 1
-                # even if already in DB, queue zip creation if completed and zip missing
-                if existing.status == "completed":
-                    zip_path = os.path.join(location, run_name, f"{run_name}.zip")
-                    if os.path.exists(zip_path):
-                        logger.info(f"zip already exists, skipping: {zip_path}")
-                    else:
-                        logger.info(f"queuing zip for existing run: {run_name}")
-                        publish("run_completed", run_name, sequencer.uuid)
                 continue
 
             # infer status from whether the completion signal file exists
             run_folder  = os.path.join(location, run_name)
             completed   = is_completed(run_folder, sequencer)
-            status      = "completed" if completed else "running"
+            status      = "running_finished" if completed else "running"
 
             db.add(Runs(name=run_name, sequencer_uuid=sequencer.uuid, status=status))
             added += 1
             logger.info(f"backfill → {run_name} (status={status})")
 
-            # if completed, queue zip creation via RabbitMQ — never zip directly here
-            # BAM files can be huge; the worker handles this as a background task
+            # if completed, queue upload via RabbitMQ — the worker handles S3 upload
             if completed:
-                zip_path = os.path.join(run_folder, f"{run_name}.zip")
-                if os.path.exists(zip_path):
-                    logger.info(f"zip already exists, skipping: {zip_path}")
-                else:
-                    logger.info(f"queuing zip for new run: {run_name}")
-                    publish("run_completed", run_name, sequencer.uuid)
+                publish("run_completed", run_name, sequencer.uuid)
 
         db.commit()
         logger.info(f"scan done for '{sequencer.name}': {added} added, {skipped} skipped")
@@ -196,37 +208,60 @@ def scan_existing_runs(sequencer):
         db.close()
 
 
-def start():
-    sequencers = load_sequencers()
+SEQUENCER_CHECK_INTERVAL = 60  # seconds between DB polls for new sequencers
 
-    if not sequencers:
-        print("[watcher] no sequencers found with a location. exiting.")
+
+def watch_sequencer(sequencer, observer, watched_uuids: set):
+    """
+    Start watching a single sequencer location.
+    Scans existing run folders, schedules the filesystem handler,
+    and records the sequencer UUID so we don't watch it twice.
+    """
+    if not os.path.isdir(sequencer.location):
+        logger.warning(f"location '{sequencer.location}' does not exist — skipping {sequencer.name}")
         return
 
-    observer = Observer(timeout=10)  # poll every 10 seconds
+    logger.info(f"scanning existing runs in: {sequencer.location}")
+    scan_existing_runs(sequencer)
+
+    handler = RunEventHandler(sequencer)
+    observer.schedule(handler, path=sequencer.location, recursive=True)
+    watched_uuids.add(str(sequencer.uuid))
+    logger.info(f"watching: {sequencer.location} ({sequencer.name})")
+
+
+def start():
+    # wait for DB to be ready — retry loop handles Docker startup race
+    sequencers = load_sequencers()
+
+    observer = Observer(timeout=5)  # poll filesystem every 10 seconds
+    observer.start()
+
+    # track which sequencers are already being watched
+    watched_uuids = set()
 
     for sequencer in sequencers:
-        if not os.path.isdir(sequencer.location):
-            logger.warning(f"location '{sequencer.location}' does not exist — skipping {sequencer.name}")
-            continue
+        watch_sequencer(sequencer, observer, watched_uuids)
 
-        # scan existing folders before starting live watch
-        logger.info(f"scanning existing runs in: {sequencer.location}")
-        scan_existing_runs(sequencer)
+    if not watched_uuids:
+        logger.warning("no sequencers found with a location — will keep checking every 60s")
 
-        handler = RunEventHandler(sequencer)
-
-        # recursive=True means we also get events from subfolders
-        # (needed to detect files inside run folders)
-        observer.schedule(handler, path=sequencer.location, recursive=True)
-        logger.info(f"watching: {sequencer.location} ({sequencer.name})")
-
-    observer.start()
     logger.info("started. press Ctrl+C to stop.")
 
+    elapsed = 0
     try:
         while True:
             time.sleep(1)
+            elapsed += 1
+
+            if elapsed >= SEQUENCER_CHECK_INTERVAL:
+                elapsed = 0
+                # re-query DB for sequencers added since startup
+                for sequencer in query_sequencers():
+                    if str(sequencer.uuid) not in watched_uuids:
+                        logger.info(f"new sequencer detected: {sequencer.name} — starting watch")
+                        watch_sequencer(sequencer, observer, watched_uuids)
+
     except KeyboardInterrupt:
         observer.stop()
 

@@ -37,17 +37,10 @@ def detail_run(request: Request, uuid: str):
     return templates.TemplateResponse(request, "runs/detail.html", {"run": run, "history": history})
 
 
-# ── START ZIPPING (manual trigger for sent_to_tre=manual)
-@router.post("/{uuid}/start-zipping")
-def start_zipping(request: Request, uuid: str):
-    httpx.post(f"{BACKEND_URL}/runs/{uuid}/start-zipping")
-    return RedirectResponse(url=f"/runs/{uuid}", status_code=303)
-
-
-# ── CONFIRM DELETE (manual trigger for delete_after_confirmation=manual)
-@router.post("/{uuid}/confirm-delete")
-def confirm_delete(request: Request, uuid: str):
-    httpx.post(f"{BACKEND_URL}/runs/{uuid}/confirm-delete")
+# ── START UPLOAD (manual trigger for sent_to_tre=manual)
+@router.post("/{uuid}/start-upload")
+def start_upload(request: Request, uuid: str):
+    httpx.post(f"{BACKEND_URL}/runs/{uuid}/start-upload")
     return RedirectResponse(url=f"/runs/{uuid}", status_code=303)
 
 

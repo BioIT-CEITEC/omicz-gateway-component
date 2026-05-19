@@ -10,7 +10,6 @@ class ShowRun(BaseModel):
     sequencer_uuid: UUID
     sequencer_name: str | None = Field(default=None, validation_alias=AliasPath('sequencer', 'name'))
     sequencer_sent_to_tre: str | None = Field(default=None, validation_alias=AliasPath('sequencer', 'sent_to_tre'))
-    sequencer_delete_after_confirmation: str | None = Field(default=None, validation_alias=AliasPath('sequencer', 'delete_after_confirmation'))
     status:         str
     created_at:     datetime
     updated_at:     datetime

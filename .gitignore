@@ -4,7 +4,7 @@ __pycache__/
 env/
 docker-compose.y*ml
 run_outputs/
-logs/
+**/logs/
 REPORT/
 *.log
 *.csv

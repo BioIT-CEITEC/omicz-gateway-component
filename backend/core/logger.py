@@ -1,6 +1,8 @@
+import datetime
 import logging
 import os
 from logging.handlers import RotatingFileHandler
+from zoneinfo import ZoneInfo
 
 from core.config import settings
 
@@ -11,18 +13,9 @@ LOGS_BASE_DIR = "/app/logs"
 
 def get_logger(service_name: str) -> logging.Logger:
     """
-    Returns a logger for the given service name.
-
     Usage:
         from core.logger import get_logger
         logger = get_logger("watcher")
-
-    This creates:
-        /app/logs/watcher/watcher.log   ← on Docker (maps to ./logs/watcher/ on host)
-
-    Each call with the same name returns the same logger (Python caches them),
-    so you can safely call get_logger("watcher") in multiple files — handlers
-    won't be duplicated.
     """
 
     logger = logging.getLogger(service_name)
@@ -37,7 +30,14 @@ def get_logger(service_name: str) -> logging.Logger:
     # ── Format ────────────────────────────────────────────────────────────────
     # Example output:
     #   2026-04-30 12:00:01 | INFO     | watcher:51 | new run detected: run_001
-    formatter = logging.Formatter(
+    class _TZFormatter(logging.Formatter):
+        _tz = ZoneInfo(settings.LOG_TIMEZONE)
+
+        def formatTime(self, record, datefmt=None):
+            dt = datetime.datetime.fromtimestamp(record.created, tz=self._tz)
+            return dt.strftime(datefmt or "%Y-%m-%d %H:%M:%S")
+
+    formatter = _TZFormatter(
         fmt="%(asctime)s | %(levelname)-8s | %(name)s:%(lineno)d | %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )

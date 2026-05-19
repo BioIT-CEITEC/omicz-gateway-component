@@ -41,9 +41,6 @@ content %}
           <span class="px-3 py-1 rounded-full text-xs font-semibold {% if s.sent_to_tre == 'auto' %}bg-indigo-100 text-indigo-700{% else %}bg-gray-100 text-gray-500{% endif %}">
             TRE: {{ s.sent_to_tre }}
           </span>
-          <span class="px-3 py-1 rounded-full text-xs font-semibold {% if s.delete_after_confirmation == 'auto' %}bg-orange-100 text-orange-700{% else %}bg-gray-100 text-gray-500{% endif %}">
-            Delete: {{ s.delete_after_confirmation }}
-          </span>
         </div>
         <div class="flex mt-3">
           <a href="/sequencers/{{ s.uuid }}" class="text-sm text-indigo-600 hover:underline">View</a>

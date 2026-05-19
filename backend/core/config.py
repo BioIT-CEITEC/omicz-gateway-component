@@ -12,7 +12,8 @@ class Settings:
     PROJECT_VERSION: str = "1.0.0"
     PROJECT_DESCRIPTION: str = "API Gateway for sequencer"
 
-    LOG_LEVEL: str = os.getenv("LOG_LEVEL", "DEBUG").upper()
+    LOG_LEVEL: str    = os.getenv("LOG_LEVEL", "DEBUG").upper()
+    LOG_TIMEZONE: str = os.getenv("LOG_TIMEZONE", "Europe/Prague")
 
     PAGINATION_DEFAULT_SKIP: int  = int(os.getenv("PAGINATION_DEFAULT_SKIP", 0))
     PAGINATION_DEFAULT_LIMIT: int = int(os.getenv("PAGINATION_DEFAULT_LIMIT", 20))

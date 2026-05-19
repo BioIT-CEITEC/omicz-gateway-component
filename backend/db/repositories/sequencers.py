@@ -17,7 +17,6 @@ def create_new_sequencer(sequencer: SequencerCreate, db: Session):
         type_uuid=sequencer.type_uuid,
         status=sequencer.status,
         sent_to_tre=sequencer.sent_to_tre,
-        delete_after_confirmation=sequencer.delete_after_confirmation,
     )
     try:
         db.add(sequencer)
@@ -69,8 +68,6 @@ def update_sequencer(uuid: UUID, sequencer: SequencerUpdate, db: Session):
         existing.status = sequencer.status
     if sequencer.sent_to_tre is not None:
         existing.sent_to_tre = sequencer.sent_to_tre
-    if sequencer.delete_after_confirmation is not None:
-        existing.delete_after_confirmation = sequencer.delete_after_confirmation
     try:
         db.commit()
         db.refresh(existing)

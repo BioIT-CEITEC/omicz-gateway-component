@@ -10,11 +10,12 @@ import pika
 
 import db.base  # registers all models so SQLAlchemy can resolve all relationships
 from db.session import SESSION_LOCAL
+from db.models.runs import Runs
 from db.models.sequencers import Sequencers
 from db.repositories.runs import create_run, update_run_status
 from db.repositories.runs_status_history import add_run_status_history
-from services.zipper import create_zip
-from services.tre import send_to_tre, delete_zip
+from services.checksum import create_checksum_file
+from services.tre import send_to_tre
 from core.logger import get_logger
 
 logger = get_logger("worker")
@@ -57,13 +58,19 @@ def handle_run_completed(name: str, sequencer_uuid):
     Completion signal detected by the watcher.
     Sets status to running_finished, then checks the sequencer's
     sent_to_tre setting:
-      - auto   → immediately publish run_zip_requested so the worker
+      - auto   → immediately publish run_upload_requested so the worker
                  continues the pipeline without waiting
       - manual → stop here; a button in the UI will trigger the next step
     """
     logger.info(f"run_completed → name={name} sequencer_uuid={sequencer_uuid}")
     db = SESSION_LOCAL()
     try:
+        # guard: skip if the run has already moved past running_finished
+        existing = db.query(Runs).filter(Runs.name == name, Runs.sequencer_uuid == sequencer_uuid).first()
+        if existing and existing.status in ("checksumming", "moving", "completed", "move_failed"):
+            logger.warning(f"run_completed ignored for '{name}' — already in status '{existing.status}'")
+            return
+
         run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="running_finished", db=db)
         add_run_status_history(run_uuid=run.uuid, status="running_finished", db=db)
         logger.info(f"status updated to 'running_finished' for run '{name}'")
@@ -74,11 +81,11 @@ def handle_run_completed(name: str, sequencer_uuid):
             return
 
         if sequencer.sent_to_tre == "auto":
-            logger.info(f"sent_to_tre=auto — publishing run_zip_requested for '{name}'")
+            logger.info(f"sent_to_tre=auto — publishing run_checksum_requested for '{name}'")
             from services.publisher import publish
-            publish("run_zip_requested", name, sequencer_uuid)
+            publish("run_checksum_requested", name, sequencer_uuid)
         else:
-            logger.info(f"sent_to_tre=manual — waiting for user to trigger zipping for '{name}'")
+            logger.info(f"sent_to_tre=manual — waiting for user to trigger upload for '{name}'")
 
     except Exception as e:
         logger.error(f"failed to handle run_completed for '{name}': {e}", exc_info=True)
@@ -86,88 +93,78 @@ def handle_run_completed(name: str, sequencer_uuid):
         db.close()
 
 
-def handle_run_zip_requested(name: str, sequencer_uuid):
+def handle_run_checksum_requested(name: str, sequencer_uuid):
     """
-    Triggered either automatically (sent_to_tre=auto) or by a manual button click.
-    1. Zip the run folder                → status: zipping
-    2. Upload zip to TRE S3 (stub)      → status: moving → confirmation
-    3. If delete_after_confirmation=auto → publish run_delete_requested immediately
-       If manual                         → wait for button click
+    Triggered after running_finished (auto) or by the "Send to TRE" button (manual).
+    1. Set status to checksumming
+    2. Generate checksum.txt inside the run folder (SHA256 per file)
+    3. Publish run_upload_requested so the worker continues to S3 upload
     """
-    logger.info(f"run_zip_requested → name={name} sequencer_uuid={sequencer_uuid}")
+    logger.info(f"run_checksum_requested → name={name} sequencer_uuid={sequencer_uuid}")
     db = SESSION_LOCAL()
     try:
-        # step 1 — zipping
-        run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="zipping", db=db)
-        add_run_status_history(run_uuid=run.uuid, status="zipping", db=db)
-        logger.info(f"status updated to 'zipping' for run '{name}'")
-
         sequencer = get_sequencer(sequencer_uuid)
         if not sequencer:
-            logger.error(f"sequencer {sequencer_uuid} not found — cannot zip run '{name}'")
+            logger.error(f"sequencer {sequencer_uuid} not found — cannot checksum run '{name}'")
             return
 
-        zip_path = create_zip(run_name=name, sequencer_location=sequencer.location)
-        logger.info(f"zip created at {zip_path}")
+        run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="checksumming", db=db)
+        add_run_status_history(run_uuid=run.uuid, status="checksumming", db=db)
+        logger.info(f"status updated to 'checksumming' for run '{name}'")
 
-        # step 2 — moving to TRE
-        run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="moving", db=db)
-        add_run_status_history(run_uuid=run.uuid, status="moving", db=db)
-        logger.info(f"status updated to 'moving' for run '{name}'")
+        create_checksum_file(run_name=name, sequencer_location=sequencer.location)
 
-        send_to_tre(zip_path)
-        logger.info(f"zip sent to TRE (stub) for run '{name}'")
-
-        # step 3 — waiting for delete confirmation
-        run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="confirmation", db=db)
-        add_run_status_history(run_uuid=run.uuid, status="confirmation", db=db)
-        logger.info(f"status updated to 'confirmation' for run '{name}'")
-
-        if sequencer.delete_after_confirmation == "auto":
-            logger.info(f"delete_after_confirmation=auto — publishing run_delete_requested for '{name}'")
-            from services.publisher import publish
-            publish("run_delete_requested", name, sequencer_uuid)
-        else:
-            logger.info(f"delete_after_confirmation=manual — waiting for user to confirm delete for '{name}'")
+        from services.publisher import publish
+        publish("run_upload_requested", name, sequencer_uuid)
+        logger.info(f"checksum done — published run_upload_requested for '{name}'")
 
     except Exception as e:
-        logger.error(f"failed during zip/move for run '{name}': {e}", exc_info=True)
+        logger.error(f"failed during checksum for run '{name}': {e}", exc_info=True)
         try:
-            run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="zip_failed", db=db)
-            add_run_status_history(run_uuid=run.uuid, status="zip_failed", db=db)
+            run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="move_failed", db=db)
+            add_run_status_history(run_uuid=run.uuid, status="move_failed", db=db)
         except Exception:
             pass
     finally:
         db.close()
 
 
-def handle_run_delete_requested(name: str, sequencer_uuid):
+def handle_run_upload_requested(name: str, sequencer_uuid):
     """
-    Triggered either automatically (delete_after_confirmation=auto) or by a manual button click.
-    Deletes the local zip file (stub) and marks the run as completed.
+    Triggered either automatically (sent_to_tre=auto) or by a manual button click.
+    Uploads the run folder directly to S3 — no zipping.
+    1. Set status to moving
+    2. Upload folder to S3 via boto3
+    3. Set status to completed; on error → move_failed
     """
-    logger.info(f"run_delete_requested → name={name} sequencer_uuid={sequencer_uuid}")
+    logger.info(f"run_upload_requested → name={name} sequencer_uuid={sequencer_uuid}")
     db = SESSION_LOCAL()
     try:
-        run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="deleting", db=db)
-        add_run_status_history(run_uuid=run.uuid, status="deleting", db=db)
-        logger.info(f"status updated to 'deleting' for run '{name}'")
-
         sequencer = get_sequencer(sequencer_uuid)
-        if sequencer:
-            zip_path = f"{sequencer.location}/{name}/{name}.zip"
-            delete_zip(zip_path)
-            logger.info(f"zip deleted (stub) for run '{name}'")
+        if not sequencer:
+            logger.error(f"sequencer {sequencer_uuid} not found — cannot upload run '{name}'")
+            return
 
+        # step 1 — uploading to S3
+        run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="moving", db=db)
+        add_run_status_history(run_uuid=run.uuid, status="moving", db=db)
+        logger.info(f"status updated to 'moving' for run '{name}'")
+
+        success = send_to_tre(run_name=name, sequencer_location=sequencer.location, sequencer_slug=sequencer.slug)
+        if not success:
+            raise Exception("S3 upload returned False")
+        logger.info(f"run folder uploaded to S3 for run '{name}'")
+
+        # step 2 — done
         run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="completed", db=db)
         add_run_status_history(run_uuid=run.uuid, status="completed", db=db)
         logger.info(f"status updated to 'completed' for run '{name}'")
 
     except Exception as e:
-        logger.error(f"failed during delete for run '{name}': {e}", exc_info=True)
+        logger.error(f"failed during S3 upload for run '{name}': {e}", exc_info=True)
         try:
-            run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="delete_failed", db=db)
-            add_run_status_history(run_uuid=run.uuid, status="delete_failed", db=db)
+            run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="move_failed", db=db)
+            add_run_status_history(run_uuid=run.uuid, status="move_failed", db=db)
         except Exception:
             pass
     finally:
@@ -196,11 +193,11 @@ def on_message(channel, method, properties, body):
         elif event == "run_completed":
             handle_run_completed(name=name, sequencer_uuid=sequencer_uuid)
 
-        elif event == "run_zip_requested":
-            handle_run_zip_requested(name=name, sequencer_uuid=sequencer_uuid)
+        elif event == "run_checksum_requested":
+            handle_run_checksum_requested(name=name, sequencer_uuid=sequencer_uuid)
 
-        elif event == "run_delete_requested":
-            handle_run_delete_requested(name=name, sequencer_uuid=sequencer_uuid)
+        elif event == "run_upload_requested":
+            handle_run_upload_requested(name=name, sequencer_uuid=sequencer_uuid)
 
         else:
             logger.warning(f"unknown event: {event}")

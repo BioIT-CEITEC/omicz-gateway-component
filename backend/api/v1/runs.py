@@ -42,38 +42,21 @@ def get_run(uuid: UUID, db: Session = Depends(get_db)):
     return get_run_by_uuid(uuid=uuid, db=db)
 
 
-@router.post("/{uuid}/start-zipping", status_code=status.HTTP_202_ACCEPTED)
-def start_zipping(uuid: UUID, db: Session = Depends(get_db)):
+@router.post("/{uuid}/start-upload", status_code=status.HTTP_202_ACCEPTED)
+def start_upload(uuid: UUID, db: Session = Depends(get_db)):
     """
-    Manual trigger: start zipping and move to TRE.
-    Only valid when run status is 'running_finished'.
+    Manual trigger: start checksum generation then upload to TRE.
+    Only valid when run status is 'running_finished' or 'move_failed'.
     Returns 409 if the run is not in the expected state.
     """
     run = get_run_by_uuid(uuid=uuid, db=db)
-    if run.status != "running_finished":
+    if run.status not in ("running_finished", "move_failed"):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Cannot start zipping: run is '{run.status}', expected 'running_finished'"
+            detail=f"Cannot start upload: run is '{run.status}', expected 'running_finished' or 'move_failed'"
         )
-    publish("run_zip_requested", run.name, run.sequencer_uuid)
-    return {"detail": "Zipping started"}
-
-
-@router.post("/{uuid}/confirm-delete", status_code=status.HTTP_202_ACCEPTED)
-def confirm_delete(uuid: UUID, db: Session = Depends(get_db)):
-    """
-    Manual trigger: confirm the zip was received in TRE and delete the local copy.
-    Only valid when run status is 'confirmation'.
-    Returns 409 if the run is not in the expected state.
-    """
-    run = get_run_by_uuid(uuid=uuid, db=db)
-    if run.status != "confirmation":
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Cannot confirm delete: run is '{run.status}', expected 'confirmation'"
-        )
-    publish("run_delete_requested", run.name, run.sequencer_uuid)
-    return {"detail": "Delete confirmed"}
+    publish("run_checksum_requested", run.name, run.sequencer_uuid)
+    return {"detail": "Upload started"}
 
 
 @router.delete("/{uuid}", status_code=status.HTTP_200_OK)

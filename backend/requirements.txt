@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+alembic
+psycopg2-binary
+pika
+watchdog
+bcrypt
+python-dotenv
+boto3
+tzdata

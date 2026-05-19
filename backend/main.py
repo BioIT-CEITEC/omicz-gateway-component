@@ -3,7 +3,6 @@ from fastapi.responses import JSONResponse
 from core.config import settings
 from core.logger import get_logger
 from api.base import api_router
-import db.base  # ensures all models are registered before any mapper is used
 
 logger = get_logger("backend")
 

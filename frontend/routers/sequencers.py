@@ -46,10 +46,9 @@ def create_sequencer(
     status: str = Form(...),
     type_uuid: str = Form(...),
     sent_to_tre: str = Form(default="manual"),
-    delete_after_confirmation: str = Form(default="manual"),
 ):
     payload = {"name": name, "location": location, "status": status, "type_uuid": type_uuid,
-               "sent_to_tre": sent_to_tre, "delete_after_confirmation": delete_after_confirmation}
+               "sent_to_tre": sent_to_tre}
     response = httpx.post(f"{BACKEND_URL}/sequencers/", json=payload)
 
     if response.status_code == 201:
@@ -90,10 +89,9 @@ def edit_sequencer(
     status: str = Form(...),
     type_uuid: str = Form(...),
     sent_to_tre: str = Form(default="manual"),
-    delete_after_confirmation: str = Form(default="manual"),
 ):
     payload = {"name": name, "location": location, "status": status, "type_uuid": type_uuid,
-               "sent_to_tre": sent_to_tre, "delete_after_confirmation": delete_after_confirmation}
+               "sent_to_tre": sent_to_tre}
     response = httpx.patch(f"{BACKEND_URL}/sequencers/{uuid}", json=payload)
 
     if response.status_code == 200:
@@ -101,8 +99,7 @@ def edit_sequencer(
 
     error = safe_json(response, fallback={}).get("detail", "Something went wrong")
     sequencer = {"uuid": uuid, "name": name, "location": location, "status": status,
-                 "type_uuid": type_uuid, "sent_to_tre": sent_to_tre,
-                 "delete_after_confirmation": delete_after_confirmation}
+                 "type_uuid": type_uuid, "sent_to_tre": sent_to_tre}
     return templates.TemplateResponse(request, "sequencers/edit.html", {"sequencer": sequencer, "error": error, "types": fetch_types()})
 
 

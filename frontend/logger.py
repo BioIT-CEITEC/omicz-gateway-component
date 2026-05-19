@@ -1,6 +1,8 @@
+import datetime
 import logging
 import os
 from logging.handlers import RotatingFileHandler
+from zoneinfo import ZoneInfo
 
 LOGS_BASE_DIR = "/app/logs"
 
@@ -14,7 +16,14 @@ def get_logger(service_name: str) -> logging.Logger:
     log_level = os.getenv("LOG_LEVEL", "DEBUG").upper()
     logger.setLevel(log_level)
 
-    formatter = logging.Formatter(
+    class _TZFormatter(logging.Formatter):
+        _tz = ZoneInfo(os.getenv("LOG_TIMEZONE", "Europe/Prague"))
+
+        def formatTime(self, record, datefmt=None):
+            dt = datetime.datetime.fromtimestamp(record.created, tz=self._tz)
+            return dt.strftime(datefmt or "%Y-%m-%d %H:%M:%S")
+
+    formatter = _TZFormatter(
         fmt="%(asctime)s | %(levelname)-8s | %(name)s:%(lineno)d | %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )

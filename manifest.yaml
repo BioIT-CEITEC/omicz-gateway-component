@@ -1,0 +1,16 @@
+name: omicz-gateway-component
+service_address: null
+secure_cloud: false
+status: in-development
+repository_url: https://github.com/BioIT-CEITEC/omicz-gateway-component
+
+version: 1.0.0
+description: A gateway for providing sequencing data from sequencer to TRE
+maintainers: [Alireza Dantism]
+dependencies: [sequencer machine]
+tags: []
+license: ""
+docs_url: ""
+contact_email: [alireza.dantism@ceitec.muni.cz]
+language: [FastAPI, Python, Docker, TailwindCSS, RabbitMQ]
+volumes: [PostgreSQL]

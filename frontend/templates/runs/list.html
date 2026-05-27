@@ -28,6 +28,8 @@
                 {% elif run.status == 'running_finished' %}bg-purple-100 text-purple-700
                 {% elif run.status == 'checksumming' %}bg-yellow-100 text-yellow-700
                 {% elif run.status == 'moving' %}bg-indigo-100 text-indigo-700
+                {% elif run.status == 'verifying' %}bg-teal-100 text-teal-700
+                {% elif run.status == 'verify_failed' %}bg-orange-100 text-orange-700
                 {% elif run.status == 'move_failed' %}bg-red-100 text-red-700
                 {% elif run.status == 'failed' %}bg-red-100 text-red-700
                 {% else %}bg-gray-100 text-gray-500{% endif %}">

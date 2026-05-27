@@ -6,6 +6,7 @@ from pydantic import BaseModel
 class ShowRunsStatusHistory(BaseModel):
     uuid:       UUID
     status:     str
+    detail:     str | None = None
     created_at: datetime
 
     class Config:

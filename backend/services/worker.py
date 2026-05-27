@@ -14,14 +14,42 @@ from db.models.runs import Runs
 from db.models.sequencers import Sequencers
 from db.repositories.runs import create_run, update_run_status
 from db.repositories.runs_status_history import add_run_status_history
-from services.checksum import create_checksum_file
-from services.tre import send_to_tre
+import glob
+
+from services.checksum import create_checksum_file, find_file_by_hash
+from services.tre import send_to_tre, verify_checksum_on_s3, VERIFY_RETRIES
 from core.logger import get_logger
 
 logger = get_logger("worker")
 
 RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
 QUEUE_NAME   = "runs"
+
+
+def resolve_verify_detail(tre_error: str | None, run_folder: str, retries: int) -> str:
+    """
+    If tre_error looks like a SHA256 hash, find the matching filename in the run folder.
+    Logs the result and returns a human-readable detail string.
+    """
+    if not tre_error:
+        detail = f"checksum not found on S3 after {retries} retries"
+        logger.warning(f"[verify] {detail}")
+        return detail
+
+    if len(tre_error.strip()) == 64 and all(c in "0123456789abcdefABCDEF" for c in tre_error.strip()):
+        hash_value = tre_error.strip()
+        logger.warning(f"[verify] TRE reported failed file — hash: {hash_value} — scanning run folder to resolve filename")
+        filename = find_file_by_hash(run_folder, hash_value)
+        if filename:
+            detail = f"File failed verification: {filename} (sha256: {hash_value})"
+            logger.warning(f"[verify] resolved: {detail}")
+        else:
+            detail = f"File failed verification — sha256: {hash_value} (file not found in run folder)"
+            logger.warning(f"[verify] {detail}")
+        return detail
+
+    logger.warning(f"[verify] TRE error: {tre_error}")
+    return tre_error
 
 
 def get_sequencer(sequencer_uuid) -> Sequencers | None:
@@ -122,7 +150,7 @@ def handle_run_checksum_requested(name: str, sequencer_uuid):
         logger.error(f"failed during checksum for run '{name}': {e}", exc_info=True)
         try:
             run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="move_failed", db=db)
-            add_run_status_history(run_uuid=run.uuid, status="move_failed", db=db)
+            add_run_status_history(run_uuid=run.uuid, status="move_failed", db=db, detail=str(e))
         except Exception:
             pass
     finally:
@@ -133,19 +161,21 @@ def handle_run_upload_requested(name: str, sequencer_uuid):
     """
     Triggered either automatically (sent_to_tre=auto) or by a manual button click.
     Uploads the run folder directly to S3 — no zipping.
-    1. Set status to moving
-    2. Upload folder to S3 via boto3
-    3. Set status to completed; on error → move_failed
+    1. Set status to moving  → upload → on error: move_failed
+    2. Set status to verifying → poll S3 for TRE confirmation → on error: verify_failed
+    3. Set status to completed
     """
     logger.info(f"run_upload_requested → name={name} sequencer_uuid={sequencer_uuid}")
     db = SESSION_LOCAL()
-    try:
-        sequencer = get_sequencer(sequencer_uuid)
-        if not sequencer:
-            logger.error(f"sequencer {sequencer_uuid} not found — cannot upload run '{name}'")
-            return
 
-        # step 1 — uploading to S3
+    sequencer = get_sequencer(sequencer_uuid)
+    if not sequencer:
+        logger.error(f"sequencer {sequencer_uuid} not found — cannot upload run '{name}'")
+        db.close()
+        return
+
+    # ── step 1: upload ────────────────────────────────────────────────────────
+    try:
         run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="moving", db=db)
         add_run_status_history(run_uuid=run.uuid, status="moving", db=db)
         logger.info(f"status updated to 'moving' for run '{name}'")
@@ -155,16 +185,134 @@ def handle_run_upload_requested(name: str, sequencer_uuid):
             raise Exception("S3 upload returned False")
         logger.info(f"run folder uploaded to S3 for run '{name}'")
 
-        # step 2 — done
+    except Exception as e:
+        logger.error(f"[upload] FAILED for run '{name}': {e}", exc_info=True)
+        try:
+            run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="move_failed", db=db)
+            add_run_status_history(run_uuid=run.uuid, status="move_failed", db=db, detail=str(e))
+        except Exception:
+            pass
+        db.close()
+        return
+
+    # ── step 2: verify ────────────────────────────────────────────────────────
+    try:
+        run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="verifying", db=db)
+        add_run_status_history(run_uuid=run.uuid, status="verifying", db=db)
+        logger.info(f"status updated to 'verifying' for run '{name}'")
+
+        run_folder = os.path.join(sequencer.location, name)
+        checksum_files = glob.glob(os.path.join(run_folder, "*.CHECKSUM"))
+        if not checksum_files:
+            raise Exception("no .CHECKSUM file found in run folder — cannot verify")
+        checksum_filename = os.path.basename(checksum_files[0])
+        logger.info(f"[verify] using checksum file: {checksum_filename}")
+
+        verified, tre_error = verify_checksum_on_s3(checksum_filename)
+        if not verified:
+            raise Exception(resolve_verify_detail(tre_error, run_folder, VERIFY_RETRIES))
+
+    except Exception as e:
+        logger.error(f"[verify] FAILED for run '{name}': {e}", exc_info=True)
+        try:
+            run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="verify_failed", db=db)
+            add_run_status_history(run_uuid=run.uuid, status="verify_failed", db=db, detail=str(e))
+        except Exception:
+            pass
+        db.close()
+        return
+
+    # ── step 3: done ──────────────────────────────────────────────────────────
+    try:
+        run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="completed", db=db)
+        add_run_status_history(run_uuid=run.uuid, status="completed", db=db)
+        logger.info(f"status updated to 'completed' for run '{name}'")
+    except Exception as e:
+        logger.error(f"failed to mark run '{name}' as completed: {e}", exc_info=True)
+    finally:
+        db.close()
+
+
+def handle_run_rechecksum_requested(name: str, sequencer_uuid):
+    """
+    Triggered when the user wants to force a fresh checksum after verify_failed.
+    Deletes the existing .CHECKSUM file(s) first, then runs the full
+    checksum → upload → verify pipeline from scratch.
+    """
+    logger.info(f"run_rechecksum_requested → name={name} sequencer_uuid={sequencer_uuid}")
+    db = SESSION_LOCAL()
+    try:
+        sequencer = get_sequencer(sequencer_uuid)
+        if not sequencer:
+            logger.error(f"sequencer {sequencer_uuid} not found — cannot rechecksum run '{name}'")
+            return
+
+        run_folder = os.path.join(sequencer.location, name)
+        existing = glob.glob(os.path.join(run_folder, "*.CHECKSUM"))
+        for f in existing:
+            os.remove(f)
+            logger.info(f"deleted old checksum file: {os.path.basename(f)}")
+
+        run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="checksumming", db=db)
+        add_run_status_history(run_uuid=run.uuid, status="checksumming", db=db)
+        logger.info(f"status updated to 'checksumming' for run '{name}'")
+
+        create_checksum_file(run_name=name, sequencer_location=sequencer.location)
+
+        from services.publisher import publish
+        publish("run_upload_requested", name, sequencer_uuid)
+        logger.info(f"rechecksum done — published run_upload_requested for '{name}'")
+
+    except Exception as e:
+        logger.error(f"failed during rechecksum for run '{name}': {e}", exc_info=True)
+        try:
+            run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="move_failed", db=db)
+            add_run_status_history(run_uuid=run.uuid, status="move_failed", db=db, detail=str(e))
+        except Exception:
+            pass
+    finally:
+        db.close()
+
+
+def handle_run_verify_requested(name: str, sequencer_uuid):
+    """
+    Triggered when retrying from verify_failed.
+    Skips checksum and upload — goes straight to verification only.
+    """
+    logger.info(f"run_verify_requested → name={name} sequencer_uuid={sequencer_uuid}")
+    db = SESSION_LOCAL()
+
+    sequencer = get_sequencer(sequencer_uuid)
+    if not sequencer:
+        logger.error(f"sequencer {sequencer_uuid} not found — cannot verify run '{name}'")
+        db.close()
+        return
+
+    try:
+        run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="verifying", db=db)
+        add_run_status_history(run_uuid=run.uuid, status="verifying", db=db)
+        logger.info(f"status updated to 'verifying' for run '{name}'")
+
+        run_folder = os.path.join(sequencer.location, name)
+        checksum_files = glob.glob(os.path.join(run_folder, "*.CHECKSUM"))
+        if not checksum_files:
+            raise Exception("no .CHECKSUM file found in run folder — cannot verify")
+        checksum_filename = os.path.basename(checksum_files[0])
+        logger.info(f"[verify] using checksum file: {checksum_filename}")
+
+        verified, tre_error = verify_checksum_on_s3(checksum_filename)
+        if not verified:
+            raise Exception(resolve_verify_detail(tre_error, run_folder, VERIFY_RETRIES))
+
         run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="completed", db=db)
         add_run_status_history(run_uuid=run.uuid, status="completed", db=db)
         logger.info(f"status updated to 'completed' for run '{name}'")
 
     except Exception as e:
-        logger.error(f"failed during S3 upload for run '{name}': {e}", exc_info=True)
+        logger.error(f"[verify] FAILED for run '{name}': {e}", exc_info=True)
         try:
-            run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="move_failed", db=db)
-            add_run_status_history(run_uuid=run.uuid, status="move_failed", db=db)
+            run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="verify_failed", db=db)
+            add_run_status_history(run_uuid=run.uuid, status="verify_failed", db=db, detail=str(e))
         except Exception:
             pass
     finally:
@@ -198,6 +346,12 @@ def on_message(channel, method, properties, body):
 
         elif event == "run_upload_requested":
             handle_run_upload_requested(name=name, sequencer_uuid=sequencer_uuid)
+
+        elif event == "run_verify_requested":
+            handle_run_verify_requested(name=name, sequencer_uuid=sequencer_uuid)
+
+        elif event == "run_rechecksum_requested":
+            handle_run_rechecksum_requested(name=name, sequencer_uuid=sequencer_uuid)
 
         else:
             logger.warning(f"unknown event: {event}")

@@ -50,13 +50,33 @@ def start_upload(uuid: UUID, db: Session = Depends(get_db)):
     Returns 409 if the run is not in the expected state.
     """
     run = get_run_by_uuid(uuid=uuid, db=db)
-    if run.status not in ("running_finished", "move_failed"):
+    if run.status not in ("running_finished", "move_failed", "verify_failed"):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Cannot start upload: run is '{run.status}', expected 'running_finished' or 'move_failed'"
+            detail=f"Cannot start upload: run is '{run.status}', expected 'running_finished', 'move_failed', or 'verify_failed'"
         )
-    publish("run_checksum_requested", run.name, run.sequencer_uuid)
+    if run.status == "verify_failed":
+        publish("run_verify_requested", run.name, run.sequencer_uuid)
+    else:
+        publish("run_checksum_requested", run.name, run.sequencer_uuid)
     return {"detail": "Upload started"}
+
+
+@router.post("/{uuid}/recheck", status_code=status.HTTP_202_ACCEPTED)
+def recheck(uuid: UUID, db: Session = Depends(get_db)):
+    """
+    Force a fresh checksum after verify_failed.
+    Deletes the existing .CHECKSUM file and restarts the full pipeline.
+    Only valid when run status is 'verify_failed'.
+    """
+    run = get_run_by_uuid(uuid=uuid, db=db)
+    if run.status != "verify_failed":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Cannot recheck: run is '{run.status}', expected 'verify_failed'"
+        )
+    publish("run_rechecksum_requested", run.name, run.sequencer_uuid)
+    return {"detail": "Recheck started"}
 
 
 @router.delete("/{uuid}", status_code=status.HTTP_200_OK)

@@ -44,6 +44,13 @@ def start_upload(request: Request, uuid: str):
     return RedirectResponse(url=f"/runs/{uuid}", status_code=303)
 
 
+# ── RECHECK (delete checksum + re-checksum + re-upload + re-verify)
+@router.post("/{uuid}/recheck")
+def recheck_run(request: Request, uuid: str):
+    httpx.post(f"{BACKEND_URL}/runs/{uuid}/recheck")
+    return RedirectResponse(url=f"/runs/{uuid}", status_code=303)
+
+
 # ── DELETE
 @router.post("/{uuid}/delete")
 def delete_run(request: Request, uuid: str):

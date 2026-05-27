@@ -13,7 +13,7 @@ content %}
       <p class="text-sm text-gray-400 mt-1">{{ run.uuid }}</p>
     </div>
     <span
-      class="px-3 py-1 rounded-full text-xs font-semibold {% if run.status == 'completed' %}bg-green-100 text-green-700 {% elif run.status == 'running' %}bg-blue-100 text-blue-700 {% elif run.status == 'running_finished' %}bg-purple-100 text-purple-700 {% elif run.status == 'checksumming' %}bg-yellow-100 text-yellow-700 {% elif run.status == 'moving' %}bg-indigo-100 text-indigo-700 {% elif run.status == 'move_failed' %}bg-red-100 text-red-700 {% elif run.status == 'failed' %}bg-red-100 text-red-700 {% else %}bg-gray-100 text-gray-500{% endif %}"
+      class="px-3 py-1 rounded-full text-xs font-semibold {% if run.status == 'completed' %}bg-green-100 text-green-700 {% elif run.status == 'running' %}bg-blue-100 text-blue-700 {% elif run.status == 'running_finished' %}bg-purple-100 text-purple-700 {% elif run.status == 'checksumming' %}bg-yellow-100 text-yellow-700 {% elif run.status == 'moving' %}bg-indigo-100 text-indigo-700 {% elif run.status == 'verifying' %}bg-teal-100 text-teal-700 {% elif run.status == 'verify_failed' %}bg-orange-100 text-orange-700 {% elif run.status == 'move_failed' %}bg-red-100 text-red-700 {% elif run.status == 'failed' %}bg-red-100 text-red-700 {% else %}bg-gray-100 text-gray-500{% endif %}"
     >
       {{ run.status }}
     </span>
@@ -50,7 +50,7 @@ content %}
       {% for entry in history %}
       <li class="mb-6 ml-6">
         <span
-          class="absolute -left-2 flex items-center justify-center w-4 h-4 rounded-full {% if entry.status == 'completed' %}bg-green-400 {% elif entry.status == 'running' %}bg-blue-400 {% elif entry.status == 'running_finished' %}bg-purple-400 {% elif entry.status == 'checksumming' %}bg-yellow-400 {% elif entry.status == 'moving' %}bg-indigo-400 {% elif entry.status == 'move_failed' %}bg-red-400 {% elif entry.status == 'failed' %}bg-red-400 {% else %}bg-gray-400{% endif %}"
+          class="absolute -left-2 flex items-center justify-center w-4 h-4 rounded-full {% if entry.status == 'completed' %}bg-green-400 {% elif entry.status == 'running' %}bg-blue-400 {% elif entry.status == 'running_finished' %}bg-purple-400 {% elif entry.status == 'checksumming' %}bg-yellow-400 {% elif entry.status == 'moving' %}bg-indigo-400 {% elif entry.status == 'verifying' %}bg-teal-400 {% elif entry.status == 'verify_failed' %}bg-orange-400 {% elif entry.status == 'move_failed' %}bg-red-400 {% elif entry.status == 'failed' %}bg-red-400 {% else %}bg-gray-400{% endif %}"
         >
           {% if loop.last and entry.status != 'completed' %}
           <span
@@ -63,6 +63,9 @@ content %}
           >{{ entry.status }}</span
         >
         <p class="text-xs text-gray-400 mt-0.5">{{ entry.created_at }}</p>
+        {% if entry.detail %}
+        <pre class="mt-1 text-xs text-red-600 bg-red-50 rounded p-2 whitespace-pre-wrap break-all">{{ entry.detail }}</pre>
+        {% endif %}
       </li>
       {% endfor %}
     </ol>
@@ -97,10 +100,36 @@ content %}
         Retry Upload
       </button>
     </form>
+    {% elif run.status == 'verify_failed' %}
+    <form
+      method="POST"
+      action="/runs/{{ run.uuid }}/start-upload"
+      onsubmit="return confirm('Retry TRE verification?');"
+    >
+      <button
+        type="submit"
+        class="bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-orange-700 transition"
+      >
+        Retry Verification
+      </button>
+    </form>
+    <form
+      method="POST"
+      action="/runs/{{ run.uuid }}/recheck"
+      onsubmit="return confirm('Delete current checksum and re-checksum + re-upload + re-verify?');"
+    >
+      <button
+        type="submit"
+        class="bg-yellow-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-yellow-700 transition"
+      >
+        Recheck &amp; Re-upload
+      </button>
+    </form>
     {% endif %}
   </div>
 
   <!-- Delete uses a form + POST because browsers can't send DELETE -->
+  {% if history and history[-1].status == 'completed' %}
   <form
     method="POST"
     action="/runs/{{ run.uuid }}/delete"
@@ -113,5 +142,6 @@ content %}
       Delete the Run
     </button>
   </form>
+  {% endif %}
 </div>
 {% endblock %}

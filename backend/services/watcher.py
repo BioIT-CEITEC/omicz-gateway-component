@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+from datetime import datetime
 
 from watchdog.observers.polling import PollingObserver as Observer
 from watchdog.events import FileSystemEventHandler
@@ -25,12 +26,13 @@ class RunEventHandler(FileSystemEventHandler):
     Directory structure we're watching:
         sequencer.location/                  ← we watch this
             run_2026_04_15/                  ← depth 1: new run folder
-                **_complete.txt              ← depth 2: completion signal
+                **_complete.txt              ← depth 2: completion signal (signal method only)
     """
 
     def __init__(self, sequencer):
-        self.sequencer = sequencer
-        self.location  = sequencer.location
+        self.sequencer        = sequencer
+        self.location         = sequencer.location
+        self.completion_method = sequencer.type.completion_method if sequencer.type else "signal"
 
         # store the completion signal info from the sequencer type
         # so we don't need to re-query DB on every event
@@ -56,7 +58,11 @@ class RunEventHandler(FileSystemEventHandler):
 
         # ── depth 2: a new file inside a run folder ────────────────────────────
         # parts = ["run_2026_04_15", "RTAComplete.txt"]
+        # only relevant for the "signal" completion method
         elif len(parts) == 2 and not event.is_directory:
+            if self.completion_method != "signal":
+                return
+
             run_name = parts[0]
             filename = parts[1]
 
@@ -139,8 +145,12 @@ def is_completed(run_folder: str, sequencer) -> bool:
     """
     Checks whether the completion signal file already exists inside a run folder.
     Used during the initial scan to determine status of pre-existing runs.
+    Only applicable to the "signal" completion method.
     """
     if not sequencer.type:
+        return False
+
+    if sequencer.type.completion_method != "signal":
         return False
 
     signal       = sequencer.type.completion_signal
@@ -189,6 +199,7 @@ def scan_existing_runs(sequencer):
                 continue
 
             # infer status from whether the completion signal file exists
+            # for file_stability sequencers, we can't tell on startup — mark as running
             run_folder  = os.path.join(location, run_name)
             completed   = is_completed(run_folder, sequencer)
             status      = "running_finished" if completed else "running"
@@ -206,6 +217,101 @@ def scan_existing_runs(sequencer):
 
     finally:
         db.close()
+
+
+def check_file_stability(sequencers: list, stability_tracker: dict):
+    """
+    For sequencers using the file_stability completion method:
+    checks if the monitored files have stopped growing for the configured threshold.
+
+    stability_tracker structure:
+    {
+        "sequencer-uuid": {
+            "run_name": {
+                "sizes": {"output.bam": 1048576, "reads.fastq.gz": 2097152},
+                "stable_since": datetime(...)
+            }
+        }
+    }
+    """
+    for sequencer in sequencers:
+        if not sequencer.type or sequencer.type.completion_method != "file_stability":
+            continue
+
+        stability_files     = sequencer.type.stability_files or []
+        threshold_minutes   = sequencer.type.stability_threshold_minutes or 10
+
+        if not stability_files:
+            logger.warning(f"sequencer '{sequencer.name}' uses file_stability but has no stability_files configured")
+            continue
+
+        seq_uuid = str(sequencer.uuid)
+        if seq_uuid not in stability_tracker:
+            stability_tracker[seq_uuid] = {}
+
+        # query DB for runs currently in "running" status for this sequencer
+        db = SESSION_LOCAL()
+        try:
+            runs = (
+                db.query(Runs)
+                .filter(
+                    Runs.sequencer_uuid == sequencer.uuid,
+                    Runs.status == "running",
+                    Runs.is_deleted == False,
+                )
+                .all()
+            )
+        except Exception as e:
+            logger.error(f"stability check: failed to query runs for '{sequencer.name}': {e}")
+            continue
+        finally:
+            db.close()
+
+        for run in runs:
+            run_folder = os.path.join(sequencer.location, run.name)
+            run_name   = run.name
+
+            # check that all stability files are present before we start the timer
+            current_sizes = {}
+            all_present   = True
+            for filename in stability_files:
+                filepath = os.path.join(run_folder, filename)
+                if not os.path.isfile(filepath):
+                    all_present = False
+                    logger.debug(f"stability check: '{filename}' not yet present in {run_name}")
+                    break
+                current_sizes[filename] = os.path.getsize(filepath)
+
+            if not all_present:
+                continue
+
+            tracker = stability_tracker[seq_uuid]
+
+            if run_name not in tracker:
+                # first time we see all files present — record sizes and start the timer
+                tracker[run_name] = {
+                    "sizes":        current_sizes,
+                    "stable_since": datetime.now(),
+                }
+                logger.info(f"stability tracking started for {run_name} — sizes: {current_sizes}")
+                continue
+
+            prev = tracker[run_name]
+
+            if current_sizes != prev["sizes"]:
+                # files are still growing — update snapshot and reset timer
+                logger.info(f"stability check: {run_name} still growing — resetting timer")
+                prev["sizes"]        = current_sizes
+                prev["stable_since"] = datetime.now()
+            else:
+                # sizes unchanged — check if we've hit the threshold
+                elapsed_minutes = (datetime.now() - prev["stable_since"]).total_seconds() / 60
+                logger.debug(f"stability check: {run_name} stable for {elapsed_minutes:.1f}/{threshold_minutes} min")
+
+                if elapsed_minutes >= threshold_minutes:
+                    logger.info(f"run completed (file_stability): {run_name} on sequencer '{sequencer.name}'")
+                    publish("run_completed", run_name, sequencer.uuid)
+                    del tracker[run_name]
 
 
 SEQUENCER_CHECK_INTERVAL = 60  # seconds between DB polls for new sequencers
@@ -240,6 +346,10 @@ def start():
     # track which sequencers are already being watched
     watched_uuids = set()
 
+    # in-memory state for file_stability completion tracking
+    # lost on watcher restart — tracker simply restarts fresh, worst case: one extra threshold wait
+    stability_tracker = {}
+
     for sequencer in sequencers:
         watch_sequencer(sequencer, observer, watched_uuids)
 
@@ -248,6 +358,7 @@ def start():
 
     logger.info("started. press Ctrl+C to stop.")
 
+    current_sequencers = sequencers
     elapsed = 0
     try:
         while True:
@@ -257,10 +368,14 @@ def start():
             if elapsed >= SEQUENCER_CHECK_INTERVAL:
                 elapsed = 0
                 # re-query DB for sequencers added since startup
-                for sequencer in query_sequencers():
+                current_sequencers = query_sequencers()
+                for sequencer in current_sequencers:
                     if str(sequencer.uuid) not in watched_uuids:
                         logger.info(f"new sequencer detected: {sequencer.name} — starting watch")
                         watch_sequencer(sequencer, observer, watched_uuids)
+
+                # run file stability checks for all file_stability sequencers
+                check_file_stability(current_sequencers, stability_tracker)
 
     except KeyboardInterrupt:
         observer.stop()

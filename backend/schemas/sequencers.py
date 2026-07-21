@@ -19,6 +19,7 @@ class SequencerCreate(BaseModel):
     type_uuid:  UUID | None = None
     status: str = Field(default="active", examples=["active"])
     sent_to_tre: Literal["auto", "manual"] = "manual"
+    exclusions: list[str] = []
 
     @model_validator(mode="after")
     def set_slug(self) -> "SequencerCreate":
@@ -35,6 +36,7 @@ class SequencerUpdate(BaseModel):
     type_uuid:  UUID | None = None
     status: str | None = Field(default=None, examples=["active"])
     sent_to_tre: Literal["auto", "manual"] | None = None
+    exclusions: list[str] | None = None
 
     @model_validator(mode="after")
     def regenerate_slug(self) -> "SequencerUpdate":
@@ -53,6 +55,7 @@ class ShowSequencer(BaseModel):
     type_uuid:  UUID | None
     status: str
     sent_to_tre: str
+    exclusions: list[str] | None = None
     created_at: datetime
     updated_at: datetime
 

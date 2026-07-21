@@ -19,6 +19,7 @@ class Sequencers(Base):
     runs      = relationship("Runs", back_populates="sequencer")
     status = Column(String, nullable=False, default="active")
     sent_to_tre             = Column(String, nullable=False, default="manual")
+    exclusions              = Column(JSON, nullable=True)
     delete_after_confirmation = Column(String, nullable=False, default="manual")
     is_deleted = Column(Boolean, default=False, server_default="false", nullable=False)
     created_at = Column(DateTime, default=datetime.now)

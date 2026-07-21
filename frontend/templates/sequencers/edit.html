@@ -63,10 +63,38 @@
             <p class="text-xs text-gray-400 mt-1">Controls whether S3 upload starts automatically or waits for a button click.</p>
         </div>
 
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Exclusions</label>
+            <p class="text-xs text-gray-400 mb-2">Files, folders, or patterns (e.g. <code>*.png</code>, <code>thumbnails</code>) to skip during upload.</p>
+            <div id="exclusions-list" class="space-y-2"></div>
+            <button type="button" onclick="addExclusion('')"
+                    class="mt-2 text-sm text-indigo-600 hover:underline">+ Add exclusion</button>
+        </div>
+
         <button type="submit"
                 class="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition">
             Save Changes
         </button>
     </form>
 </div>
+
+<script>
+  function addExclusion(value) {
+    const list = document.getElementById('exclusions-list');
+    const row = document.createElement('div');
+    row.className = 'flex gap-2 items-center';
+    row.innerHTML = `
+      <input type="text" name="exclusions" value="${value}"
+             placeholder="e.g. *.png or thumbnails"
+             class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+      <button type="button" onclick="this.parentElement.remove()"
+              class="text-red-400 hover:text-red-600 text-lg font-bold leading-none">&times;</button>
+    `;
+    list.appendChild(row);
+  }
+
+  // Pre-fill existing exclusions from the server
+  const existing = {{ sequencer.exclusions | tojson if sequencer.exclusions else '[]' }};
+  existing.forEach(v => addExclusion(v));
+</script>
 {% endblock %}

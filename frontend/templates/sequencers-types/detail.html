@@ -1,43 +1,73 @@
-{% extends "base.html" %} {% block title %}{{ st.name }}{% endblock %} {% block
-content %}
+{% extends "base.html" %} {% block title %}{{ st.name }}{% endblock %} {% block content %}
 <div class="mb-6">
-  <a href="/sequencers-types/" class="text-sm text-indigo-600 hover:underline"
-    >&larr; Back to sequencer types</a
-  >
+  <a href="/sequencers-types/" class="text-sm text-indigo-600 hover:underline">&larr; Back to sequencer types</a>
 </div>
 
 <div class="bg-white rounded-xl shadow p-8 max-w-2xl">
   <div class="flex items-start justify-between mb-6">
     <div>
       <h1 class="text-2xl font-bold text-gray-900">{{ st.name }}</h1>
-      <p class="text-sm text-gray-400 mt-1">{{ st.completion_signal }}</p>
-      <p class="text-sm text-gray-400 mt-1">{{ st.signal_match }}</p>
+      <p class="text-sm text-gray-400 mt-1">
+        {% if st.completion_method == "file_stability" %}
+          File Stability
+        {% else %}
+          Signal File
+        {% endif %}
+      </p>
     </div>
+    {% if st.completion_method == "signal" %}
+    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">signal</span>
+    {% else %}
+    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">file stability</span>
+    {% endif %}
   </div>
 
   <dl class="grid grid-cols-2 gap-4 text-sm mb-8">
     <div>
-      <dt class="text-gray-400 font-medium">ID</dt>
-      <dd class="text-gray-800 mt-1">{{ st.uuid }}</dd>
+      <dt class="text-gray-400 font-medium">UUID</dt>
+      <dd class="text-gray-800 mt-1 font-mono text-xs">{{ st.uuid }}</dd>
     </div>
+
+    {% if st.completion_method == "signal" %}
+    <div>
+      <dt class="text-gray-400 font-medium">Completion Signal</dt>
+      <dd class="text-gray-800 mt-1">{{ st.completion_signal }}</dd>
+    </div>
+    <div>
+      <dt class="text-gray-400 font-medium">Signal Match</dt>
+      <dd class="text-gray-800 mt-1">{{ st.signal_match }}</dd>
+    </div>
+    {% else %}
+    <div>
+      <dt class="text-gray-400 font-medium">Stability Threshold</dt>
+      <dd class="text-gray-800 mt-1">{{ st.stability_threshold_minutes }} minutes</dd>
+    </div>
+    <div class="col-span-2">
+      <dt class="text-gray-400 font-medium mb-2">Files to Monitor</dt>
+      <dd>
+        {% if st.stability_files %}
+        <ul class="space-y-1">
+          {% for f in st.stability_files %}
+          <li class="inline-block bg-gray-100 text-gray-700 text-xs font-mono px-2 py-1 rounded mr-1 mb-1">{{ f }}</li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <span class="text-gray-400 text-xs">None configured</span>
+        {% endif %}
+      </dd>
+    </div>
+    {% endif %}
   </dl>
 
   <div class="flex gap-3">
-    <a
-      href="/sequencers-types/{{ st.uuid }}/edit"
-      class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition"
-    >
+    <a href="/sequencers-types/{{ st.uuid }}/edit"
+       class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition">
       Edit
     </a>
-    <form
-      method="POST"
-      action="/sequencers-types/{{ st.uuid }}/delete"
-      onsubmit="return confirm('Delete this sequencer type?');"
-    >
-      <button
-        type="submit"
-        class="bg-red-100 text-red-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-200 transition"
-      >
+    <form method="POST" action="/sequencers-types/{{ st.uuid }}/delete"
+          onsubmit="return confirm('Delete this sequencer type?');">
+      <button type="submit"
+              class="bg-red-100 text-red-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-200 transition">
         Delete
       </button>
     </form>

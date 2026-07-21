@@ -1,6 +1,7 @@
 """
 TRE (Trusted Research Environment)
 """
+import fnmatch
 import os
 import time
 
@@ -24,7 +25,26 @@ VERIFY_RETRIES  = int(os.getenv("VERIFY_RETRIES",  "10"))   # how many times to 
 VERIFY_INTERVAL = int(os.getenv("VERIFY_INTERVAL", "60"))   # seconds between each check
 
 
-def send_to_tre(run_name: str, sequencer_location: str, sequencer_slug: str) -> bool:
+def _is_excluded(relative_path: str, exclusions: list[str]) -> bool:
+    """
+    Return True if relative_path matches any exclusion pattern.
+    Supports exact filenames, subfolder names, and glob patterns (e.g. *.png).
+    """
+    if not exclusions:
+        return False
+    parts = relative_path.replace("\\", "/").split("/")
+    for pattern in exclusions:
+        if fnmatch.fnmatch(relative_path.replace("\\", "/"), pattern):
+            return True
+        if fnmatch.fnmatch(parts[-1], pattern):
+            return True
+        for part in parts[:-1]:
+            if fnmatch.fnmatch(part, pattern):
+                return True
+    return False
+
+
+def send_to_tre(run_name: str, sequencer_location: str, sequencer_slug: str, exclusions: list[str] | None = None) -> bool:
     """
     Upload the run folder to S3.
 
@@ -52,6 +72,10 @@ def send_to_tre(run_name: str, sequencer_location: str, sequencer_slug: str) -> 
             for file in files:
                 local_path    = os.path.join(root, file)
                 relative_path = os.path.relpath(local_path, sequencer_location)
+                rel_to_run    = os.path.relpath(local_path, local_folder)
+                if _is_excluded(rel_to_run, exclusions or []):
+                    logger.info(f"[TRE upload] excluded (skipped): {rel_to_run}")
+                    continue
                 s3_key = f"{S3_PREFIX}{sequencer_slug}/{relative_path}"
                 s3.upload_file(local_path, S3_BUCKET, s3_key,
                                Config=TransferConfig(multipart_threshold=5 * 1024 ** 4))  # 5 TB — effectively disables multipart

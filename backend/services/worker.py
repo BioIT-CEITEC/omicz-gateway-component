@@ -140,7 +140,7 @@ def handle_run_checksum_requested(name: str, sequencer_uuid):
         add_run_status_history(run_uuid=run.uuid, status="checksumming", db=db)
         logger.info(f"status updated to 'checksumming' for run '{name}'")
 
-        create_checksum_file(run_name=name, sequencer_location=sequencer.location)
+        create_checksum_file(run_name=name, sequencer_location=sequencer.location, exclusions=sequencer.exclusions or [])
 
         from services.publisher import publish
         publish("run_upload_requested", name, sequencer_uuid)
@@ -180,7 +180,7 @@ def handle_run_upload_requested(name: str, sequencer_uuid):
         add_run_status_history(run_uuid=run.uuid, status="moving", db=db)
         logger.info(f"status updated to 'moving' for run '{name}'")
 
-        success = send_to_tre(run_name=name, sequencer_location=sequencer.location, sequencer_slug=sequencer.slug)
+        success = send_to_tre(run_name=name, sequencer_location=sequencer.location, sequencer_slug=sequencer.slug, exclusions=sequencer.exclusions or [])
         if not success:
             raise Exception("S3 upload returned False")
         logger.info(f"run folder uploaded to S3 for run '{name}'")
@@ -257,7 +257,7 @@ def handle_run_rechecksum_requested(name: str, sequencer_uuid):
         add_run_status_history(run_uuid=run.uuid, status="checksumming", db=db)
         logger.info(f"status updated to 'checksumming' for run '{name}'")
 
-        create_checksum_file(run_name=name, sequencer_location=sequencer.location)
+        create_checksum_file(run_name=name, sequencer_location=sequencer.location, exclusions=sequencer.exclusions or [])
 
         from services.publisher import publish
         publish("run_upload_requested", name, sequencer_uuid)

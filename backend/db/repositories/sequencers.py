@@ -17,6 +17,7 @@ def create_new_sequencer(sequencer: SequencerCreate, db: Session):
         type_uuid=sequencer.type_uuid,
         status=sequencer.status,
         sent_to_tre=sequencer.sent_to_tre,
+        exclusions=sequencer.exclusions,
     )
     try:
         db.add(sequencer)
@@ -68,6 +69,8 @@ def update_sequencer(uuid: UUID, sequencer: SequencerUpdate, db: Session):
         existing.status = sequencer.status
     if sequencer.sent_to_tre is not None:
         existing.sent_to_tre = sequencer.sent_to_tre
+    if sequencer.exclusions is not None:
+        existing.exclusions = sequencer.exclusions
     try:
         db.commit()
         db.refresh(existing)

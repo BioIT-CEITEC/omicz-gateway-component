@@ -3,48 +3,111 @@
 
 {% block content %}
 <div class="mb-6">
-    <a href="/sequencers-types/{{ st.uuid }}" class="text-sm text-indigo-600 hover:underline">&larr; Back</a>
+  <a href="/sequencers-types/{{ st.uuid }}" class="text-sm text-indigo-600 hover:underline">&larr; Back</a>
 </div>
 
 <div class="bg-white rounded-xl shadow p-8 max-w-lg">
-    <h1 class="text-xl font-bold text-gray-900 mb-6">Edit Sequencer Type</h1>
+  <h1 class="text-xl font-bold text-gray-900 mb-6">Edit Sequencer Type</h1>
 
-    {% if error %}
-    <div class="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
-        {{ error }}
+  {% if error %}
+  <div class="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">{{ error }}</div>
+  {% endif %}
+
+  <form method="POST" action="/sequencers-types/{{ st.uuid }}/edit" class="space-y-4">
+
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+      <input type="text" name="name" required value="{{ st.name }}"
+             class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
     </div>
-    {% endif %}
 
-    <form method="POST" action="/sequencers-types/{{ st.uuid }}/edit" class="space-y-4">
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Completion Method</label>
+      <select name="completion_method" id="completion_method" onchange="toggleMethod()"
+              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
+        <option value="signal" {% if st.completion_method == "signal" %}selected{% endif %}>Signal File — wait for a specific file to appear</option>
+        <option value="file_stability" {% if st.completion_method == "file_stability" %}selected{% endif %}>File Stability — wait until files stop growing</option>
+      </select>
+    </div>
 
+    <!-- Signal method fields -->
+    <div id="signal_fields">
+      <div class="space-y-4">
         <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
-            <input type="text" name="name" required
-                   value="{{ st.name }}"
-                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+          <label class="block text-sm font-medium text-gray-700 mb-1">Completion Signal</label>
+          <input type="text" name="completion_signal"
+                 value="{{ st.completion_signal or '' }}"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                 placeholder="RTAComplete.txt" />
+          <p class="text-xs text-gray-400 mt-1">Filename that marks a run as complete.</p>
         </div>
-
         <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Completion Signal</label>
-            <input type="text" name="completion_signal" required
-                   value="{{ st.completion_signal }}"
-                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
-            <p class="text-xs text-gray-400 mt-1">Filename (or prefix) that marks a run as complete.</p>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Signal Match</label>
+          <select name="signal_match"
+                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
+            <option value="exact" {% if st.signal_match == "exact" %}selected{% endif %}>Exact — filename must match exactly</option>
+            <option value="prefix" {% if st.signal_match == "prefix" %}selected{% endif %}>Prefix — filename must start with the signal</option>
+            <option value="suffix" {% if st.signal_match == "suffix" %}selected{% endif %}>Suffix — filename must end with the signal</option>
+          </select>
         </div>
+      </div>
+    </div>
 
-        <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Signal Match</label>
-            <select name="signal_match"
-                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
-                <option value="exact" {% if st.signal_match == "exact" %}selected{% endif %}>Exact — filename must match exactly</option>
-                <option value="prefix" {% if st.signal_match == "prefix" %}selected{% endif %}>Prefix — filename must start with the signal</option>
-            </select>
+    <!-- File stability method fields -->
+    <div id="stability_fields" class="hidden space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Files to Monitor</label>
+        <p class="text-xs text-gray-400 mb-2">Exact filenames inside the run folder to watch for size changes.</p>
+        <div id="stability_files_list" class="space-y-2">
+          {% for f in st.stability_files or [] %}
+          <div class="flex gap-2 items-center">
+            <input type="text" name="stability_files" value="{{ f }}"
+                   class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+            <button type="button" onclick="this.parentElement.remove()"
+                    class="text-gray-400 hover:text-red-500 text-lg leading-none">&times;</button>
+          </div>
+          {% endfor %}
         </div>
+        <button type="button" onclick="addStabilityFile()"
+                class="mt-2 text-sm text-indigo-600 hover:underline">+ Add file</button>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Stability Threshold (minutes)</label>
+        <input type="number" name="stability_threshold_minutes" min="1"
+               value="{{ st.stability_threshold_minutes or 10 }}"
+               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+        <p class="text-xs text-gray-400 mt-1">Minutes without file size change before the run is considered finished.</p>
+      </div>
+    </div>
 
-        <button type="submit"
-                class="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition">
-            Save Changes
-        </button>
-    </form>
+    <button type="submit"
+            class="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition">
+      Save Changes
+    </button>
+  </form>
 </div>
+
+<script>
+function toggleMethod() {
+  const method = document.getElementById("completion_method").value;
+  document.getElementById("signal_fields").classList.toggle("hidden", method !== "signal");
+  document.getElementById("stability_fields").classList.toggle("hidden", method !== "file_stability");
+}
+
+function addStabilityFile() {
+  const list = document.getElementById("stability_files_list");
+  const row = document.createElement("div");
+  row.className = "flex gap-2 items-center";
+  row.innerHTML = `
+    <input type="text" name="stability_files"
+           placeholder="output.bam"
+           class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+    <button type="button" onclick="this.parentElement.remove()"
+            class="text-gray-400 hover:text-red-500 text-lg leading-none">&times;</button>
+  `;
+  list.appendChild(row);
+}
+
+toggleMethod();
+</script>
 {% endblock %}

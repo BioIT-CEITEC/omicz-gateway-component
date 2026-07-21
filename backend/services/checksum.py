@@ -1,3 +1,4 @@
+import fnmatch
 import glob
 import hashlib
 import os
@@ -8,7 +9,31 @@ logger = get_logger("checksum")
 
 CHECKSUM_FILENAME = "checksum.CHECKSUM"
 
-def create_checksum_file(run_name: str, sequencer_location: str) -> str:
+
+def _is_excluded(relative_path: str, exclusions: list[str]) -> bool:
+    """
+    Return True if relative_path matches any exclusion pattern.
+    Supports exact filenames, subfolder names, and glob patterns (e.g. *.png).
+    Matching is done against:
+      - the full relative path  (e.g. thumbnails/image.png)
+      - the filename only       (e.g. image.png)
+      - each parent directory   (e.g. thumbnails)
+    """
+    if not exclusions:
+        return False
+    parts = relative_path.replace("\\", "/").split("/")
+    for pattern in exclusions:
+        if fnmatch.fnmatch(relative_path.replace("\\", "/"), pattern):
+            return True
+        if fnmatch.fnmatch(parts[-1], pattern):
+            return True
+        for part in parts[:-1]:
+            if fnmatch.fnmatch(part, pattern):
+                return True
+    return False
+
+
+def create_checksum_file(run_name: str, sequencer_location: str, exclusions: list[str] | None = None) -> str:
     """
     Walk every file inside the run folder, compute SHA256 for each
     """
@@ -30,7 +55,11 @@ def create_checksum_file(run_name: str, sequencer_location: str) -> str:
 
             file_path = os.path.join(root, filename)
             relative  = os.path.relpath(file_path, run_folder)
-            digest    = _sha256(file_path)
+            if _is_excluded(relative, exclusions or []):
+                logger.info(f"excluded (skipped): {relative}")
+                continue
+
+            digest = _sha256(file_path)
             entries.append((relative, digest))
             logger.info(f"checksummed: {relative}")
 

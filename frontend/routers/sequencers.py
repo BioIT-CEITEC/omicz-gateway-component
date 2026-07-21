@@ -1,5 +1,7 @@
 import os
 import httpx
+from typing import List
+
 from fastapi import APIRouter, Request, Form
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -37,7 +39,7 @@ def create_sequencer_form(request: Request):
     return templates.TemplateResponse(request, "sequencers/create.html", {"types": fetch_types()})
 
 
-# ── CREATE — handle form submission 
+# ── CREATE — handle form submission
 @router.post("/create")
 def create_sequencer(
     request: Request,
@@ -46,9 +48,11 @@ def create_sequencer(
     status: str = Form(...),
     type_uuid: str = Form(...),
     sent_to_tre: str = Form(default="manual"),
+    exclusions: List[str] = Form(default=[]),
 ):
+    cleaned_exclusions = [e.strip() for e in exclusions if e.strip()]
     payload = {"name": name, "location": location, "status": status, "type_uuid": type_uuid,
-               "sent_to_tre": sent_to_tre}
+               "sent_to_tre": sent_to_tre, "exclusions": cleaned_exclusions}
     response = httpx.post(f"{BACKEND_URL}/sequencers/", json=payload)
 
     if response.status_code == 201:
@@ -79,7 +83,7 @@ def edit_sequencer_form(request: Request, uuid: str):
     return templates.TemplateResponse(request, "sequencers/edit.html", {"sequencer": sequencer, "types": fetch_types()})
 
 
-# ── EDIT — handle form submission 
+# ── EDIT — handle form submission
 @router.post("/{uuid}/edit")
 def edit_sequencer(
     request: Request,
@@ -89,9 +93,11 @@ def edit_sequencer(
     status: str = Form(...),
     type_uuid: str = Form(...),
     sent_to_tre: str = Form(default="manual"),
+    exclusions: List[str] = Form(default=[]),
 ):
+    cleaned_exclusions = [e.strip() for e in exclusions if e.strip()]
     payload = {"name": name, "location": location, "status": status, "type_uuid": type_uuid,
-               "sent_to_tre": sent_to_tre}
+               "sent_to_tre": sent_to_tre, "exclusions": cleaned_exclusions}
     response = httpx.patch(f"{BACKEND_URL}/sequencers/{uuid}", json=payload)
 
     if response.status_code == 200:
@@ -99,7 +105,7 @@ def edit_sequencer(
 
     error = safe_json(response, fallback={}).get("detail", "Something went wrong")
     sequencer = {"uuid": uuid, "name": name, "location": location, "status": status,
-                 "type_uuid": type_uuid, "sent_to_tre": sent_to_tre}
+                 "type_uuid": type_uuid, "sent_to_tre": sent_to_tre, "exclusions": cleaned_exclusions}
     return templates.TemplateResponse(request, "sequencers/edit.html", {"sequencer": sequencer, "error": error, "types": fetch_types()})
 
 

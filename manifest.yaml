@@ -5,7 +5,7 @@ status: in-development
 repository_url: https://github.com/BioIT-CEITEC/omicz-gateway-component
 
 version: 1.0.0
-description: A gateway for providing sequencing data from sequencer to TRE
+description: A gateway to transfer sequencing data from the sequencer to TRE
 maintainers: [Alireza Dantism]
 dependencies: [sequencer machine]
 tags: []

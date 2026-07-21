@@ -25,5 +25,4 @@ build/
 .claude/
 .*/
 backend/alembic/versions/__pycache__/
-backend/alembic/versions/*.py
 

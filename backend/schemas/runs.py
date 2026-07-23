@@ -11,6 +11,7 @@ class ShowRun(BaseModel):
     sequencer_name: str | None = Field(default=None, validation_alias=AliasPath('sequencer', 'name'))
     sequencer_sent_to_tre: str | None = Field(default=None, validation_alias=AliasPath('sequencer', 'sent_to_tre'))
     status:         str
+    progress:       str | None = None
     created_at:     datetime
     updated_at:     datetime
 

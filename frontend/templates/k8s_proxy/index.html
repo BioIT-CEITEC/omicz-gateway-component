@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}K8s Proxy{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl">
+  <h1 class="text-2xl font-bold text-gray-900 mb-2">Kubernetes S3 Proxy</h1>
+  <p class="text-sm text-gray-500 mb-8">Manages <code>kubectl port-forward</code> so the app can reach S3 without a manual terminal.</p>
+
+  <!-- ── Status card ──────────────────────────────────────────────────── -->
+  <div class="bg-white rounded-xl shadow p-6 mb-6 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <span id="status-dot" class="w-3 h-3 rounded-full bg-gray-300"></span>
+      <span id="status-text" class="text-sm font-semibold text-gray-700">
+        {{ status.status }}{% if status.pid %} (pid {{ status.pid }}){% endif %}
+      </span>
+    </div>
+
+    <div class="flex gap-3">
+      {% if status.status == 'running' %}
+      <form method="POST" action="/k8s-proxy/stop">
+        <button type="submit"
+          class="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700 transition">
+          Stop
+        </button>
+      </form>
+      {% else %}
+      <form method="POST" action="/k8s-proxy/start">
+        <button type="submit"
+          class="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition">
+          Start
+        </button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ── Config form ──────────────────────────────────────────────────── -->
+  <div class="bg-white rounded-xl shadow p-6 mb-6">
+    <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Configuration</h2>
+
+    <form method="POST" action="/k8s-proxy/save-config">
+      <div class="grid grid-cols-2 gap-4 mb-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Namespace</label>
+          <input type="text" name="namespace"
+            value="{{ config.namespace if config else 'omicz-dev-ns' }}"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+            required />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Service Name</label>
+          <input type="text" name="service_name"
+            value="{{ config.service_name if config else 'omicz-dev-s3-proxy' }}"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+            required />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Local Port</label>
+          <input type="number" name="local_port"
+            value="{{ config.local_port if config else 8080 }}"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+            required />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Remote Port</label>
+          <input type="number" name="remote_port"
+            value="{{ config.remote_port if config else 8080 }}"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+            required />
+        </div>
+      </div>
+
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1">
+          Kubeconfig
+          {% if config and config.has_kubeconfig %}
+          <span class="ml-2 text-xs text-green-600 font-normal">✓ saved</span>
+          {% else %}
+          <span class="ml-2 text-xs text-red-500 font-normal">not saved yet</span>
+          {% endif %}
+        </label>
+        <textarea name="kubeconfig" rows="12"
+          placeholder="Paste your kubeconfig YAML here..."
+          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-green-400"
+          required></textarea>
+        <p class="text-xs text-gray-400 mt-1">Always paste the full kubeconfig when saving — the saved version is not shown for security.</p>
+      </div>
+
+      <button type="submit"
+        class="bg-indigo-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition">
+        Save Config
+      </button>
+    </form>
+  </div>
+
+  <!-- ── Log viewer ───────────────────────────────────────────────────── -->
+  <div class="bg-white rounded-xl shadow p-6">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Logs</h2>
+      <span class="text-xs text-gray-400">auto-refreshes every 3s</span>
+    </div>
+    <pre id="log-box"
+      class="bg-gray-900 text-green-400 text-xs rounded-lg p-4 h-64 overflow-y-auto font-mono whitespace-pre-wrap break-all">loading...</pre>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // ── Status polling ───────────────────────────────────────────────────
+  function applyStatus(status, pid) {
+    const dot  = document.getElementById('status-dot');
+    const text = document.getElementById('status-text');
+
+    dot.className = 'w-3 h-3 rounded-full ';
+    if (status === 'running')  dot.className += 'bg-green-500';
+    else if (status === 'error') dot.className += 'bg-orange-400';
+    else                        dot.className += 'bg-gray-300';
+
+    text.textContent = status + (pid ? ` (pid ${pid})` : '');
+  }
+
+  // Apply initial status from server render
+  applyStatus("{{ status.status }}", {{ status.pid or 'null' }});
+
+  // Poll status every 5s
+  setInterval(() => {
+    fetch('/k8s-proxy/status-data')
+      .then(r => r.json())
+      .then(d => applyStatus(d.status, d.pid))
+      .catch(() => {});
+  }, 5000);
+
+  // ── Log polling ──────────────────────────────────────────────────────
+  const logBox = document.getElementById('log-box');
+
+  function refreshLogs() {
+    fetch('/k8s-proxy/logs-data')
+      .then(r => r.json())
+      .then(d => {
+        const lines = d.logs || [];
+        logBox.textContent = lines.length ? lines.join('\n') : '— no logs yet —';
+        logBox.scrollTop = logBox.scrollHeight;
+      })
+      .catch(() => {});
+  }
+
+  refreshLogs();
+  setInterval(refreshLogs, 3000);
+</script>
+{% endblock %}

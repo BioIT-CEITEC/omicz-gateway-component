@@ -2,12 +2,19 @@ import fnmatch
 import glob
 import hashlib
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Callable
 
 from core.logger import get_logger
 
 logger = get_logger("checksum")
 
 CHECKSUM_FILENAME = "checksum.CHECKSUM"
+CHUNK_SIZE        = 5 * 1024 * 1024   # 5 MB — faster than default 8 KB for large sequencing files
+
+# Always exclude hidden files/folders (names starting with ".") regardless of user exclusions.
+# This covers macOS resource forks (._*), SMB temp files (.smbdelete*), .DS_Store, etc.
+BUILTIN_EXCLUSIONS = [".*"]
 
 
 def _is_excluded(relative_path: str, exclusions: list[str]) -> bool:
@@ -33,10 +40,41 @@ def _is_excluded(relative_path: str, exclusions: list[str]) -> bool:
     return False
 
 
-def create_checksum_file(run_name: str, sequencer_location: str, exclusions: list[str] | None = None) -> str:
+def _sha256(file_path: str, chunk_callback: Callable | None = None) -> str:
+    h = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(CHUNK_SIZE), b""):
+            h.update(chunk)
+            if chunk_callback:
+                chunk_callback(len(chunk))
+    return h.hexdigest()
+
+
+def _checksum_one(file_path: str, run_folder: str, exclusions: list[str], chunk_callback: Callable | None = None):
+    """Checksum a single file. Returns (relative_path, digest, file_size) or None if excluded."""
+    relative = os.path.relpath(file_path, run_folder)
+    if _is_excluded(relative, BUILTIN_EXCLUSIONS + exclusions):
+        logger.info(f"excluded (skipped): {relative}")
+        return None
+    size   = os.path.getsize(file_path)
+    digest = _sha256(file_path, chunk_callback=chunk_callback)
+    logger.info(f"checksummed: {relative}")
+    return (relative, digest, size)
+
+
+def create_checksum_file(
+    run_name: str,
+    sequencer_location: str,
+    exclusions: list[str] | None = None,
+    on_progress: Callable | None = None,
+) -> str:
     """
-    Walk every file inside the run folder, compute SHA256 for each
+    Walk every file inside the run folder, compute SHA256 for each in parallel.
+    Calls on_progress(done, total, bytes_done, total_bytes) after each file completes,
+    and also every PROGRESS_CHUNK_BYTES read within a large file.
     """
+    PROGRESS_CHUNK_BYTES = 500 * 1024 * 1024  # report every 500 MB within a file
+
     run_folder    = os.path.join(sequencer_location, run_name)
     checksum_path = os.path.join(run_folder, CHECKSUM_FILENAME)
 
@@ -46,22 +84,69 @@ def create_checksum_file(run_name: str, sequencer_location: str, exclusions: lis
         logger.info(f"checksum file already exists — skipping creation: {os.path.basename(existing[0])}")
         return existing[0]
 
-    # collect (relative_path, digest) for every file
-    entries = []
+    # collect all file paths first (fast walk — no hashing yet)
+    all_exclusions = BUILTIN_EXCLUSIONS + (exclusions or [])
+    file_paths = []
     for root, dirs, files in os.walk(run_folder):
         for filename in files:
             if filename == CHECKSUM_FILENAME:
-                continue  # don't hash the checksum file itself
-
-            file_path = os.path.join(root, filename)
-            relative  = os.path.relpath(file_path, run_folder)
-            if _is_excluded(relative, exclusions or []):
-                logger.info(f"excluded (skipped): {relative}")
                 continue
+            fp = os.path.join(root, filename)
+            relative = os.path.relpath(fp, run_folder)
+            if _is_excluded(relative, all_exclusions):
+                continue
+            file_paths.append(fp)
 
-            digest = _sha256(file_path)
-            entries.append((relative, digest))
-            logger.info(f"checksummed: {relative}")
+    total_files = len(file_paths)
+    total_bytes = sum(os.path.getsize(p) for p in file_paths if os.path.isfile(p))
+
+    import threading
+    _lock         = threading.Lock()
+    _done_files   = [0]
+    _done_bytes   = [0]
+    _partial_bytes = [0]   # bytes read mid-file across all active threads
+
+    entries = []
+
+    logger.info(f"checksumming {total_files} files ({_fmt_bytes(total_bytes)}) using {min(4, os.cpu_count() or 1)} threads")
+
+    max_workers = min(4, os.cpu_count() or 1)
+
+    def _make_chunk_callback():
+        """Returns a per-file chunk callback that accumulates bytes and reports progress."""
+        since_last = [0]
+
+        def chunk_cb(n_bytes: int):
+            with _lock:
+                _partial_bytes[0] += n_bytes
+            since_last[0] += n_bytes
+            if since_last[0] >= PROGRESS_CHUNK_BYTES:
+                since_last[0] = 0
+                if on_progress:
+                    with _lock:
+                        df = _done_files[0]
+                        db = _done_bytes[0] + _partial_bytes[0]
+                    on_progress(df, total_files, db, total_bytes)
+        return chunk_cb
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(_checksum_one, fp, run_folder, exclusions or [], _make_chunk_callback()): fp
+            for fp in file_paths
+        }
+        for future in as_completed(futures):
+            result = future.result()
+            with _lock:
+                _done_files[0] += 1
+                if result is not None:
+                    relative, digest, size = result
+                    entries.append((relative, digest))
+                    _done_bytes[0] += size
+                    _partial_bytes[0] = max(0, _partial_bytes[0] - size)
+                df = _done_files[0]
+                db = _done_bytes[0]
+            if on_progress:
+                on_progress(df, total_files, db, total_bytes)
 
     # sort by hash — deterministic regardless of OS/filesystem walk order
     entries.sort(key=lambda e: e[1])
@@ -69,12 +154,12 @@ def create_checksum_file(run_name: str, sequencer_location: str, exclusions: lis
     logger.info(f"checksum array is: {entries}")
 
     with open(checksum_path, "w") as f:
-        f.write("\n".join(digest for _, digest in entries) + "\n") # The _ discards the relative path — only hashes are written to the file.
+        f.write("\n".join(digest for _, digest in entries) + "\n")
 
     logger.info(f"checksum file written: {len(entries)} files")
 
-    # Hash the checksum file itself and rename it to <hash>.checksum
-    file_hash = _sha256(checksum_path)
+    # hash the checksum file itself and rename to <hash>.CHECKSUM
+    file_hash  = _sha256(checksum_path)
     final_path = os.path.join(run_folder, f"{file_hash}.CHECKSUM")
     os.rename(checksum_path, final_path)
 
@@ -91,7 +176,7 @@ def find_file_by_hash(run_folder: str, target_hash: str) -> str | None:
     for root, dirs, files in os.walk(run_folder):
         for filename in files:
             file_path = os.path.join(root, filename)
-            digest = _sha256(file_path)
+            digest    = _sha256(file_path)
             logger.debug(f"checked: {os.path.relpath(file_path, run_folder)} → {digest}")
             if digest == target_hash:
                 relative = os.path.relpath(file_path, run_folder)
@@ -101,9 +186,9 @@ def find_file_by_hash(run_folder: str, target_hash: str) -> str | None:
     return None
 
 
-def _sha256(file_path: str) -> str:
-    h = hashlib.sha256() # EMpty hash object
-    with open(file_path, "rb") as f: # rb = ready binary
-        for chunk in iter(lambda: f.read(8192), b""): # 8192 bytes at a time (8 KB) / b"" (empty bytes = end of file)
-            h.update(chunk) # update the hash object with the chunk of data read from the file
-    return h.hexdigest() # return final hash as hex string
+def _fmt_bytes(n: int) -> str:
+    for unit in ["B", "KB", "MB", "GB", "TB"]:
+        if n < 1024:
+            return f"{n:.1f} {unit}"
+        n /= 1024
+    return f"{n:.1f} PB"

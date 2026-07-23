@@ -34,7 +34,28 @@ def detail_run(request: Request, uuid: str):
     run = safe_json(response, fallback={})
     history_response = httpx.get(f"{BACKEND_URL}/runs/{uuid}/history")
     history = safe_json(history_response, fallback=[])
-    return templates.TemplateResponse(request, "runs/detail.html", {"run": run, "history": history})
+    proxy_status = safe_json(httpx.get(f"{BACKEND_URL}/k8s-proxy/status"), fallback={"status": "unknown"})
+    return templates.TemplateResponse(request, "runs/detail.html", {"run": run, "history": history, "proxy_status": proxy_status})
+
+
+# ── HISTORY DATA (polled by JS on detail page)
+@router.get("/{uuid}/history-data")
+def history_data(uuid: str):
+    run_res     = httpx.get(f"{BACKEND_URL}/runs/{uuid}")
+    history_res = httpx.get(f"{BACKEND_URL}/runs/{uuid}/history")
+    run     = safe_json(run_res,     fallback={})
+    history = safe_json(history_res, fallback=[])
+    return {"status": run.get("status"), "progress": run.get("progress"), "history": history}
+
+
+# ── QUEUE
+@router.get("/queue/view")
+def queue_view(request: Request, skip: int = 0, limit: int = 20):
+    response = httpx.get(f"{BACKEND_URL}/runs/queue", params={"skip": skip, "limit": limit})
+    data = safe_json(response, fallback={"total": 0, "skip": skip, "limit": limit, "results": []})
+    failed = safe_json(httpx.get(f"{BACKEND_URL}/runs/failed"), fallback=[])
+    proxy_status = safe_json(httpx.get(f"{BACKEND_URL}/k8s-proxy/status"), fallback={"status": "unknown"})
+    return templates.TemplateResponse(request, "runs/queue.html", {"data": data, "failed": failed, "proxy_status": proxy_status})
 
 
 # ── START UPLOAD (manual trigger for sent_to_tre=manual)

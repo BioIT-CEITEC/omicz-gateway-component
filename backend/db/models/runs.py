@@ -1,6 +1,6 @@
 import uuid as uuid_lib
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import relationship
 
@@ -13,6 +13,7 @@ class Runs(Base):
     name         = Column(String, nullable=False)
     sequencer_uuid = Column(PG_UUID(as_uuid=True), ForeignKey("sequencers.uuid"), nullable=False)
     status       = Column(String, nullable=False, default="running", server_default="running")
+    progress     = Column(Text, nullable=True)
     is_deleted   = Column(Boolean, nullable=False, default=False, server_default="false")
     created_at   = Column(DateTime, default=datetime.now)
     updated_at   = Column(DateTime, default=datetime.now, onupdate=datetime.now)

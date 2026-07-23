@@ -3,7 +3,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import JSONResponse
 
-from routers import home, users, sequencers, test, sequencers_type, runs
+from routers import home, users, sequencers, test, sequencers_type, runs, k8s_proxy
 from logger import get_logger
 
 logger = get_logger("frontend")
@@ -28,5 +28,6 @@ app.include_router(users.router, prefix="/users")
 app.include_router(sequencers.router, prefix="/sequencers")
 app.include_router(sequencers_type.router, prefix="/sequencers-types")
 app.include_router(runs.router, prefix="/runs")
+app.include_router(k8s_proxy.router, prefix="/k8s-proxy")
 app.include_router(test.router, prefix="/test")
 

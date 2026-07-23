@@ -62,8 +62,8 @@ block content %}
         <dd class="text-gray-800 mt-1">{{ sequencer.author_id or "—" }}</dd>
       </div>
       <div>
-        <dt class="text-gray-400 font-medium">Type UUID</dt>
-        <dd class="text-gray-800 mt-1">{{ sequencer.type_uuid or "—" }}</dd>
+        <dt class="text-gray-400 font-medium">Type</dt>
+        <dd class="text-gray-800 mt-1">{{ type_name or sequencer.type_uuid or "—" }}</dd>
       </div>
       <div>
         <dt class="text-gray-400 font-medium">Created</dt>

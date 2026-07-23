@@ -6,17 +6,36 @@ content %}
   >
 </div>
 
+{% set upload_statuses = ['queued', 'moving', 'move_failed'] %}
+<div id="proxy-warning" class="mb-4 flex items-start gap-3 p-4 bg-yellow-50 border border-yellow-300 rounded-xl text-sm
+  {% if run.status not in upload_statuses or proxy_status.status == 'running' %}hidden{% endif %}">
+  <svg class="w-5 h-5 text-yellow-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+  <div>
+    <p class="font-semibold text-yellow-800">K8s tunnel is not running</p>
+    <p class="text-yellow-700 mt-0.5">The upload cannot proceed without the kubectl port-forward connection to S3.
+      <a href="/k8s-proxy/" class="underline font-medium hover:text-yellow-900">Go to K8s Proxy →</a> to start it, then retry.
+    </p>
+  </div>
+</div>
+
 <div class="bg-white rounded-xl shadow p-8 max-w-2xl">
   <div class="flex items-start justify-between mb-6">
     <div>
       <h1 class="text-2xl font-bold text-gray-900">{{ run.name }}</h1>
       <p class="text-sm text-gray-400 mt-1">{{ run.uuid }}</p>
     </div>
-    <span
-      class="px-3 py-1 rounded-full text-xs font-semibold {% if run.status == 'completed' %}bg-green-100 text-green-700 {% elif run.status == 'running' %}bg-blue-100 text-blue-700 {% elif run.status == 'running_finished' %}bg-purple-100 text-purple-700 {% elif run.status == 'checksumming' %}bg-yellow-100 text-yellow-700 {% elif run.status == 'moving' %}bg-indigo-100 text-indigo-700 {% elif run.status == 'verifying' %}bg-teal-100 text-teal-700 {% elif run.status == 'verify_failed' %}bg-orange-100 text-orange-700 {% elif run.status == 'move_failed' %}bg-red-100 text-red-700 {% elif run.status == 'failed' %}bg-red-100 text-red-700 {% else %}bg-gray-100 text-gray-500{% endif %}"
-    >
-      {{ run.status }}
-    </span>
+    <div class="flex flex-col items-end gap-1">
+      <span id="status-badge"
+        class="px-3 py-1 rounded-full text-xs font-semibold {% if run.status == 'completed' %}bg-green-100 text-green-700 {% elif run.status == 'running' %}bg-blue-100 text-blue-700 {% elif run.status == 'running_finished' %}bg-purple-100 text-purple-700 {% elif run.status == 'queued' %}bg-gray-100 text-gray-600 {% elif run.status == 'checksumming' %}bg-yellow-100 text-yellow-700 {% elif run.status == 'moving' %}bg-indigo-100 text-indigo-700 {% elif run.status == 'verifying' %}bg-teal-100 text-teal-700 {% elif run.status == 'verify_failed' %}bg-orange-100 text-orange-700 {% elif run.status == 'move_failed' %}bg-red-100 text-red-700 {% elif run.status == 'failed' %}bg-red-100 text-red-700 {% else %}bg-gray-100 text-gray-500{% endif %}"
+      >
+        {{ run.status }}
+      </span>
+      <span id="refresh-indicator" class="text-xs text-gray-400">
+        {% if run.status in ['checksumming', 'moving', 'queued', 'verifying'] %}refreshing every 5s
+        {% elif run.status not in ['completed', 'failed', 'running_finished', 'verify_failed', 'move_failed'] %}auto-refresh in <span id="refresh-countdown">120</span>s
+        {% endif %}
+      </span>
+    </div>
   </div>
 
   <dl class="grid grid-cols-2 gap-4 text-sm mb-8">
@@ -38,30 +57,45 @@ content %}
     </div>
   </dl>
 
+  <!-- Progress bar — checksumming (yellow) or moving/upload (indigo) -->
+  <div id="progress-box" class="mb-6 p-4 rounded-lg border
+    {% if run.status == 'checksumming' %}bg-yellow-50 border-yellow-200
+    {% elif run.status == 'moving' %}bg-indigo-50 border-indigo-200
+    {% else %}hidden{% endif %}">
+    <div class="flex items-center justify-between mb-1">
+      <span id="progress-label" class="text-xs font-semibold
+        {% if run.status == 'checksumming' %}text-yellow-700
+        {% elif run.status == 'moving' %}text-indigo-700{% endif %}">
+        {% if run.status == 'checksumming' %}Checksumming in progress
+        {% elif run.status == 'moving' %}Uploading to TRE{% endif %}
+      </span>
+      <span id="progress-text" class="text-xs
+        {% if run.status == 'checksumming' %}text-yellow-600
+        {% elif run.status == 'moving' %}text-indigo-600{% endif %}">
+        {{ run.progress or "starting..." }}
+      </span>
+    </div>
+    <div id="progress-track" class="w-full rounded-full h-2
+      {% if run.status == 'checksumming' %}bg-yellow-100
+      {% elif run.status == 'moving' %}bg-indigo-100{% endif %}">
+      <div id="progress-bar" class="h-2 rounded-full transition-all duration-500
+        {% if run.status == 'checksumming' %}bg-yellow-400
+        {% elif run.status == 'moving' %}bg-indigo-400{% endif %}" style="width: 0%"></div>
+    </div>
+  </div>
+
   <!-- Status history timeline -->
-  {% if history %}
-  <div class="mb-8">
-    <h2
-      class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4"
-    >
-      Status History
-    </h2>
-    <ol class="relative border-l border-gray-200 ml-3">
+  <div id="history-section" class="mb-8">
+    <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Status History</h2>
+    <ol id="history-list" class="relative border-l border-gray-200 ml-3">
       {% for entry in history %}
       <li class="mb-6 ml-6">
-        <span
-          class="absolute -left-2 flex items-center justify-center w-4 h-4 rounded-full {% if entry.status == 'completed' %}bg-green-400 {% elif entry.status == 'running' %}bg-blue-400 {% elif entry.status == 'running_finished' %}bg-purple-400 {% elif entry.status == 'checksumming' %}bg-yellow-400 {% elif entry.status == 'moving' %}bg-indigo-400 {% elif entry.status == 'verifying' %}bg-teal-400 {% elif entry.status == 'verify_failed' %}bg-orange-400 {% elif entry.status == 'move_failed' %}bg-red-400 {% elif entry.status == 'failed' %}bg-red-400 {% else %}bg-gray-400{% endif %}"
-        >
+        <span class="absolute -left-2 flex items-center justify-center w-4 h-4 rounded-full {% if entry.status == 'completed' %}bg-green-400 {% elif entry.status == 'running' %}bg-blue-400 {% elif entry.status == 'running_finished' %}bg-purple-400 {% elif entry.status == 'queued' %}bg-gray-400 {% elif entry.status == 'checksumming' %}bg-yellow-400 {% elif entry.status == 'moving' %}bg-indigo-400 {% elif entry.status == 'verifying' %}bg-teal-400 {% elif entry.status == 'verify_failed' %}bg-orange-400 {% elif entry.status == 'move_failed' %}bg-red-400 {% elif entry.status == 'failed' %}bg-red-400 {% else %}bg-gray-400{% endif %}">
           {% if loop.last and entry.status != 'completed' %}
-          <span
-            class="w-2 h-2 rounded-full bg-red-500 animate-ping"
-            style="animation-duration: 1s"
-          ></span>
+          <span class="w-2 h-2 rounded-full bg-red-500 animate-ping" style="animation-duration: 1s"></span>
           {% endif %}
         </span>
-        <span class="font-medium text-gray-800 text-sm"
-          >{{ entry.status }}</span
-        >
+        <span class="font-medium text-gray-800 text-sm">{{ entry.status }}</span>
         <p class="text-xs text-gray-400 mt-0.5">{{ entry.created_at }}</p>
         {% if entry.detail %}
         <pre class="mt-1 text-xs text-red-600 bg-red-50 rounded p-2 whitespace-pre-wrap break-all">{{ entry.detail }}</pre>
@@ -70,11 +104,15 @@ content %}
       {% endfor %}
     </ol>
   </div>
-  {% endif %}
 
   <!-- Action buttons — shown only when the run is waiting for a manual trigger -->
   <div class="flex flex-wrap gap-3 mb-4">
-    {% if run.status == 'running_finished' %}
+    {% if run.status == 'queued' %}
+    <span class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-500">
+      <span class="w-2 h-2 rounded-full bg-gray-400 animate-pulse"></span>
+      Waiting in queue…
+    </span>
+    {% elif run.status == 'running_finished' %}
     <form
       method="POST"
       action="/runs/{{ run.uuid }}/start-upload"
@@ -125,6 +163,19 @@ content %}
         Recheck &amp; Re-upload
       </button>
     </form>
+    {% elif run.status == 'failed' %}
+    <form
+      method="POST"
+      action="/runs/{{ run.uuid }}/start-upload"
+      onsubmit="return confirm('Retry the full pipeline (checksum → upload → verify)?');"
+    >
+      <button
+        type="submit"
+        class="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700 transition"
+      >
+        Retry
+      </button>
+    </form>
     {% endif %}
   </div>
 
@@ -144,4 +195,177 @@ content %}
   </form>
   {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const TERMINAL = ['completed', 'failed', 'running_finished', 'verify_failed', 'move_failed'];
+  const DOT_COLORS = {
+    completed: 'bg-green-400', running: 'bg-blue-400', running_finished: 'bg-purple-400',
+    queued: 'bg-gray-400', checksumming: 'bg-yellow-400', moving: 'bg-indigo-400',
+    verifying: 'bg-teal-400', verify_failed: 'bg-orange-400', move_failed: 'bg-red-400',
+    failed: 'bg-red-400',
+  };
+  const BADGE_COLORS = {
+    completed: 'bg-green-100 text-green-700', running: 'bg-blue-100 text-blue-700',
+    running_finished: 'bg-purple-100 text-purple-700', queued: 'bg-gray-100 text-gray-600',
+    checksumming: 'bg-yellow-100 text-yellow-700', moving: 'bg-indigo-100 text-indigo-700',
+    verifying: 'bg-teal-100 text-teal-700', verify_failed: 'bg-orange-100 text-orange-700',
+    move_failed: 'bg-red-100 text-red-700', failed: 'bg-red-100 text-red-700',
+  };
+
+  function renderHistory(history, currentStatus) {
+    if (!history.length) return '';
+    return history.map((entry, i) => {
+      const isLast    = i === history.length - 1;
+      const dotColor  = DOT_COLORS[entry.status] || 'bg-gray-400';
+      const ping      = isLast && !TERMINAL.includes(entry.status)
+        ? `<span class="w-2 h-2 rounded-full bg-red-500 animate-ping" style="animation-duration:1s"></span>` : '';
+      const detail    = entry.detail
+        ? `<pre class="mt-1 text-xs text-red-600 bg-red-50 rounded p-2 whitespace-pre-wrap break-all">${entry.detail}</pre>` : '';
+      return `<li class="mb-6 ml-6">
+        <span class="absolute -left-2 flex items-center justify-center w-4 h-4 rounded-full ${dotColor}">${ping}</span>
+        <span class="font-medium text-gray-800 text-sm">${entry.status}</span>
+        <p class="text-xs text-gray-400 mt-0.5">${entry.created_at}</p>
+        ${detail}
+      </li>`;
+    }).join('');
+  }
+
+  let currentStatus = "{{ run.status }}";
+  let countdown = 120;
+  const ACTIVE_STATUSES = ['checksumming', 'moving', 'queued', 'verifying'];
+
+  function updateCountdown() {
+    const indicator = document.getElementById('refresh-indicator');
+    if (!indicator) return;
+    if (TERMINAL.includes(currentStatus)) {
+      indicator.textContent = '';
+    } else if (ACTIVE_STATUSES.includes(currentStatus)) {
+      indicator.textContent = 'refreshing every 5s';
+    } else {
+      const el = document.getElementById('refresh-countdown');
+      if (el) el.textContent = countdown;
+    }
+  }
+
+  const PROGRESS_STYLES = {
+    checksumming: {
+      box: 'mb-6 p-4 rounded-lg border bg-yellow-50 border-yellow-200',
+      label: 'text-xs font-semibold text-yellow-700',
+      text: 'text-xs text-yellow-600',
+      track: 'w-full rounded-full h-2 bg-yellow-100',
+      bar: 'h-2 rounded-full transition-all duration-500 bg-yellow-400',
+      title: 'Checksumming in progress',
+    },
+    moving: {
+      box: 'mb-6 p-4 rounded-lg border bg-indigo-50 border-indigo-200',
+      label: 'text-xs font-semibold text-indigo-700',
+      text: 'text-xs text-indigo-600',
+      track: 'w-full rounded-full h-2 bg-indigo-100',
+      bar: 'h-2 rounded-full transition-all duration-500 bg-indigo-400',
+      title: 'Uploading to TRE',
+    },
+  };
+
+  function updateProgress(status, progress) {
+    const box   = document.getElementById('progress-box');
+    const label = document.getElementById('progress-label');
+    const text  = document.getElementById('progress-text');
+    const track = document.getElementById('progress-track');
+    const bar   = document.getElementById('progress-bar');
+    if (!box) return;
+
+    const style = PROGRESS_STYLES[status];
+    if (!style) { box.classList.add('hidden'); return; }
+
+    box.className   = style.box;
+    box.classList.remove('hidden');
+    if (label) { label.className = style.label; label.textContent = style.title; }
+    if (text)  text.className  = style.text;
+    if (track) track.className = style.track;
+    if (bar)   bar.className   = style.bar;
+
+    if (text) text.textContent = progress || 'starting...';
+    if (bar && progress) {
+      // prefer byte-based progress for a smooth bar; fall back to file count
+      const byteMatch  = progress.match(/([\d.]+)\s*(?:GB|MB|KB|B)\s*\/\s*([\d.]+)\s*(GB|MB|KB|B)/i);
+      const filesMatch = progress.match(/(\d+)\s*\/\s*(\d+)\s*files/);
+      if (byteMatch) {
+        bar.style.width = Math.round(parseFloat(byteMatch[1]) / parseFloat(byteMatch[2]) * 100) + '%';
+      } else if (filesMatch) {
+        bar.style.width = Math.round(parseInt(filesMatch[1]) / parseInt(filesMatch[2]) * 100) + '%';
+      }
+    }
+  }
+
+  function poll() {
+    fetch('/runs/{{ run.uuid }}/history-data')
+      .then(r => r.json())
+      .then(data => {
+        // update history list
+        const list = document.getElementById('history-list');
+        if (list) list.innerHTML = renderHistory(data.history, data.status);
+
+        // update status badge
+        const badge = document.getElementById('status-badge');
+        if (badge && data.status !== currentStatus) {
+          badge.textContent = data.status;
+          badge.className = 'px-3 py-1 rounded-full text-xs font-semibold ' +
+            (BADGE_COLORS[data.status] || 'bg-gray-100 text-gray-500');
+          currentStatus = data.status;
+        }
+
+        // update progress bar (checksumming = yellow, moving = indigo)
+        updateProgress(data.status, data.progress);
+
+        // stop polling on terminal status
+        if (TERMINAL.includes(data.status)) {
+          const indicator = document.getElementById('refresh-indicator');
+          if (indicator) indicator.textContent = '';
+          clearInterval(countdownTimer);
+          clearInterval(pollTimer);
+        }
+      })
+      .catch(() => {});
+  }
+
+  // fast poll every 5s for active states
+  const pollTimer = setInterval(() => {
+    if (!ACTIVE_STATUSES.includes(currentStatus)) return;
+    poll();
+  }, 5000);
+
+  // countdown ticker (visual only — full reload every 120s for non-active states)
+  const countdownTimer = setInterval(() => {
+    if (TERMINAL.includes(currentStatus)) return;
+    countdown--;
+    updateCountdown();
+    if (countdown <= 0) {
+      countdown = 120;
+      if (!ACTIVE_STATUSES.includes(currentStatus)) poll();
+    }
+  }, 1000);
+
+  // initial state
+  updateCountdown();
+  updateProgress("{{ run.status }}", {{ ('"%s"' % run.progress) if run.progress else 'null' }});
+
+  // live kubectl proxy status check — toggle warning banner, never reload
+  const UPLOAD_STATUSES = ['queued', 'moving', 'move_failed'];
+  function checkProxyStatus() {
+    if (!UPLOAD_STATUSES.includes(currentStatus)) return;
+    fetch('/k8s-proxy/status-data')
+      .then(r => r.json())
+      .then(data => {
+        const warn = document.getElementById('proxy-warning');
+        if (!warn) return;
+        if (data.status === 'running') warn.classList.add('hidden');
+        else warn.classList.remove('hidden');
+      })
+      .catch(() => {});
+  }
+  setInterval(checkProxyStatus, 10000);
+  checkProxyStatus();
+</script>
 {% endblock %}

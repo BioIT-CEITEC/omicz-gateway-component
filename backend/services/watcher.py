@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import threading
 from datetime import datetime
 
 from watchdog.observers.polling import PollingObserver as Observer
@@ -43,6 +44,23 @@ class RunEventHandler(FileSystemEventHandler):
             self.signal       = None
             self.signal_match = None
 
+        # pending timers: run_name → threading.Timer
+        # folders wait RUN_DETECTION_DELAY seconds before being registered,
+        # so OS default names ("New Folder") get a chance to be renamed first
+        self._pending = {}
+        self._lock    = threading.Lock()
+
+    def _register_run(self, run_name):
+        """Called after RUN_DETECTION_DELAY seconds. Publishes run_created if folder still exists."""
+        with self._lock:
+            self._pending.pop(run_name, None)
+        run_folder = os.path.join(self.location, run_name)
+        if not os.path.isdir(run_folder):
+            logger.info(f"folder '{run_name}' no longer exists after delay — skipping")
+            return
+        logger.info(f"new run detected: {run_name} on sequencer {self.sequencer.name}")
+        publish("run_created", run_name, self.sequencer.uuid)
+
     def on_created(self, event):
         # get the path relative to the sequencer location
         # e.g. "run_2026_04_15" or "run_2026_04_15/RTAComplete.txt"
@@ -53,8 +71,14 @@ class RunEventHandler(FileSystemEventHandler):
         # parts = ["run_2026_04_15"]
         if len(parts) == 1 and event.is_directory:
             run_name = parts[0]
-            logger.info(f"new run detected: {run_name} on sequencer {self.sequencer.name}")
-            publish("run_created", run_name, self.sequencer.uuid)
+            logger.info(f"folder detected: '{run_name}' — waiting {RUN_DETECTION_DELAY}s before registering")
+            with self._lock:
+                # cancel any existing timer for this name (safety guard)
+                if run_name in self._pending:
+                    self._pending[run_name].cancel()
+                t = threading.Timer(RUN_DETECTION_DELAY, self._register_run, args=[run_name])
+                self._pending[run_name] = t
+                t.start()
 
         # ── depth 2: a new file inside a run folder ────────────────────────────
         # parts = ["run_2026_04_15", "RTAComplete.txt"]
@@ -81,6 +105,19 @@ class RunEventHandler(FileSystemEventHandler):
             if matched:
                 logger.info(f"run completed: {run_name} on sequencer {self.sequencer.name}")
                 publish("run_completed", run_name, self.sequencer.uuid)
+
+    def on_deleted(self, event):
+        """Cancel pending timer if a folder is renamed/deleted before the delay expires."""
+        relative = os.path.relpath(event.src_path, self.location)
+        parts    = relative.split(os.sep)
+
+        if len(parts) == 1 and event.is_directory:
+            run_name = parts[0]
+            with self._lock:
+                if run_name in self._pending:
+                    self._pending[run_name].cancel()
+                    del self._pending[run_name]
+                    logger.info(f"folder '{run_name}' was renamed/deleted before registering — cancelled")
 
 
 def load_sequencers():
@@ -195,6 +232,13 @@ def scan_existing_runs(sequencer):
             )
 
             if existing:
+                # if already in DB but still "running", check if signal file arrived
+                # while the watcher was down — if so, re-publish run_completed
+                if existing.status == "running":
+                    run_folder = os.path.join(location, run_name)
+                    if is_completed(run_folder, sequencer):
+                        logger.info(f"catch-up → '{run_name}' already has signal file, publishing run_completed")
+                        publish("run_completed", run_name, sequencer.uuid)
                 skipped += 1
                 continue
 
@@ -314,7 +358,8 @@ def check_file_stability(sequencers: list, stability_tracker: dict):
                     del tracker[run_name]
 
 
-SEQUENCER_CHECK_INTERVAL = 60  # seconds between DB polls for new sequencers
+SEQUENCER_CHECK_INTERVAL = 60   # seconds between DB polls for new sequencers
+RUN_DETECTION_DELAY      = 15   # seconds to wait after folder creation before registering as a run
 
 
 def watch_sequencer(sequencer, observer, watched_uuids: set):

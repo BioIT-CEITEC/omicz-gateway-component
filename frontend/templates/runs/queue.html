@@ -1,0 +1,145 @@
+{% extends "base.html" %} {% block title %}Queue{% endblock %} {% block content %}
+
+{% if proxy_status.status != 'running' %}
+<div id="proxy-warning" class="mb-4 flex items-start gap-3 p-4 bg-yellow-50 border border-yellow-300 rounded-xl text-sm">
+  <svg class="w-5 h-5 text-yellow-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+  <div>
+    <p class="font-semibold text-yellow-800">K8s tunnel is not running</p>
+    <p class="text-yellow-700 mt-0.5">Uploads cannot proceed without the kubectl port-forward connection to S3.
+      <a href="/k8s-proxy/" class="underline font-medium hover:text-yellow-900">Go to K8s Proxy →</a> to start it.
+    </p>
+  </div>
+</div>
+{% endif %}
+
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900">Pipeline Queue</h1>
+    <p class="text-sm text-gray-400 mt-0.5">{{ data.total }} run{{ 's' if data.total != 1 else '' }} in pipeline</p>
+  </div>
+  <span class="text-xs text-gray-400">auto-refresh in <span id="queue-countdown">120</span>s</span>
+</div>
+
+{% set runs = data.results %}
+{% set active_statuses = ['checksumming', 'moving', 'verifying'] %}
+{% set active = runs | selectattr('status', 'in', active_statuses) | list %}
+{% set waiting = runs | selectattr('status', 'equalto', 'queued') | list %}
+
+{% if not runs %}
+<div class="bg-white rounded-xl shadow p-10 text-center text-gray-400">
+  No runs currently in the pipeline.
+</div>
+{% else %}
+
+{% if active %}
+<h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Active</h2>
+<div class="space-y-3 mb-6">
+  {% for run in active %}
+  <div class="bg-white rounded-xl shadow p-5 flex items-center gap-4 border-l-4
+    {% if run.status == 'checksumming' %}border-yellow-400
+    {% elif run.status == 'moving' %}border-indigo-400
+    {% elif run.status == 'verifying' %}border-teal-400
+    {% else %}border-gray-300{% endif %}">
+    <div class="flex-1 min-w-0">
+      <a href="/runs/{{ run.uuid }}" class="text-sm font-semibold text-gray-900 hover:text-indigo-600">{{ run.name }}</a>
+      <p class="text-xs text-gray-400 mt-0.5">{{ run.sequencer_name or run.sequencer_uuid }}</p>
+    </div>
+    <div class="flex flex-col items-end gap-1 min-w-[200px]">
+      <span class="px-3 py-1 rounded-full text-xs font-semibold
+        {% if run.status == 'checksumming' %}bg-yellow-100 text-yellow-700
+        {% elif run.status == 'moving' %}bg-indigo-100 text-indigo-700
+        {% elif run.status == 'verifying' %}bg-teal-100 text-teal-700
+        {% else %}bg-gray-100 text-gray-500{% endif %}">
+        {{ run.status }}
+      </span>
+      {% if run.progress %}
+      <span class="text-xs text-gray-400">{{ run.progress }}</span>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if waiting %}
+<h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Waiting</h2>
+<div class="space-y-3 mb-6">
+  {% for run in waiting %}
+  <div class="bg-white rounded-xl shadow p-5 flex items-center gap-4 border-l-4 border-gray-200">
+    <div class="flex-1 min-w-0">
+      <a href="/runs/{{ run.uuid }}" class="text-sm font-semibold text-gray-900 hover:text-indigo-600">{{ run.name }}</a>
+      <p class="text-xs text-gray-400 mt-0.5">{{ run.sequencer_name or run.sequencer_uuid }}</p>
+    </div>
+    <div class="flex flex-col items-end gap-1 min-w-[200px]">
+      <span class="px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">queued</span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% set base_url = "/runs/queue/view" %}
+{% include "partials/pagination.html" %}
+
+{% endif %}
+
+{% if failed %}
+<h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 mt-6">Failed — needs retry</h2>
+<div class="space-y-3 mb-6">
+  {% for run in failed %}
+  <div class="bg-white rounded-xl shadow p-5 flex items-center gap-4 border-l-4
+    {% if run.status == 'move_failed' %}border-red-400
+    {% elif run.status == 'verify_failed' %}border-orange-400
+    {% else %}border-red-300{% endif %}">
+    <div class="flex-1 min-w-0">
+      <a href="/runs/{{ run.uuid }}" class="text-sm font-semibold text-gray-900 hover:text-indigo-600">{{ run.name }}</a>
+      <p class="text-xs text-gray-400 mt-0.5">{{ run.sequencer_name or run.sequencer_uuid }}</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <span class="px-3 py-1 rounded-full text-xs font-semibold
+        {% if run.status == 'move_failed' %}bg-red-100 text-red-700
+        {% elif run.status == 'verify_failed' %}bg-orange-100 text-orange-700
+        {% else %}bg-red-100 text-red-600{% endif %}">
+        {{ run.status }}
+      </span>
+      <form method="POST" action="/runs/{{ run.uuid }}/start-upload"
+            onsubmit="return confirm('Retry upload for {{ run.name }}?');">
+        <button type="submit"
+          class="px-3 py-1 rounded-lg text-xs font-medium
+            {% if run.status == 'verify_failed' %}bg-orange-600 hover:bg-orange-700
+            {% else %}bg-red-600 hover:bg-red-700{% endif %} text-white transition">
+          {% if run.status == 'verify_failed' %}Retry Verify{% else %}Retry Upload{% endif %}
+        </button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  let countdown = 120;
+  setInterval(() => {
+    countdown--;
+    const el = document.getElementById('queue-countdown');
+    if (el) el.textContent = countdown;
+    if (countdown <= 0) location.reload();
+  }, 1000);
+
+  // live kubectl proxy status
+  function checkProxy() {
+    fetch('/k8s-proxy/status-data')
+      .then(r => r.json())
+      .then(data => {
+        const warn = document.getElementById('proxy-warning');
+        if (!warn) return;
+        if (data.status === 'running') warn.classList.add('hidden');
+        else warn.classList.remove('hidden');
+      })
+      .catch(() => {});
+  }
+  setInterval(checkProxy, 10000);
+</script>
+{% endblock %}

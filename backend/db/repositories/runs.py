@@ -57,6 +57,51 @@ def get_runs_by_sequencer(sequencer_uuid: UUID, db: Session):
     )
 
 
+PIPELINE_STATUSES = ["queued", "checksumming", "moving", "verifying"]
+
+
+def get_queued_runs(db: Session, skip: int = 0, limit: int = 20):
+    """Returns paginated runs currently in the pipeline, active ones first then queued."""
+    from sqlalchemy import case
+    status_order = case(
+        (Runs.status == "checksumming", 1),
+        (Runs.status == "moving",       2),
+        (Runs.status == "verifying",    3),
+        (Runs.status == "queued",       4),
+        else_=5,
+    )
+    return (
+        db.query(Runs)
+        .filter(Runs.status.in_(PIPELINE_STATUSES), Runs.is_deleted == False)
+        .order_by(status_order, Runs.updated_at.asc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+
+def count_queued_runs(db: Session) -> int:
+    return (
+        db.query(Runs)
+        .filter(Runs.status.in_(PIPELINE_STATUSES), Runs.is_deleted == False)
+        .count()
+    )
+
+
+FAILED_PIPELINE_STATUSES = ["move_failed", "verify_failed", "failed"]
+
+
+def get_failed_pipeline_runs(db: Session) -> list:
+    """Returns recently-failed runs that can be retried, newest first."""
+    return (
+        db.query(Runs)
+        .filter(Runs.status.in_(FAILED_PIPELINE_STATUSES), Runs.is_deleted == False)
+        .order_by(Runs.updated_at.desc())
+        .limit(50)
+        .all()
+    )
+
+
 def count_runs(db: Session) -> int:
     return db.query(Runs).filter(Runs.is_deleted == False).count()
 

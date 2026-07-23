@@ -63,14 +63,19 @@ def create_sequencer(
     return templates.TemplateResponse(request, "sequencers/create.html", {"error": error, "types": fetch_types()})
 
 
-# ── DETAIL 
+# ── DETAIL
 @router.get("/{uuid}")
 def detail_sequencer(request: Request, uuid: str):
     response = httpx.get(f"{BACKEND_URL}/sequencers/{uuid}")
     if response.status_code == 404:
         return templates.TemplateResponse(request, "404.html", status_code=404)
     sequencer = safe_json(response, fallback={})
-    return templates.TemplateResponse(request, "sequencers/detail.html", {"sequencer": sequencer})
+    type_name = None
+    if sequencer.get("type_uuid"):
+        type_res = httpx.get(f"{BACKEND_URL}/sequencers-types/{sequencer['type_uuid']}")
+        if type_res.status_code == 200:
+            type_name = safe_json(type_res, fallback={}).get("name")
+    return templates.TemplateResponse(request, "sequencers/detail.html", {"sequencer": sequencer, "type_name": type_name})
 
 
 # ── EDIT — show form ──

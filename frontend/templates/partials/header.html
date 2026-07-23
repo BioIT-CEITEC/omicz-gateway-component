@@ -35,9 +35,17 @@
       <li>
         <a
           href="/runs"
-          class="hover:text-black transition pb-1 {% if request.url.path.startswith('/runs') %}underline{% endif %}"
+          class="hover:text-black transition pb-1 {% if request.url.path.startswith('/runs') and not request.url.path.startswith('/runs/queue') %}underline{% endif %}"
         >
           Runs
+        </a>
+      </li>
+      <li>
+        <a
+          href="/runs/queue/view"
+          class="hover:text-black transition pb-1 {% if request.url.path.startswith('/runs/queue') %}underline{% endif %}"
+        >
+          Queue
         </a>
       </li>
       <li>
@@ -46,6 +54,14 @@
           class="hover:text-black transition pb-1 {% if request.url.path.startswith('/users') %}underline{% endif %}"
         >
           Users
+        </a>
+      </li>
+      <li>
+        <a
+          href="/k8s-proxy/"
+          class="hover:text-black transition pb-1 {% if request.url.path.startswith('/k8s-proxy') %}underline{% endif %}"
+        >
+          K8s Proxy
         </a>
       </li>
     </ul>

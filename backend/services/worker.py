@@ -16,7 +16,7 @@ from db.repositories.runs import create_run, update_run_status
 from db.repositories.runs_status_history import add_run_status_history
 import glob
 
-from services.checksum import create_checksum_file, find_file_by_hash
+from services.checksum import create_checksum_file, find_file_by_hash, _fmt_bytes
 from services.tre import send_to_tre, verify_checksum_on_s3, VERIFY_RETRIES
 from core.logger import get_logger
 
@@ -50,6 +50,23 @@ def resolve_verify_detail(tre_error: str | None, run_folder: str, retries: int) 
 
     logger.warning(f"[verify] TRE error: {tre_error}")
     return tre_error
+
+
+def _make_progress_callback(run_uuid):
+    """Returns a callback that writes checksumming progress to the run's progress column."""
+    def callback(done: int, total: int, bytes_done: int, total_bytes: int):
+        text = f"{done} / {total} files · {_fmt_bytes(bytes_done)} / {_fmt_bytes(total_bytes)}"
+        db = SESSION_LOCAL()
+        try:
+            run = db.query(Runs).filter(Runs.uuid == run_uuid).first()
+            if run:
+                run.progress = text
+                db.commit()
+        except Exception as e:
+            logger.warning(f"failed to update progress for run {run_uuid}: {e}")
+        finally:
+            db.close()
+    return callback
 
 
 def get_sequencer(sequencer_uuid) -> Sequencers | None:
@@ -140,7 +157,15 @@ def handle_run_checksum_requested(name: str, sequencer_uuid):
         add_run_status_history(run_uuid=run.uuid, status="checksumming", db=db)
         logger.info(f"status updated to 'checksumming' for run '{name}'")
 
-        create_checksum_file(run_name=name, sequencer_location=sequencer.location, exclusions=sequencer.exclusions or [])
+        create_checksum_file(run_name=name, sequencer_location=sequencer.location, exclusions=sequencer.exclusions or [], on_progress=_make_progress_callback(run.uuid))
+
+        # checksumming done — set queued while waiting for upload slot, clear progress
+        run_obj = db.query(Runs).filter(Runs.uuid == run.uuid).first()
+        if run_obj:
+            run_obj.status   = "queued"
+            run_obj.progress = None
+            db.commit()
+        add_run_status_history(run_uuid=run.uuid, status="queued", db=db)
 
         from services.publisher import publish
         publish("run_upload_requested", name, sequencer_uuid)
@@ -177,12 +202,12 @@ def handle_run_upload_requested(name: str, sequencer_uuid):
     # ── step 1: upload ────────────────────────────────────────────────────────
     try:
         run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="moving", db=db)
+        run.progress = "scanning files…"
+        db.commit()
         add_run_status_history(run_uuid=run.uuid, status="moving", db=db)
         logger.info(f"status updated to 'moving' for run '{name}'")
 
-        success = send_to_tre(run_name=name, sequencer_location=sequencer.location, sequencer_slug=sequencer.slug, exclusions=sequencer.exclusions or [])
-        if not success:
-            raise Exception("S3 upload returned False")
+        send_to_tre(run_name=name, sequencer_location=sequencer.location, sequencer_slug=sequencer.slug, exclusions=sequencer.exclusions or [], on_progress=_make_progress_callback(run.uuid))
         logger.info(f"run folder uploaded to S3 for run '{name}'")
 
     except Exception as e:
@@ -257,7 +282,15 @@ def handle_run_rechecksum_requested(name: str, sequencer_uuid):
         add_run_status_history(run_uuid=run.uuid, status="checksumming", db=db)
         logger.info(f"status updated to 'checksumming' for run '{name}'")
 
-        create_checksum_file(run_name=name, sequencer_location=sequencer.location, exclusions=sequencer.exclusions or [])
+        create_checksum_file(run_name=name, sequencer_location=sequencer.location, exclusions=sequencer.exclusions or [], on_progress=_make_progress_callback(run.uuid))
+
+        # checksumming done — set queued while waiting for upload slot, clear progress
+        run_obj = db.query(Runs).filter(Runs.uuid == run.uuid).first()
+        if run_obj:
+            run_obj.status   = "queued"
+            run_obj.progress = None
+            db.commit()
+        add_run_status_history(run_uuid=run.uuid, status="queued", db=db)
 
         from services.publisher import publish
         publish("run_upload_requested", name, sequencer_uuid)
@@ -365,7 +398,40 @@ def on_message(channel, method, properties, body):
         channel.basic_ack(delivery_tag=method.delivery_tag)
 
 
+def recover_stuck_runs():
+    """
+    On worker startup, find any runs stuck in intermediate states
+    (checksumming / moving / verifying) and mark them failed.
+    These indicate the worker crashed mid-processing.
+    """
+    STUCK_STATUSES = ["checksumming", "moving", "verifying"]
+    db = SESSION_LOCAL()
+    try:
+        stuck = db.query(Runs).filter(Runs.status.in_(STUCK_STATUSES)).all()
+        for run in stuck:
+            logger.warning(f"recovering stuck run '{run.name}' (status={run.status}) — marking as failed")
+            old_status = run.status
+            run.status = "failed"
+            run.progress = None
+            db.flush()
+            add_run_status_history(
+                run_uuid=run.uuid,
+                status="failed",
+                db=db,
+                detail=f"Worker restarted while run was in '{old_status}' — use Retry to resume",
+            )
+        db.commit()
+        if stuck:
+            logger.info(f"recovered {len(stuck)} stuck run(s)")
+    except Exception as e:
+        logger.error(f"failed to recover stuck runs: {e}", exc_info=True)
+        db.rollback()
+    finally:
+        db.close()
+
+
 def start():
+    recover_stuck_runs()
     logger.info("connecting to RabbitMQ...")
     for attempt in range(1, 11):
         try:

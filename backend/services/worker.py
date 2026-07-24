@@ -208,7 +208,7 @@ def handle_run_upload_requested(name: str, sequencer_uuid):
 
     # Guard: skip if run was cancelled or a verify-only retry is already in progress
     existing = db.query(Runs).filter(Runs.name == name, Runs.sequencer_uuid == sequencer_uuid).first()
-    if existing and existing.status in ("move_failed", "verifying", "completed"):
+    if existing and existing.status in ("move_failed", "verify_failed", "verifying", "completed"):
         logger.warning(f"run_upload_requested ignored for '{name}' — status is '{existing.status}' (cancelled or superseded)")
         db.close()
         return
@@ -243,6 +243,8 @@ def handle_run_upload_requested(name: str, sequencer_uuid):
     # ── step 2: verify ────────────────────────────────────────────────────────
     try:
         run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="verifying", db=db)
+        run.progress = None
+        db.commit()
         add_run_status_history(run_uuid=run.uuid, status="verifying", db=db)
         logger.info(f"status updated to 'verifying' for run '{name}'")
 
@@ -351,6 +353,8 @@ def handle_run_verify_requested(name: str, sequencer_uuid):
             run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="verifying", db=db)
             add_run_status_history(run_uuid=run.uuid, status="verifying", db=db)
             logger.info(f"status updated to 'verifying' for run '{name}'")
+        run.progress = None
+        db.commit()
 
         run_folder = os.path.join(sequencer.location, name)
         checksum_files = glob.glob(os.path.join(run_folder, "*.CHECKSUM"))

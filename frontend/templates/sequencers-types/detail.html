@@ -1,76 +1,135 @@
-{% extends "base.html" %} {% block title %}{{ st.name }}{% endblock %} {% block content %}
-<div class="mb-6">
-  <a href="/sequencers-types/" class="text-sm text-indigo-600 hover:underline">&larr; Back to sequencer types</a>
+{% extends "base.html" %}
+{% block title %}{{ st.name }}{% endblock %}
+
+{% block content %}
+
+{% set is_signal = st.completion_method == 'signal' %}
+
+{# ── Back nav ── #}
+<div class="mb-5">
+  <a href="/sequencers-types/" class="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-[#0C2461] transition">
+    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"/>
+    </svg>
+    Sequencer Types
+  </a>
 </div>
 
-<div class="bg-white rounded-xl shadow p-8 max-w-2xl">
-  <div class="flex items-start justify-between mb-6">
+{# ── Header ── #}
+<div class="flex items-start justify-between mb-6">
+  <div class="flex items-center gap-4">
+    <div class="flex items-center justify-center w-11 h-11 rounded-xl shrink-0
+      {% if is_signal %}bg-blue-50 text-blue-500{% else %}bg-amber-50 text-amber-500{% endif %}">
+      {% if is_signal %}
+      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>
+      </svg>
+      {% else %}
+      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+      </svg>
+      {% endif %}
+    </div>
     <div>
       <h1 class="text-2xl font-bold text-gray-900">{{ st.name }}</h1>
-      <p class="text-sm text-gray-400 mt-1">
-        {% if st.completion_method == "file_stability" %}
-          File Stability
-        {% else %}
-          Signal File
+      <p class="text-xs text-gray-400 font-mono mt-0.5">{{ st.uuid }}</p>
+    </div>
+  </div>
+  <span class="mt-1 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border
+    {% if is_signal %}bg-blue-50 text-blue-500 border-blue-100{% else %}bg-amber-50 text-amber-500 border-amber-100{% endif %}">
+    {% if is_signal %}Signal{% else %}File Stability{% endif %}
+  </span>
+</div>
+
+{# ── Config card ── #}
+<div class="bg-white rounded-xl border border-gray-100 mb-5">
+
+  {% if is_signal %}
+
+  <div class="grid grid-cols-2 divide-x divide-gray-50">
+    <div class="px-6 py-5">
+      <p class="text-[11px] text-gray-400 font-semibold uppercase tracking-wide mb-2">Signal File</p>
+      <p class="text-sm font-mono text-gray-800">{{ st.completion_signal or '—' }}</p>
+      <p class="text-xs text-gray-400 mt-1">Filename that marks a run as complete</p>
+    </div>
+    <div class="px-6 py-5">
+      <p class="text-[11px] text-gray-400 font-semibold uppercase tracking-wide mb-2">Match Rule</p>
+      <div class="flex items-center gap-2">
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-100 text-gray-700 text-xs font-semibold">
+          {% if st.signal_match == 'exact' %}
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14"/></svg>
+          Exact match
+          {% elif st.signal_match == 'prefix' %}
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12h6m0 0-3-3m3 3-3 3"/></svg>
+          Prefix match
+          {% elif st.signal_match == 'suffix' %}
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12h-6m0 0 3-3m-3 3 3 3"/></svg>
+          Suffix match
+          {% else %}
+          {{ st.signal_match }}
+          {% endif %}
+        </span>
+      </div>
+      <p class="text-xs text-gray-400 mt-1">
+        {% if st.signal_match == 'exact' %}Filename must match exactly
+        {% elif st.signal_match == 'prefix' %}Filename must start with the signal
+        {% elif st.signal_match == 'suffix' %}Filename must end with the signal
         {% endif %}
       </p>
     </div>
-    {% if st.completion_method == "signal" %}
-    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">signal</span>
+  </div>
+
+  {% else %}
+
+  <div class="px-6 py-5 border-b border-gray-50">
+    <p class="text-[11px] text-gray-400 font-semibold uppercase tracking-wide mb-3">Watched Files</p>
+    {% if st.stability_files %}
+    <div class="flex flex-wrap gap-2">
+      {% for f in st.stability_files %}
+      <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-100 text-gray-700 text-xs font-mono">
+        <svg class="w-3 h-3 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/></svg>
+        {{ f }}
+      </span>
+      {% endfor %}
+    </div>
     {% else %}
-    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">file stability</span>
+    <p class="text-sm text-gray-300 italic">No files configured</p>
     {% endif %}
   </div>
 
-  <dl class="grid grid-cols-2 gap-4 text-sm mb-8">
-    <div>
-      <dt class="text-gray-400 font-medium">UUID</dt>
-      <dd class="text-gray-800 mt-1 font-mono text-xs">{{ st.uuid }}</dd>
-    </div>
-
-    {% if st.completion_method == "signal" %}
-    <div>
-      <dt class="text-gray-400 font-medium">Completion Signal</dt>
-      <dd class="text-gray-800 mt-1">{{ st.completion_signal }}</dd>
-    </div>
-    <div>
-      <dt class="text-gray-400 font-medium">Signal Match</dt>
-      <dd class="text-gray-800 mt-1">{{ st.signal_match }}</dd>
-    </div>
-    {% else %}
-    <div>
-      <dt class="text-gray-400 font-medium">Stability Threshold</dt>
-      <dd class="text-gray-800 mt-1">{{ st.stability_threshold_minutes }} minutes</dd>
-    </div>
-    <div class="col-span-2">
-      <dt class="text-gray-400 font-medium mb-2">Files to Monitor</dt>
-      <dd>
-        {% if st.stability_files %}
-        <ul class="space-y-1">
-          {% for f in st.stability_files %}
-          <li class="inline-block bg-gray-100 text-gray-700 text-xs font-mono px-2 py-1 rounded mr-1 mb-1">{{ f }}</li>
-          {% endfor %}
-        </ul>
-        {% else %}
-        <span class="text-gray-400 text-xs">None configured</span>
-        {% endif %}
-      </dd>
-    </div>
-    {% endif %}
-  </dl>
-
-  <div class="flex gap-3">
-    <a href="/sequencers-types/{{ st.uuid }}/edit"
-       class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition">
-      Edit
-    </a>
-    <form method="POST" action="/sequencers-types/{{ st.uuid }}/delete"
-          onsubmit="return confirm('Delete this sequencer type?');">
-      <button type="submit"
-              class="bg-red-100 text-red-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-200 transition">
-        Delete
-      </button>
-    </form>
+  <div class="px-6 py-5">
+    <p class="text-[11px] text-gray-400 font-semibold uppercase tracking-wide mb-2">Stability Threshold</p>
+    <p class="text-sm text-gray-800 font-medium flex items-center gap-1.5">
+      <svg class="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+      </svg>
+      {{ st.stability_threshold_minutes or '—' }} minutes
+    </p>
+    <p class="text-xs text-gray-400 mt-1">No file size change within this window means the run is complete</p>
   </div>
+
+  {% endif %}
 </div>
+
+{# ── Actions ── #}
+<div class="flex items-center gap-3">
+  <a href="/sequencers-types/{{ st.uuid }}/edit"
+     class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-[#0C2461] text-[#0C2461] bg-white hover:bg-[#0C2461] hover:text-white transition">
+    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125"/>
+    </svg>
+    Edit
+  </a>
+  <form method="POST" action="/sequencers-types/{{ st.uuid }}/delete"
+        onsubmit="return confirm('Delete this sequencer type?');">
+    <button type="submit"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-red-200 text-red-400 bg-white hover:bg-red-50 hover:text-red-500 transition">
+      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/>
+      </svg>
+      Delete
+    </button>
+  </form>
+</div>
+
 {% endblock %}

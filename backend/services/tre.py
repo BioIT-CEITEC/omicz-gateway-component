@@ -7,6 +7,8 @@ import threading
 import time
 
 import boto3
+from boto3.exceptions import S3UploadFailedError
+from boto3.s3.transfer import TransferConfig
 from botocore.exceptions import BotoCoreError, ClientError, EndpointConnectionError
 
 # Always skip hidden files/folders (same rule as checksumming)
@@ -24,8 +26,7 @@ S3_BUCKET      = os.getenv("S3_BUCKET",      "omicz-dev")
 S3_PREFIX      = os.getenv("S3_PREFIX",      "raw_run_data/")
 
 
-VERIFY_RETRIES  = int(os.getenv("VERIFY_RETRIES",  "10"))   # how many times to check
-VERIFY_INTERVAL = int(os.getenv("VERIFY_INTERVAL", "60"))   # seconds between each check
+from db.repositories.settings import get_setting_int
 
 
 def _is_excluded(relative_path: str, exclusions: list[str]) -> bool:
@@ -47,46 +48,55 @@ def _is_excluded(relative_path: str, exclusions: list[str]) -> bool:
     return False
 
 
-class _ProgressReader:
-    """Wraps a file and calls on_chunk(n) for every chunk read, enabling live progress."""
-    def __init__(self, fh, on_chunk):
-        self._fh = fh
-        self._on_chunk = on_chunk
-
-    def read(self, n=-1):
-        data = self._fh.read(n)
-        if data and self._on_chunk:
-            self._on_chunk(len(data))
-        return data
-
-    def __getattr__(self, name):
-        return getattr(self._fh, name)
+_MULTIPART_THRESHOLD   = 16 * 1024 * 1024   # files >= 16 MB use multipart
+_MULTIPART_CHUNKSIZE   = 16 * 1024 * 1024   # 16 MB per part
+_MULTIPART_CONCURRENCY = 4                   # 4 parallel streams — kubectl port-forward safe limit
 
 
-def _upload_file_put(s3, local_path: str, bucket: str, s3_key: str,
-                     on_bytes=None, max_attempts: int = 5) -> None:
+def _upload_file(s3, local_path: str, bucket: str, s3_key: str,
+                 on_bytes=None, on_retry=None, max_attempts: int = 5, backoff_max: int = 30) -> None:
     """
-    Upload a single file using a plain PUT (put_object).
-
-    Avoids multipart upload entirely — some S3 proxies forbid CompleteMultipartUpload
-    even when they allow individual UploadPart calls.
-    on_bytes(n) is called progressively as bytes are streamed.
+    Upload a single file using the S3 Transfer Manager.
+    Files >= _MULTIPART_THRESHOLD are split into _MULTIPART_CHUNKSIZE parts and
+    uploaded with _MULTIPART_CONCURRENCY parallel threads. Smaller files use a
+    single PUT. on_bytes(n) is called as bytes are transferred (thread-safe —
+    the Transfer Manager may call it from multiple threads for large files).
     """
-    file_size = os.path.getsize(local_path)
+    config = TransferConfig(
+        multipart_threshold=_MULTIPART_THRESHOLD,
+        multipart_chunksize=_MULTIPART_CHUNKSIZE,
+        max_concurrency=_MULTIPART_CONCURRENCY,
+    )
     for attempt in range(1, max_attempts + 1):
+        if attempt > 1 and on_retry:
+            on_retry()   # reset per-file byte counter so progress doesn't exceed total
         try:
-            with open(local_path, "rb") as fh:
-                reader = _ProgressReader(fh, on_bytes)
-                s3.put_object(Bucket=bucket, Key=s3_key, Body=reader, ContentLength=file_size)
-            logger.info(f"[TRE upload] put_object complete: s3://{bucket}/{s3_key} size={file_size}")
+            s3.upload_file(local_path, bucket, s3_key, Config=config,
+                           Callback=on_bytes if on_bytes else None)
+            logger.info(f"[TRE upload] complete: s3://{bucket}/{s3_key} size={os.path.getsize(local_path)}")
             return
-        except (BotoCoreError, ClientError, OSError) as exc:
+        except (S3UploadFailedError, ClientError) as exc:
+            # S3UploadFailedError wraps ClientError when using upload_file(); check both forms
+            is_precondition = (
+                isinstance(exc, ClientError) and exc.response.get("Error", {}).get("Code", "") == "PreconditionFailed"
+            ) or "PreconditionFailed" in str(exc)
+            if is_precondition:
+                logger.warning(f"[TRE upload] PreconditionFailed for {s3_key} — file already on S3, skipping")
+                return
             if attempt < max_attempts:
-                wait = min(5 * attempt, 30)
-                logger.warning(f"[TRE upload] put_object attempt {attempt} failed — retry in {wait}s: {exc}")
+                wait = min(5 * attempt, backoff_max)
+                logger.warning(f"[TRE upload] attempt {attempt} failed — retry in {wait}s: {exc}")
                 time.sleep(wait)
             else:
-                logger.error(f"[TRE upload] all {max_attempts} put_object attempts failed for {local_path}: {exc}")
+                logger.error(f"[TRE upload] all {max_attempts} attempts failed for {local_path}: {exc}")
+                raise
+        except Exception as exc:
+            if attempt < max_attempts:
+                wait = min(5 * attempt, backoff_max)
+                logger.warning(f"[TRE upload] attempt {attempt} failed — retry in {wait}s: {exc}")
+                time.sleep(wait)
+            else:
+                logger.error(f"[TRE upload] all {max_attempts} attempts failed for {local_path}: {exc}")
                 raise
 
 
@@ -96,7 +106,9 @@ def send_to_tre(run_name: str, sequencer_location: str, sequencer_slug: str, exc
     Raises on failure so the caller can store the real error detail.
     on_progress(files_done, total_files, bytes_done, total_bytes) called after each file.
     """
-    local_folder   = os.path.join(sequencer_location, run_name)
+    max_attempts = get_setting_int("upload_max_attempts", 5)
+    backoff_max  = get_setting_int("upload_retry_backoff_max", 30)
+    local_folder = os.path.join(sequencer_location, run_name)
     all_exclusions = _BUILTIN_EXCLUSIONS + (exclusions or [])
 
     s3 = boto3.client(
@@ -141,6 +153,9 @@ def send_to_tre(run_name: str, sequencer_location: str, sequencer_slug: str, exc
                 pass
             upload_files.append((local_path, relative_path, rel_to_run))
 
+    # Sort so that the .CHECKSUM file is uploaded last — it is the S3 trigger
+    upload_files.sort(key=lambda t: t[2].endswith(".CHECKSUM"))
+
     total_files  = len(upload_files)
     files_done   = 0
     bytes_done   = 0
@@ -169,9 +184,14 @@ def send_to_tre(run_name: str, sequencer_location: str, sequencer_slug: str, exc
                     except Exception:
                         pass
 
+        def _reset_file_bytes():
+            with _lock:
+                _file_bytes[0] = 0
+
         try:
-            _upload_file_put(s3, local_path, S3_BUCKET, s3_key, on_bytes=_chunk_done)
-        except (BotoCoreError, ClientError, OSError) as e:
+            _upload_file(s3, local_path, S3_BUCKET, s3_key, on_bytes=_chunk_done, on_retry=_reset_file_bytes,
+                         max_attempts=max_attempts, backoff_max=backoff_max)
+        except (BotoCoreError, ClientError, S3UploadFailedError, OSError) as e:
             logger.error(f"Failed to upload {local_path} to {S3_BUCKET}/{s3_key}: {e}")
             raise
         files_done += 1
@@ -198,6 +218,9 @@ def verify_checksum_on_s3(checksum_filename: str) -> tuple[bool, str | None]:
         (False, "<message>") — file exists and has content = TRE error
         (False, None)        — not found after all retries, or unexpected S3 error
     """
+    VERIFY_RETRIES  = get_setting_int("verify_retries",  10)
+    VERIFY_INTERVAL = get_setting_int("verify_interval", 60)
+
     s3 = boto3.client(
         "s3",
         endpoint_url=S3_ENDPOINT,

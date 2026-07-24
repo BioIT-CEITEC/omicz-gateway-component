@@ -16,12 +16,20 @@ router = APIRouter()
 
 
 @router.get("/", response_model=PaginatedResponse[ShowRun])
-def list_runs(skip: int = Query(default=settings.PAGINATION_DEFAULT_SKIP, ge=0), limit: int = Query(default=settings.PAGINATION_DEFAULT_LIMIT, ge=1, le=settings.PAGINATION_MAX_LIMIT), db: Session = Depends(get_db)):
+def list_runs(
+    skip: int = Query(default=settings.PAGINATION_DEFAULT_SKIP, ge=0),
+    limit: int = Query(default=settings.PAGINATION_DEFAULT_LIMIT, ge=1, le=settings.PAGINATION_MAX_LIMIT),
+    status: list[str] | None = Query(default=None),
+    search: str | None = Query(default=None),
+    order: str = Query(default="desc", pattern="^(asc|desc)$"),
+    sequencer_uuid: UUID | None = Query(default=None),
+    db: Session = Depends(get_db),
+):
     return PaginatedResponse(
-        total=count_runs(db=db),
+        total=count_runs(db=db, statuses=status, search=search, sequencer_uuid=sequencer_uuid),
         skip=skip,
         limit=limit,
-        results=get_all_runs(db=db, skip=skip, limit=limit),
+        results=get_all_runs(db=db, skip=skip, limit=limit, statuses=status, search=search, order=order, sequencer_uuid=sequencer_uuid),
     )
 
 
@@ -72,13 +80,19 @@ def start_upload(uuid: UUID, db: Session = Depends(get_db)):
             detail=f"Cannot start upload: run is '{run.status}'"
         )
     prev_status = run.status
-    run.status = "queued"
-    db.commit()
-    db.refresh(run)
-    add_run_status_history(run_uuid=run.uuid, status="queued", db=db)
     if prev_status == "verify_failed":
+        # Skip queued — go straight to verifying so any stale run_upload_requested
+        # events in the queue are discarded by the upload handler guard.
+        run.status = "verifying"
+        db.commit()
+        db.refresh(run)
+        add_run_status_history(run_uuid=run.uuid, status="verifying", db=db)
         publish("run_verify_requested", run.name, run.sequencer_uuid)
     else:
+        run.status = "queued"
+        db.commit()
+        db.refresh(run)
+        add_run_status_history(run_uuid=run.uuid, status="queued", db=db)
         publish("run_checksum_requested", run.name, run.sequencer_uuid)
     return {"detail": "Queued"}
 
@@ -101,6 +115,26 @@ def recheck(uuid: UUID, db: Session = Depends(get_db)):
     add_run_status_history(run_uuid=run.uuid, status="queued", db=db)
     publish("run_rechecksum_requested", run.name, run.sequencer_uuid)
     return {"detail": "Queued"}
+
+
+@router.post("/{uuid}/cancel-upload", status_code=status.HTTP_200_OK)
+def cancel_upload(uuid: UUID, db: Session = Depends(get_db)):
+    """
+    Force a run in 'queued' or 'moving' back to 'move_failed'.
+    The background worker will still run to completion, but the status is corrected
+    so the user can retry later via start-upload.
+    """
+    run = get_run_by_uuid(uuid=uuid, db=db)
+    if run.status not in ("queued", "moving"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Cannot cancel: run is '{run.status}', expected 'queued' or 'moving'"
+        )
+    run.status = "move_failed"
+    db.commit()
+    db.refresh(run)
+    add_run_status_history(run_uuid=run.uuid, status="move_failed", detail="Cancelled by user", db=db)
+    return {"detail": "Reset to move_failed"}
 
 
 @router.delete("/{uuid}", status_code=status.HTTP_200_OK)

@@ -17,7 +17,8 @@ from db.repositories.runs_status_history import add_run_status_history
 import glob
 
 from services.checksum import create_checksum_file, find_file_by_hash, _fmt_bytes
-from services.tre import send_to_tre, verify_checksum_on_s3, VERIFY_RETRIES
+from services.tre import send_to_tre, verify_checksum_on_s3
+from db.repositories.settings import get_setting_int
 from core.logger import get_logger
 
 logger = get_logger("worker")
@@ -55,7 +56,7 @@ def resolve_verify_detail(tre_error: str | None, run_folder: str, retries: int) 
 def _make_progress_callback(run_uuid):
     """Returns a callback that writes checksumming progress to the run's progress column."""
     def callback(done: int, total: int, bytes_done: int, total_bytes: int):
-        text = f"{done} / {total} files · {_fmt_bytes(bytes_done)} / {_fmt_bytes(total_bytes)}"
+        text = f"{_fmt_bytes(bytes_done)} / {_fmt_bytes(total_bytes)}"
         db = SESSION_LOCAL()
         try:
             run = db.query(Runs).filter(Runs.uuid == run_uuid).first()
@@ -153,6 +154,12 @@ def handle_run_checksum_requested(name: str, sequencer_uuid):
             logger.error(f"sequencer {sequencer_uuid} not found — cannot checksum run '{name}'")
             return
 
+        # Guard: skip if run was cancelled while this event was queued
+        existing = db.query(Runs).filter(Runs.name == name, Runs.sequencer_uuid == sequencer_uuid).first()
+        if existing and existing.status == "move_failed":
+            logger.warning(f"run_checksum_requested ignored for '{name}' — run was cancelled (move_failed)")
+            return
+
         run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="checksumming", db=db)
         add_run_status_history(run_uuid=run.uuid, status="checksumming", db=db)
         logger.info(f"status updated to 'checksumming' for run '{name}'")
@@ -199,6 +206,13 @@ def handle_run_upload_requested(name: str, sequencer_uuid):
         db.close()
         return
 
+    # Guard: skip if run was cancelled or a verify-only retry is already in progress
+    existing = db.query(Runs).filter(Runs.name == name, Runs.sequencer_uuid == sequencer_uuid).first()
+    if existing and existing.status in ("move_failed", "verifying", "completed"):
+        logger.warning(f"run_upload_requested ignored for '{name}' — status is '{existing.status}' (cancelled or superseded)")
+        db.close()
+        return
+
     # ── step 1: upload ────────────────────────────────────────────────────────
     try:
         run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="moving", db=db)
@@ -213,8 +227,14 @@ def handle_run_upload_requested(name: str, sequencer_uuid):
     except Exception as e:
         logger.error(f"[upload] FAILED for run '{name}': {e}", exc_info=True)
         try:
-            run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="move_failed", db=db)
-            add_run_status_history(run_uuid=run.uuid, status="move_failed", db=db, detail=str(e))
+            # Only set move_failed if still in 'moving' — a retry click may have already
+            # changed the status to 'queued', in which case we must not overwrite it.
+            current = db.query(Runs).filter(Runs.name == name, Runs.sequencer_uuid == sequencer_uuid).first()
+            if current and current.status == "moving":
+                run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="move_failed", db=db)
+                add_run_status_history(run_uuid=run.uuid, status="move_failed", db=db, detail=str(e))
+            else:
+                logger.info(f"[upload] not setting move_failed — status is already '{current.status if current else 'unknown'}' (retry in progress?)")
         except Exception:
             pass
         db.close()
@@ -235,7 +255,7 @@ def handle_run_upload_requested(name: str, sequencer_uuid):
 
         verified, tre_error = verify_checksum_on_s3(checksum_filename)
         if not verified:
-            raise Exception(resolve_verify_detail(tre_error, run_folder, VERIFY_RETRIES))
+            raise Exception(resolve_verify_detail(tre_error, run_folder, get_setting_int("verify_retries", 10)))
 
     except Exception as e:
         logger.error(f"[verify] FAILED for run '{name}': {e}", exc_info=True)
@@ -322,9 +342,15 @@ def handle_run_verify_requested(name: str, sequencer_uuid):
         return
 
     try:
-        run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="verifying", db=db)
-        add_run_status_history(run_uuid=run.uuid, status="verifying", db=db)
-        logger.info(f"status updated to 'verifying' for run '{name}'")
+        existing_for_verify = db.query(Runs).filter(Runs.name == name, Runs.sequencer_uuid == sequencer_uuid).first()
+        if existing_for_verify and existing_for_verify.status == "verifying":
+            # API already set status to verifying (verify-only retry path) — skip duplicate
+            run = existing_for_verify
+            logger.info(f"run '{name}' already 'verifying' — skipping status update")
+        else:
+            run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="verifying", db=db)
+            add_run_status_history(run_uuid=run.uuid, status="verifying", db=db)
+            logger.info(f"status updated to 'verifying' for run '{name}'")
 
         run_folder = os.path.join(sequencer.location, name)
         checksum_files = glob.glob(os.path.join(run_folder, "*.CHECKSUM"))
@@ -335,7 +361,7 @@ def handle_run_verify_requested(name: str, sequencer_uuid):
 
         verified, tre_error = verify_checksum_on_s3(checksum_filename)
         if not verified:
-            raise Exception(resolve_verify_detail(tre_error, run_folder, VERIFY_RETRIES))
+            raise Exception(resolve_verify_detail(tre_error, run_folder, get_setting_int("verify_retries", 10)))
 
         run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="completed", db=db)
         add_run_status_history(run_uuid=run.uuid, status="completed", db=db)
@@ -401,25 +427,27 @@ def on_message(channel, method, properties, body):
 def recover_stuck_runs():
     """
     On worker startup, find any runs stuck in intermediate states
-    (checksumming / moving / verifying) and mark them failed.
-    These indicate the worker crashed mid-processing.
+    (checksumming / moving / verifying) and move them to the appropriate
+    failed status so the retry button picks up from the right stage:
+      checksumming → failed       (retry re-checksums and re-uploads)
+      moving       → move_failed  (retry re-uploads only)
+      verifying    → verify_failed (retry re-verifies only, no re-upload)
     """
-    STUCK_STATUSES = ["checksumming", "moving", "verifying"]
+    RECOVERY_MAP = {
+        "checksumming": ("failed",       "Worker restarted during checksumming — use Retry to resume"),
+        "moving":       ("move_failed",  "Worker restarted during upload — use Retry Upload to resume"),
+        "verifying":    ("verify_failed","Worker restarted during verification — use Retry Verification to resume"),
+    }
     db = SESSION_LOCAL()
     try:
-        stuck = db.query(Runs).filter(Runs.status.in_(STUCK_STATUSES)).all()
+        stuck = db.query(Runs).filter(Runs.status.in_(list(RECOVERY_MAP))).all()
         for run in stuck:
-            logger.warning(f"recovering stuck run '{run.name}' (status={run.status}) — marking as failed")
-            old_status = run.status
-            run.status = "failed"
+            new_status, detail = RECOVERY_MAP[run.status]
+            logger.warning(f"recovering stuck run '{run.name}' (status={run.status}) → {new_status}")
+            run.status   = new_status
             run.progress = None
             db.flush()
-            add_run_status_history(
-                run_uuid=run.uuid,
-                status="failed",
-                db=db,
-                detail=f"Worker restarted while run was in '{old_status}' — use Retry to resume",
-            )
+            add_run_status_history(run_uuid=run.uuid, status=new_status, db=db, detail=detail)
         db.commit()
         if stuck:
             logger.info(f"recovered {len(stuck)} stuck run(s)")

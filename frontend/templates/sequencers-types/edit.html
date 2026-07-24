@@ -2,112 +2,200 @@
 {% block title %}Edit {{ st.name }}{% endblock %}
 
 {% block content %}
-<div class="mb-6">
-  <a href="/sequencers-types/{{ st.uuid }}" class="text-sm text-indigo-600 hover:underline">&larr; Back</a>
+
+<div class="mb-5">
+  <a href="/sequencers-types/{{ st.uuid }}" class="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-[#0C2461] transition">
+    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"/>
+    </svg>
+    {{ st.name }}
+  </a>
 </div>
 
-<div class="bg-white rounded-xl shadow p-8 max-w-lg">
-  <h1 class="text-xl font-bold text-gray-900 mb-6">Edit Sequencer Type</h1>
+<div class="flex items-center gap-3 mb-6">
+  <div class="flex items-center justify-center w-10 h-10 rounded-xl
+    {% if st.completion_method == 'signal' %}bg-blue-50 text-blue-500{% else %}bg-amber-50 text-amber-500{% endif %}">
+    {% if st.completion_method == 'signal' %}
+    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>
+    </svg>
+    {% else %}
+    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+    </svg>
+    {% endif %}
+  </div>
+  <div>
+    <h1 class="text-xl font-bold text-gray-900">Edit {{ st.name }}</h1>
+    <p class="text-sm text-gray-400 mt-0.5">Update completion detection settings</p>
+  </div>
+</div>
 
-  {% if error %}
-  <div class="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">{{ error }}</div>
-  {% endif %}
+{% if error %}
+<div class="mb-5 flex items-start gap-3 p-4 bg-red-50 border border-red-100 rounded-xl text-sm text-red-600">
+  <svg class="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/></svg>
+  {{ error }}
+</div>
+{% endif %}
 
-  <form method="POST" action="/sequencers-types/{{ st.uuid }}/edit" class="space-y-4">
+<form method="POST" action="/sequencers-types/{{ st.uuid }}/edit" class="space-y-5 max-w-xl">
 
-    <div>
-      <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
-      <input type="text" name="name" required value="{{ st.name }}"
-             class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
-    </div>
+  {# Name #}
+  <div class="bg-white rounded-xl border border-gray-100 px-5 py-4">
+    <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Name</label>
+    <input type="text" name="name" required value="{{ st.name }}"
+           class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0C2461]" />
+  </div>
 
-    <div>
-      <label class="block text-sm font-medium text-gray-700 mb-1">Completion Method</label>
-      <select name="completion_method" id="completion_method" onchange="toggleMethod()"
-              class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
-        <option value="signal" {% if st.completion_method == "signal" %}selected{% endif %}>Signal File — wait for a specific file to appear</option>
-        <option value="file_stability" {% if st.completion_method == "file_stability" %}selected{% endif %}>File Stability — wait until files stop growing</option>
-      </select>
-    </div>
+  {# Method selector cards #}
+  <div class="bg-white rounded-xl border border-gray-100 px-5 py-4">
+    <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-3">Completion Method</label>
+    <input type="hidden" name="completion_method" id="completion_method" value="{{ st.completion_method }}" />
+    <div class="grid grid-cols-2 gap-3">
 
-    <!-- Signal method fields -->
-    <div id="signal_fields">
-      <div class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Completion Signal</label>
-          <input type="text" name="completion_signal"
-                 value="{{ st.completion_signal or '' }}"
-                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                 placeholder="RTAComplete.txt" />
-          <p class="text-xs text-gray-400 mt-1">Filename that marks a run as complete.</p>
+      <button type="button" id="btn-signal" onclick="selectMethod('signal')"
+              class="method-btn text-left p-4 rounded-xl border-2 transition
+                {% if st.completion_method == 'signal' %}border-[#0C2461] bg-[#0C2461]/5{% else %}border-gray-200 bg-white{% endif %}">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="w-7 h-7 rounded-lg bg-blue-100 text-blue-500 flex items-center justify-center shrink-0">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>
+            </svg>
+          </span>
+          <span class="text-sm font-semibold text-gray-800">Signal File</span>
         </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Signal Match</label>
-          <select name="signal_match"
-                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
-            <option value="exact" {% if st.signal_match == "exact" %}selected{% endif %}>Exact — filename must match exactly</option>
-            <option value="prefix" {% if st.signal_match == "prefix" %}selected{% endif %}>Prefix — filename must start with the signal</option>
-            <option value="suffix" {% if st.signal_match == "suffix" %}selected{% endif %}>Suffix — filename must end with the signal</option>
-          </select>
+        <p class="text-xs text-gray-400 leading-relaxed">Wait for a specific file to appear in the run folder</p>
+      </button>
+
+      <button type="button" id="btn-stability" onclick="selectMethod('file_stability')"
+              class="method-btn text-left p-4 rounded-xl border-2 transition
+                {% if st.completion_method == 'file_stability' %}border-[#0C2461] bg-[#0C2461]/5{% else %}border-gray-200 bg-white{% endif %}">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="w-7 h-7 rounded-lg bg-amber-100 text-amber-500 flex items-center justify-center shrink-0">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+            </svg>
+          </span>
+          <span class="text-sm font-semibold text-gray-800">File Stability</span>
         </div>
+        <p class="text-xs text-gray-400 leading-relaxed">Wait until monitored files stop growing for a set time</p>
+      </button>
+
+    </div>
+  </div>
+
+  {# Signal fields #}
+  <div id="signal_fields" class="{% if st.completion_method != 'signal' %}hidden {% endif %}bg-white rounded-xl border border-gray-100 px-5 py-4 space-y-4">
+    <div>
+      <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Signal Filename</label>
+      <input type="text" name="completion_signal" value="{{ st.completion_signal or '' }}" placeholder="RTAComplete.txt"
+             class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#0C2461] placeholder-gray-300" />
+      <p class="text-xs text-gray-400 mt-1.5">File whose appearance marks the run as complete</p>
+    </div>
+    <div>
+      <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Match Rule</label>
+      <div class="grid grid-cols-3 gap-2">
+        {% for val, icon_d, desc in [
+          ("exact",  "M5 12h14",                    "Exact"),
+          ("prefix", "M3 12h6m0 0-3-3m3 3-3 3",    "Prefix"),
+          ("suffix", "M21 12h-6m0 0 3-3m-3 3 3 3", "Suffix"),
+        ] %}
+        <label class="flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 border-gray-200 cursor-pointer
+                      has-[:checked]:border-[#0C2461] has-[:checked]:bg-[#0C2461]/5 transition">
+          <input type="radio" name="signal_match" value="{{ val }}"
+                 {% if st.signal_match == val %}checked{% endif %} class="sr-only" />
+          <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="{{ icon_d }}"/>
+          </svg>
+          <span class="text-xs font-medium text-gray-600">{{ desc }}</span>
+        </label>
+        {% endfor %}
       </div>
     </div>
+  </div>
 
-    <!-- File stability method fields -->
-    <div id="stability_fields" class="hidden space-y-4">
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Files to Monitor</label>
-        <p class="text-xs text-gray-400 mb-2">Exact filenames inside the run folder to watch for size changes.</p>
-        <div id="stability_files_list" class="space-y-2">
-          {% for f in st.stability_files or [] %}
-          <div class="flex gap-2 items-center">
-            <input type="text" name="stability_files" value="{{ f }}"
-                   class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
-            <button type="button" onclick="this.parentElement.remove()"
-                    class="text-gray-400 hover:text-red-500 text-lg leading-none">&times;</button>
-          </div>
-          {% endfor %}
+  {# Stability fields #}
+  <div id="stability_fields" class="{% if st.completion_method != 'file_stability' %}hidden {% endif %}bg-white rounded-xl border border-gray-100 px-5 py-4 space-y-4">
+    <div>
+      <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Files to Monitor</label>
+      <p class="text-xs text-gray-400 mb-3">Filenames inside the run folder to watch for size changes</p>
+      <div id="stability_files_list" class="space-y-2">
+        {% for f in st.stability_files or [] %}
+        <div class="flex gap-2 items-center">
+          <input type="text" name="stability_files" value="{{ f }}"
+                 class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#0C2461]" />
+          <button type="button" onclick="this.parentElement.remove()"
+                  class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-300 hover:text-red-400 hover:bg-red-50 transition">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+          </button>
         </div>
-        <button type="button" onclick="addStabilityFile()"
-                class="mt-2 text-sm text-indigo-600 hover:underline">+ Add file</button>
+        {% endfor %}
       </div>
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Stability Threshold (minutes)</label>
+      <button type="button" onclick="addStabilityFile()"
+              class="mt-2 inline-flex items-center gap-1 text-xs text-[#0C2461] hover:underline font-medium">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+        Add file
+      </button>
+    </div>
+    <div>
+      <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Stable after (minutes)</label>
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+        </svg>
         <input type="number" name="stability_threshold_minutes" min="1"
                value="{{ st.stability_threshold_minutes or 10 }}"
-               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
-        <p class="text-xs text-gray-400 mt-1">Minutes without file size change before the run is considered finished.</p>
+               class="w-28 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0C2461]" />
       </div>
+      <p class="text-xs text-gray-400 mt-1.5">No file size change within this window = run complete</p>
     </div>
+  </div>
 
+  {# Submit #}
+  <div class="flex items-center gap-3">
     <button type="submit"
-            class="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition">
+            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border border-[#0C2461] text-[#0C2461] bg-white hover:bg-[#0C2461] hover:text-white transition">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+      </svg>
       Save Changes
     </button>
-  </form>
-</div>
+    <a href="/sequencers-types/{{ st.uuid }}" class="text-xs text-gray-400 hover:text-gray-600 transition">Cancel</a>
+  </div>
 
+</form>
+
+{% endblock %}
+
+{% block scripts %}
 <script>
-function toggleMethod() {
-  const method = document.getElementById("completion_method").value;
-  document.getElementById("signal_fields").classList.toggle("hidden", method !== "signal");
-  document.getElementById("stability_fields").classList.toggle("hidden", method !== "file_stability");
+function selectMethod(method) {
+  document.getElementById('completion_method').value = method;
+  document.getElementById('signal_fields').classList.toggle('hidden', method !== 'signal');
+  document.getElementById('stability_fields').classList.toggle('hidden', method !== 'file_stability');
+  const btnSignal    = document.getElementById('btn-signal');
+  const btnStability = document.getElementById('btn-stability');
+  const active   = ['border-[#0C2461]', 'bg-[#0C2461]/5'];
+  const inactive = ['border-gray-200', 'bg-white'];
+  [btnSignal, btnStability].forEach(btn => {
+    btn.classList.remove('border-[#0C2461]', 'bg-[#0C2461]/5', 'border-gray-200', 'bg-white');
+  });
+  btnSignal.classList.add(...(method === 'signal' ? active : inactive));
+  btnStability.classList.add(...(method === 'file_stability' ? active : inactive));
 }
 
-function addStabilityFile() {
-  const list = document.getElementById("stability_files_list");
-  const row = document.createElement("div");
-  row.className = "flex gap-2 items-center";
+function addStabilityFile(value) {
+  const list = document.getElementById('stability_files_list');
+  const row  = document.createElement('div');
+  row.className = 'flex gap-2 items-center';
   row.innerHTML = `
-    <input type="text" name="stability_files"
-           placeholder="output.bam"
-           class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+    <input type="text" name="stability_files" value="${value || ''}" placeholder="output.bam"
+           class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#0C2461] placeholder-gray-300" />
     <button type="button" onclick="this.parentElement.remove()"
-            class="text-gray-400 hover:text-red-500 text-lg leading-none">&times;</button>
-  `;
+            class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-300 hover:text-red-400 hover:bg-red-50 transition">
+      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+    </button>`;
   list.appendChild(row);
 }
-
-toggleMethod();
 </script>
 {% endblock %}

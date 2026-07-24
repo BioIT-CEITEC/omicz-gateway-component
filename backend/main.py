@@ -3,6 +3,9 @@ from fastapi.responses import JSONResponse
 from core.config import settings
 from core.logger import get_logger
 from api.base import api_router
+from db.session import SESSION_LOCAL
+from db.repositories.settings import seed_defaults
+import db.base  # registers all models so SQLAlchemy can resolve relationships
 
 logger = get_logger("backend")
 
@@ -17,6 +20,16 @@ def start_app():
     async def unhandled_exception_handler(request: Request, exc: Exception):
         logger.error(f"unhandled error: {request.method} {request.url} — {exc}", exc_info=True)
         return JSONResponse(status_code=500, content={"detail": "internal server error"})
+
+    @app.on_event("startup")
+    def on_startup():
+        db = SESSION_LOCAL()
+        try:
+            seed_defaults(db)
+        except Exception as e:
+            logger.warning(f"Could not seed settings defaults (table may not exist yet): {e}")
+        finally:
+            db.close()
 
     return app
 

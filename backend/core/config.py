@@ -17,7 +17,7 @@ class Settings:
 
     PAGINATION_DEFAULT_SKIP: int  = int(os.getenv("PAGINATION_DEFAULT_SKIP", 0))
     PAGINATION_DEFAULT_LIMIT: int = int(os.getenv("PAGINATION_DEFAULT_LIMIT", 20))
-    PAGINATION_MAX_LIMIT: int     = int(os.getenv("PAGINATION_MAX_LIMIT", 50))
+    PAGINATION_MAX_LIMIT: int     = int(os.getenv("PAGINATION_MAX_LIMIT", 200))
 
     POSTGRES_USERNAME: str = os.getenv("POSTGRES_USERNAME", "postgres")
     POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "postgres")

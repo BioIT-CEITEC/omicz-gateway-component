@@ -14,8 +14,10 @@ import db.base  # registers all models so SQLAlchemy can resolve relationships
 from db.session import SESSION_LOCAL
 from db.models.sequencers import Sequencers
 from db.models.runs import Runs
+from db.models.runs_status_history import RunsStatusHistory
 from services.publisher import publish
 from core.logger import get_logger
+from db.repositories.settings import get_setting_int
 
 logger = get_logger("watcher")
 
@@ -30,19 +32,22 @@ class RunEventHandler(FileSystemEventHandler):
                 **_complete.txt              ← depth 2: completion signal (signal method only)
     """
 
-    def __init__(self, sequencer):
-        self.sequencer        = sequencer
-        self.location         = sequencer.location
+    def __init__(self, sequencer, stability_tracker: dict):
+        self.sequencer         = sequencer
+        self.location          = sequencer.location
         self.completion_method = sequencer.type.completion_method if sequencer.type else "signal"
+        self.stability_tracker = stability_tracker  # shared with main loop (GIL-safe dict ops)
 
         # store the completion signal info from the sequencer type
         # so we don't need to re-query DB on every event
         if sequencer.type:
-            self.signal       = sequencer.type.completion_signal
-            self.signal_match = sequencer.type.signal_match
+            self.signal          = sequencer.type.completion_signal
+            self.signal_match    = sequencer.type.signal_match
+            self.stability_files = sequencer.type.stability_files or []
         else:
-            self.signal       = None
-            self.signal_match = None
+            self.signal          = None
+            self.signal_match    = None
+            self.stability_files = []
 
         # pending timers: run_name → threading.Timer
         # folders wait RUN_DETECTION_DELAY seconds before being registered,
@@ -71,40 +76,59 @@ class RunEventHandler(FileSystemEventHandler):
         # parts = ["run_2026_04_15"]
         if len(parts) == 1 and event.is_directory:
             run_name = parts[0]
-            logger.info(f"folder detected: '{run_name}' — waiting {RUN_DETECTION_DELAY}s before registering")
+            delay = get_setting_int("run_detection_delay", _RUN_DETECTION_DELAY_DEFAULT)
+            logger.info(f"folder detected: '{run_name}' — waiting {delay}s before registering")
             with self._lock:
                 # cancel any existing timer for this name (safety guard)
                 if run_name in self._pending:
                     self._pending[run_name].cancel()
-                t = threading.Timer(RUN_DETECTION_DELAY, self._register_run, args=[run_name])
+                t = threading.Timer(delay, self._register_run, args=[run_name])
                 self._pending[run_name] = t
                 t.start()
 
         # ── depth 2: a new file inside a run folder ────────────────────────────
         # parts = ["run_2026_04_15", "RTAComplete.txt"]
-        # only relevant for the "signal" completion method
         elif len(parts) == 2 and not event.is_directory:
-            if self.completion_method != "signal":
-                return
-
             run_name = parts[0]
             filename = parts[1]
 
-            if self.signal is None:
-                # sequencer has no type set — we don't know what to look for
-                logger.warning(f"sequencer '{self.sequencer.name}' has no type set — skipping completion check")
-                return
+            if self.completion_method == "signal":
+                if self.signal is None:
+                    logger.warning(f"sequencer '{self.sequencer.name}' has no type set — skipping completion check")
+                    return
+                matched = (
+                    (self.signal_match == "exact"  and filename == self.signal) or
+                    (self.signal_match == "prefix" and filename.startswith(self.signal)) or
+                    (self.signal_match == "suffix" and filename.endswith(self.signal))
+                )
+                if matched:
+                    logger.info(f"run completed: {run_name} on sequencer {self.sequencer.name}")
+                    publish("run_completed", run_name, self.sequencer.uuid)
 
-            # check if this file matches the completion signal
-            matched = (
-                (self.signal_match == "exact"  and filename == self.signal) or
-                (self.signal_match == "prefix" and filename.startswith(self.signal)) or
-                (self.signal_match == "suffix" and filename.endswith(self.signal))
-            )
-
-            if matched:
-                logger.info(f"run completed: {run_name} on sequencer {self.sequencer.name}")
-                publish("run_completed", run_name, self.sequencer.uuid)
+            elif self.completion_method == "file_stability" and self.stability_files:
+                # A file appeared inside a run folder — if it's a stability file,
+                # immediately check whether all stability files are now present and
+                # start the stability clock without waiting for the next poll cycle.
+                if filename in self.stability_files:
+                    run_folder    = os.path.join(self.location, run_name)
+                    current_sizes = {}
+                    all_present   = True
+                    for sf in self.stability_files:
+                        fp = os.path.join(run_folder, sf)
+                        if not os.path.isfile(fp):
+                            all_present = False
+                            break
+                        try:
+                            current_sizes[sf] = os.path.getsize(fp)
+                        except OSError:
+                            all_present = False
+                            break
+                    if all_present:
+                        seq_uuid = str(self.sequencer.uuid)
+                        tracker  = self.stability_tracker.setdefault(seq_uuid, {})
+                        if run_name not in tracker:
+                            tracker[run_name] = {"sizes": current_sizes, "stable_since": datetime.now()}
+                            logger.info(f"stability clock started (event-driven) for '{run_name}' — sizes: {current_sizes}")
 
     def on_deleted(self, event):
         """Cancel pending timer if a folder is renamed/deleted before the delay expires."""
@@ -248,7 +272,9 @@ def scan_existing_runs(sequencer):
             completed   = is_completed(run_folder, sequencer)
             status      = "running_finished" if completed else "running"
 
-            db.add(Runs(name=run_name, sequencer_uuid=sequencer.uuid, status=status))
+            run = Runs(name=run_name, sequencer_uuid=sequencer.uuid, status=status)
+            db.add(run)
+            db.add(RunsStatusHistory(run_uuid=run.uuid, status=status))
             added += 1
             logger.info(f"backfill → {run_name} (status={status})")
 
@@ -358,11 +384,11 @@ def check_file_stability(sequencers: list, stability_tracker: dict):
                     del tracker[run_name]
 
 
-SEQUENCER_CHECK_INTERVAL = 60   # seconds between DB polls for new sequencers
-RUN_DETECTION_DELAY      = 15   # seconds to wait after folder creation before registering as a run
+_SEQUENCER_CHECK_INTERVAL_DEFAULT = 60
+_RUN_DETECTION_DELAY_DEFAULT      = 15
 
 
-def watch_sequencer(sequencer, observer, watched_uuids: set):
+def watch_sequencer(sequencer, observer, watched_uuids: set, stability_tracker: dict):
     """
     Start watching a single sequencer location.
     Scans existing run folders, schedules the filesystem handler,
@@ -375,7 +401,7 @@ def watch_sequencer(sequencer, observer, watched_uuids: set):
     logger.info(f"scanning existing runs in: {sequencer.location}")
     scan_existing_runs(sequencer)
 
-    handler = RunEventHandler(sequencer)
+    handler = RunEventHandler(sequencer, stability_tracker)
     observer.schedule(handler, path=sequencer.location, recursive=True)
     watched_uuids.add(str(sequencer.uuid))
     logger.info(f"watching: {sequencer.location} ({sequencer.name})")
@@ -396,31 +422,37 @@ def start():
     stability_tracker = {}
 
     for sequencer in sequencers:
-        watch_sequencer(sequencer, observer, watched_uuids)
+        watch_sequencer(sequencer, observer, watched_uuids, stability_tracker)
 
     if not watched_uuids:
         logger.warning("no sequencers found with a location — will keep checking every 60s")
 
     logger.info("started. press Ctrl+C to stop.")
 
-    current_sequencers = sequencers
-    elapsed = 0
+    current_sequencers  = sequencers
+    seq_elapsed         = 0
+    stability_elapsed   = 0
+    _STABILITY_POLL_INTERVAL = 10  # check stability every 10s (independent of sequencer poll)
+
     try:
         while True:
             time.sleep(1)
-            elapsed += 1
+            seq_elapsed       += 1
+            stability_elapsed += 1
 
-            if elapsed >= SEQUENCER_CHECK_INTERVAL:
-                elapsed = 0
-                # re-query DB for sequencers added since startup
+            # ── stability check (every 10s) ────────────────────────────────────
+            if stability_elapsed >= _STABILITY_POLL_INTERVAL:
+                stability_elapsed = 0
+                check_file_stability(current_sequencers, stability_tracker)
+
+            # ── sequencer poll (every 60s) — detect newly added sequencers ────
+            if seq_elapsed >= get_setting_int("sequencer_check_interval", _SEQUENCER_CHECK_INTERVAL_DEFAULT):
+                seq_elapsed = 0
                 current_sequencers = query_sequencers()
                 for sequencer in current_sequencers:
                     if str(sequencer.uuid) not in watched_uuids:
                         logger.info(f"new sequencer detected: {sequencer.name} — starting watch")
-                        watch_sequencer(sequencer, observer, watched_uuids)
-
-                # run file stability checks for all file_stability sequencers
-                check_file_stability(current_sequencers, stability_tracker)
+                        watch_sequencer(sequencer, observer, watched_uuids, stability_tracker)
 
     except KeyboardInterrupt:
         observer.stop()

@@ -78,6 +78,9 @@ def create_checksum_file(
     run_folder    = os.path.join(sequencer_location, run_name)
     checksum_path = os.path.join(run_folder, CHECKSUM_FILENAME)
 
+    if not os.path.isdir(run_folder):
+        raise RuntimeError(f"Run folder is not accessible (network share may be disconnected): {run_folder}")
+
     # if a *.CHECKSUM file already exists (e.g. retry after failed upload), reuse it
     existing = glob.glob(os.path.join(run_folder, "*.CHECKSUM"))
     if existing:

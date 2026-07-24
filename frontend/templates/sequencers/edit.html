@@ -2,99 +2,219 @@
 {% block title %}Edit {{ sequencer.name }}{% endblock %}
 
 {% block content %}
-<div class="mb-6">
-    <a href="/sequencers/{{ sequencer.uuid }}" class="text-sm text-indigo-600 hover:underline">&larr; Back</a>
+
+<div class="mb-5">
+  <a href="/sequencers/{{ sequencer.uuid }}" class="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-[#0C2461] transition">
+    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"/>
+    </svg>
+    {{ sequencer.name }}
+  </a>
 </div>
 
-<div class="bg-white rounded-xl shadow p-8 max-w-lg">
-    <h1 class="text-xl font-bold text-gray-900 mb-6">Edit Sequencer</h1>
+<div class="flex items-center gap-3 mb-6">
+  <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-[#0C2461]/5 text-[#0C2461]">
+    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+      <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125"/>
+    </svg>
+  </div>
+  <div>
+    <h1 class="text-xl font-bold text-gray-900">Edit {{ sequencer.name }}</h1>
+    <p class="text-sm text-gray-400 mt-0.5">Update sequencer settings</p>
+  </div>
+</div>
 
-    {% if error %}
-    <div class="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
-        {{ error }}
+{% if error %}
+<div class="mb-5 flex items-start gap-3 p-4 bg-red-50 border border-red-100 rounded-xl text-sm text-red-600">
+  <svg class="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/></svg>
+  {{ error }}
+</div>
+{% endif %}
+
+<form method="POST" action="/sequencers/{{ sequencer.uuid }}/edit" class="space-y-5 max-w-xl">
+
+  {# Name #}
+  <div class="bg-white rounded-xl border border-gray-100 px-5 py-4">
+    <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Name</label>
+    <input type="text" name="name" required minlength="3" value="{{ sequencer.name }}"
+           class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0C2461]" />
+    <p class="text-xs text-gray-400 mt-1.5">Slug is derived from the name and cannot be changed.</p>
+  </div>
+
+  {# Location #}
+  <div class="bg-white rounded-xl border border-gray-100 px-5 py-4">
+    <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Location</label>
+    <div class="flex items-center gap-2">
+      <svg class="w-4 h-4 text-gray-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"/>
+      </svg>
+      <input type="text" name="location" required value="{{ sequencer.location }}"
+             class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#0C2461]" />
     </div>
-    {% endif %}
+    <p class="text-xs text-gray-400 mt-1.5">Absolute path inside the container, e.g. <span class="font-mono">/runs/machine-7</span></p>
+  </div>
 
-    <form method="POST" action="/sequencers/{{ sequencer.uuid }}/edit" class="space-y-4">
+  {# Sequencer Type #}
+  <div class="bg-white rounded-xl border border-gray-100 px-5 py-4">
+    <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Sequencer Type</label>
+    <select name="type_uuid" required
+            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0C2461] bg-white">
+      {% for t in types %}
+      <option value="{{ t.uuid }}" {% if sequencer.type_uuid == t.uuid %}selected{% endif %}>
+        {{ t.name }}
+      </option>
+      {% endfor %}
+    </select>
+  </div>
 
-        <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
-            <!-- value="{{ sequencer.name }}" pre-fills the field with existing data -->
-            <input type="text" name="name" required minlength="3"
-                   value="{{ sequencer.name }}"
-                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+  {# Status toggle cards #}
+  <div class="bg-white rounded-xl border border-gray-100 px-5 py-4">
+    <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-3">Status</label>
+    <input type="hidden" name="status" id="status_value" value="{{ sequencer.status }}" />
+    <div class="grid grid-cols-2 gap-3">
+
+      <button type="button" id="btn-active" onclick="selectStatus('active')"
+              class="text-left p-4 rounded-xl border-2 transition
+                {% if sequencer.status == 'active' %}border-green-500 bg-green-50{% else %}border-gray-200 bg-white{% endif %}">
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full {% if sequencer.status == 'active' %}bg-green-500{% else %}bg-gray-300{% endif %}" id="dot-active"></span>
+          <span class="text-sm font-semibold text-gray-800">Active</span>
         </div>
+        <p class="text-xs text-gray-400 leading-relaxed mt-1.5">Sequencer is monitored for new runs</p>
+      </button>
 
-        <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Location</label>
-            <input type="text" name="location" required
-                   value="{{ sequencer.location }}"
-                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+      <button type="button" id="btn-inactive" onclick="selectStatus('inactive')"
+              class="text-left p-4 rounded-xl border-2 transition
+                {% if sequencer.status == 'inactive' %}border-gray-400 bg-gray-50{% else %}border-gray-200 bg-white{% endif %}">
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full {% if sequencer.status == 'inactive' %}bg-gray-500{% else %}bg-gray-300{% endif %}" id="dot-inactive"></span>
+          <span class="text-sm font-semibold text-gray-800">Inactive</span>
         </div>
+        <p class="text-xs text-gray-400 leading-relaxed mt-1.5">Sequencer is paused and ignored</p>
+      </button>
 
-        <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Sequencer Type</label>
-            <select name="type_uuid" required
-                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
-                {% for t in types %}
-                <option value="{{ t.uuid }}" {% if sequencer.type_uuid == t.uuid %}selected{% endif %}>
-                    {{ t.name | capitalize }}
-                </option>
-                {% endfor %}
-            </select>
+    </div>
+  </div>
+
+  {# TRE Upload toggle cards #}
+  <div class="bg-white rounded-xl border border-gray-100 px-5 py-4">
+    <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-3">TRE Upload</label>
+    <input type="hidden" name="sent_to_tre" id="tre_value" value="{{ sequencer.sent_to_tre }}" />
+    <div class="grid grid-cols-2 gap-3">
+
+      <button type="button" id="btn-auto" onclick="selectTRE('auto')"
+              class="text-left p-4 rounded-xl border-2 transition
+                {% if sequencer.sent_to_tre == 'auto' %}border-[#0C2461] bg-[#0C2461]/5{% else %}border-gray-200 bg-white{% endif %}">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z"/>
+            </svg>
+          </span>
+          <span class="text-sm font-semibold text-gray-800">Auto</span>
         </div>
+        <p class="text-xs text-gray-400 leading-relaxed">Upload to TRE starts automatically when a run completes</p>
+      </button>
 
-        <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
-            <select name="status"
-                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
-                <option value="active" {% if sequencer.status == "active" %}selected{% endif %}>Active</option>
-                <option value="inactive" {% if sequencer.status == "inactive" %}selected{% endif %}>Inactive</option>
-            </select>
+      <button type="button" id="btn-manual" onclick="selectTRE('manual')"
+              class="text-left p-4 rounded-xl border-2 transition
+                {% if sequencer.sent_to_tre == 'manual' %}border-[#0C2461] bg-[#0C2461]/5{% else %}border-gray-200 bg-white{% endif %}">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="w-7 h-7 rounded-lg bg-gray-100 text-gray-500 flex items-center justify-center shrink-0">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15.042 21.672 13.684 16.6m0 0-2.51 2.225.569-9.47 5.227 7.917-3.286-.672ZM12 2.25V4.5m5.834.166-1.591 1.591M20.25 10.5H18M7.757 14.743l-1.59 1.591M6 10.5H3.75m4.007-4.243-1.59-1.591"/>
+            </svg>
+          </span>
+          <span class="text-sm font-semibold text-gray-800">Manual</span>
         </div>
+        <p class="text-xs text-gray-400 leading-relaxed">Upload requires a manual trigger from the run detail page</p>
+      </button>
 
-        <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Send to TRE</label>
-            <select name="sent_to_tre"
-                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
-                <option value="manual" {% if sequencer.sent_to_tre == "manual" %}selected{% endif %}>Manual (requires confirmation)</option>
-                <option value="auto" {% if sequencer.sent_to_tre == "auto" %}selected{% endif %}>Auto (triggers automatically)</option>
-            </select>
-            <p class="text-xs text-gray-400 mt-1">Controls whether S3 upload starts automatically or waits for a button click.</p>
-        </div>
+    </div>
+  </div>
 
-        <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Exclusions</label>
-            <p class="text-xs text-gray-400 mb-2">Files, folders, or patterns (e.g. <code>*.png</code>, <code>thumbnails</code>) to skip during upload.</p>
-            <div id="exclusions-list" class="space-y-2"></div>
-            <button type="button" onclick="addExclusion('')"
-                    class="mt-2 text-sm text-indigo-600 hover:underline">+ Add exclusion</button>
-        </div>
+  {# Exclusions #}
+  <div class="bg-white rounded-xl border border-gray-100 px-5 py-4">
+    <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Exclusions</label>
+    <p class="text-xs text-gray-400 mb-3">Files, folders, or glob patterns to skip during upload (e.g. <span class="font-mono">*.png</span>, <span class="font-mono">thumbnails</span>)</p>
+    <div id="exclusions-list" class="space-y-2"></div>
+    <button type="button" onclick="addExclusion('')"
+            class="mt-2 inline-flex items-center gap-1 text-xs text-[#0C2461] hover:underline font-medium">
+      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+      Add exclusion
+    </button>
+  </div>
 
-        <button type="submit"
-                class="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition">
-            Save Changes
-        </button>
-    </form>
-</div>
+  {# Submit #}
+  <div class="flex items-center gap-3">
+    <button type="submit"
+            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border border-[#0C2461] text-[#0C2461] bg-white hover:bg-[#0C2461] hover:text-white transition">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+      </svg>
+      Save Changes
+    </button>
+    <a href="/sequencers/{{ sequencer.uuid }}" class="text-xs text-gray-400 hover:text-gray-600 transition">Cancel</a>
+  </div>
 
+</form>
+
+{% endblock %}
+
+{% block scripts %}
 <script>
-  function addExclusion(value) {
-    const list = document.getElementById('exclusions-list');
-    const row = document.createElement('div');
-    row.className = 'flex gap-2 items-center';
-    row.innerHTML = `
-      <input type="text" name="exclusions" value="${value}"
-             placeholder="e.g. *.png or thumbnails"
-             class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
-      <button type="button" onclick="this.parentElement.remove()"
-              class="text-red-400 hover:text-red-600 text-lg font-bold leading-none">&times;</button>
-    `;
-    list.appendChild(row);
-  }
+function selectStatus(status) {
+  document.getElementById('status_value').value = status;
+  const btnActive   = document.getElementById('btn-active');
+  const btnInactive = document.getElementById('btn-inactive');
+  const dotActive   = document.getElementById('dot-active');
+  const dotInactive = document.getElementById('dot-inactive');
 
-  // Pre-fill existing exclusions from the server
-  const existing = {{ sequencer.exclusions | tojson if sequencer.exclusions else '[]' }};
-  existing.forEach(v => addExclusion(v));
+  btnActive.className   = btnActive.className.replace(/border-green-500|bg-green-50|border-gray-200|bg-white/g, '').trim();
+  btnInactive.className = btnInactive.className.replace(/border-gray-400|bg-gray-50|border-gray-200|bg-white/g, '').trim();
+
+  if (status === 'active') {
+    btnActive.classList.add('border-green-500', 'bg-green-50');
+    btnInactive.classList.add('border-gray-200', 'bg-white');
+    dotActive.className   = 'w-2 h-2 rounded-full bg-green-500';
+    dotInactive.className = 'w-2 h-2 rounded-full bg-gray-300';
+  } else {
+    btnActive.classList.add('border-gray-200', 'bg-white');
+    btnInactive.classList.add('border-gray-400', 'bg-gray-50');
+    dotActive.className   = 'w-2 h-2 rounded-full bg-gray-300';
+    dotInactive.className = 'w-2 h-2 rounded-full bg-gray-500';
+  }
+}
+
+function selectTRE(mode) {
+  document.getElementById('tre_value').value = mode;
+  const btnAuto   = document.getElementById('btn-auto');
+  const btnManual = document.getElementById('btn-manual');
+  const active    = ['border-[#0C2461]', 'bg-[#0C2461]/5'];
+  const inactive  = ['border-gray-200', 'bg-white'];
+  [btnAuto, btnManual].forEach(btn => {
+    btn.classList.remove('border-[#0C2461]', 'bg-[#0C2461]/5', 'border-gray-200', 'bg-white');
+  });
+  btnAuto.classList.add(...(mode === 'auto' ? active : inactive));
+  btnManual.classList.add(...(mode === 'manual' ? active : inactive));
+}
+
+function addExclusion(value) {
+  const list = document.getElementById('exclusions-list');
+  const row  = document.createElement('div');
+  row.className = 'flex gap-2 items-center';
+  row.innerHTML = `
+    <input type="text" name="exclusions" value="${value}" placeholder="e.g. *.png or thumbnails"
+           class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#0C2461] placeholder-gray-300" />
+    <button type="button" onclick="this.parentElement.remove()"
+            class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-300 hover:text-red-400 hover:bg-red-50 transition">
+      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+    </button>`;
+  list.appendChild(row);
+}
+
+// Pre-fill existing exclusions
+const existing = {{ sequencer.exclusions | tojson if sequencer.exclusions else '[]' }};
+existing.forEach(v => addExclusion(v));
 </script>
 {% endblock %}

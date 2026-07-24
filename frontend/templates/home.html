@@ -1,37 +1,35 @@
-{% extends "base.html" %} {% block title %}Home — Sequencer Gateway{% endblock
-%} {% block content %}
-<div class="text-center py-20">
-  <h1 class="text-4xl font-bold text-gray-900 mb-4">
-    Welcome to Sequencer Gateway
-  </h1>
+{% extends "base.html" %}
+{% block title %}Home — OmiCZ GateWay{% endblock %}
+{% block content %}
+<div class="pt-12">
+  <h1 class="text-2xl font-bold text-gray-900 mb-1">Dashboard</h1>
+  <p class="text-sm text-gray-400 mb-10">Sequencer data pipeline management</p>
 
-  <p class="text-lg text-gray-600 mb-10">I will create a dashboard here</p>
-
-  <div class="flex justify-center gap-6">
-    <a
-      href="/sequencers-types"
-      class="bg-gray-200 text-gray-800 px-6 py-3 rounded-lg font-medium hover:bg-gray-300 transition"
-    >
-      View Sequencers Types
+  <div class="grid grid-cols-3 gap-4 max-w-2xl">
+    <a href="/runs"
+       class="bg-white rounded-xl shadow-sm border border-gray-100 px-5 py-4 hover:shadow-md hover:border-[#0C2461]/20 transition group">
+      <p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Pipeline</p>
+      <p class="text-sm font-semibold text-gray-900 group-hover:text-[#0C2461]">Runs</p>
     </a>
-    <a
-      href="/sequencers"
-      class="bg-gray-200 text-gray-800 px-6 py-3 rounded-lg font-medium hover:bg-gray-300 transition"
-    >
-      View Sequencers
+    <a href="/runs/queue/view"
+       class="bg-white rounded-xl shadow-sm border border-gray-100 px-5 py-4 hover:shadow-md hover:border-[#0C2461]/20 transition group">
+      <p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Pipeline</p>
+      <p class="text-sm font-semibold text-gray-900 group-hover:text-[#0C2461]">Queue</p>
     </a>
-
-    <a
-      href="/runs"
-      class="bg-gray-200 text-gray-800 px-6 py-3 rounded-lg font-medium hover:bg-gray-300 transition"
-    >
-      View Runs
+    <a href="/sequencers"
+       class="bg-white rounded-xl shadow-sm border border-gray-100 px-5 py-4 hover:shadow-md hover:border-[#0C2461]/20 transition group">
+      <p class="text-xs text-gray-400 uppercase tracking-wide mb-1">Config</p>
+      <p class="text-sm font-semibold text-gray-900 group-hover:text-[#0C2461]">Sequencers</p>
     </a>
-    <a
-      href="/users"
-      class="bg-gray-200 text-gray-800 px-6 py-3 rounded-lg font-medium hover:bg-gray-300 transition"
-    >
-      View Users
+    <a href="/logs/"
+       class="bg-white rounded-xl shadow-sm border border-gray-100 px-5 py-4 hover:shadow-md hover:border-[#0C2461]/20 transition group">
+      <p class="text-xs text-gray-400 uppercase tracking-wide mb-1">System</p>
+      <p class="text-sm font-semibold text-gray-900 group-hover:text-[#0C2461]">Logs</p>
+    </a>
+    <a href="/settings/"
+       class="bg-white rounded-xl shadow-sm border border-gray-100 px-5 py-4 hover:shadow-md hover:border-[#0C2461]/20 transition group">
+      <p class="text-xs text-gray-400 uppercase tracking-wide mb-1">System</p>
+      <p class="text-sm font-semibold text-gray-900 group-hover:text-[#0C2461]">Settings</p>
     </a>
   </div>
 </div>

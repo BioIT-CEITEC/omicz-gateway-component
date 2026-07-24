@@ -7,7 +7,7 @@ from fastapi import HTTPException, status
 from db.models.sequencer_types import SequencerTypes
 from schemas.sequencers_types import SequencerTypeCreate, SequencerTypeUpdate
 from core.logger import get_logger
-logger = get_logger("repositories")
+logger = get_logger("backend")
 
 def count_sequencers_type(db: Session) -> int:
     return db.query(SequencerTypes).filter(SequencerTypes.is_deleted == False).count()

@@ -1,270 +1,530 @@
-{% extends "base.html" %} {% block title %}{{ run.name }}{% endblock %} {% block
-content %}
-<div class="mb-6">
-  <a href="/runs/" class="text-sm text-indigo-600 hover:underline"
-    >&larr; Back to runs</a
-  >
+{% extends "base.html" %}
+{% block title %}{{ run.name }}{% endblock %}
+
+{% block content %}
+
+{# ── Status label helper ── #}
+{% macro status_label(s) %}
+  {% if s == "running" %}Sequencing
+  {% elif s == "running_finished" %}Sequencing Done
+  {% elif s == "queued" %}Queued
+  {% elif s == "checksumming" %}Checksumming
+  {% elif s == "moving" %}Uploading
+  {% elif s == "verifying" %}Verifying
+  {% elif s == "completed" %}Completed
+  {% elif s == "move_failed" %}Upload Failed
+  {% elif s == "verify_failed" %}Verify Failed
+  {% elif s == "failed" %}Failed
+  {% else %}{{ s }}{% endif %}
+{% endmacro %}
+
+{# ── Status badge macro ── #}
+{% macro status_badge(s) %}
+  {% if s == "running" %}
+    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border bg-blue-50 text-blue-600 border-blue-100">
+      <span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse inline-block"></span>Sequencing</span>
+  {% elif s == "running_finished" %}
+    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border bg-purple-50 text-purple-600 border-purple-100">
+      <span class="w-1.5 h-1.5 rounded-full bg-purple-500 inline-block"></span>Sequencing Done</span>
+  {% elif s == "queued" %}
+    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border bg-gray-100 text-gray-500 border-gray-200">
+      <span class="w-1.5 h-1.5 rounded-full bg-gray-400 inline-block"></span>Queued</span>
+  {% elif s == "checksumming" %}
+    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border bg-yellow-50 text-yellow-600 border-yellow-100">
+      <span class="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse inline-block"></span>Checksumming</span>
+  {% elif s == "moving" %}
+    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border bg-indigo-50 text-indigo-600 border-indigo-100">
+      <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse inline-block"></span>Uploading</span>
+  {% elif s == "verifying" %}
+    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border bg-teal-50 text-teal-600 border-teal-100">
+      <span class="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse inline-block"></span>Verifying</span>
+  {% elif s == "completed" %}
+    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border bg-green-50 text-green-600 border-green-100">
+      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>Completed</span>
+  {% elif s == "move_failed" %}
+    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border bg-red-50 text-red-600 border-red-100">
+      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>Upload Failed</span>
+  {% elif s == "verify_failed" %}
+    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border bg-orange-50 text-orange-600 border-orange-100">
+      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>Verify Failed</span>
+  {% elif s == "failed" %}
+    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border bg-red-50 text-red-600 border-red-100">
+      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>Failed</span>
+  {% else %}
+    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border bg-gray-100 text-gray-500 border-gray-200">{{ s }}</span>
+  {% endif %}
+{% endmacro %}
+
+{# ── Back nav ── #}
+<div class="flex items-center gap-2 mb-5">
+  <a href="/runs/" class="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-[#0C2461] transition">
+    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"/>
+    </svg>
+    Back to Runs
+  </a>
 </div>
 
-{% set upload_statuses = ['queued', 'moving', 'move_failed'] %}
-<div id="proxy-warning" class="mb-4 flex items-start gap-3 p-4 bg-yellow-50 border border-yellow-300 rounded-xl text-sm
-  {% if run.status not in upload_statuses or proxy_status.status == 'running' %}hidden{% endif %}">
-  <svg class="w-5 h-5 text-yellow-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+{# ── Page header ── #}
+<div class="flex items-start justify-between mb-6">
   <div>
-    <p class="font-semibold text-yellow-800">K8s tunnel is not running</p>
-    <p class="text-yellow-700 mt-0.5">The upload cannot proceed without the kubectl port-forward connection to S3.
-      <a href="/k8s-proxy/" class="underline font-medium hover:text-yellow-900">Go to K8s Proxy →</a> to start it, then retry.
+    <h1 class="text-2xl font-bold text-gray-900">{{ run.name }}</h1>
+    <p class="text-xs text-gray-400 mt-1 font-mono">{{ run.uuid }}</p>
+    <div id="status-badge" class="mt-2">{{ status_badge(run.status) }}</div>
+  </div>
+  <span id="refresh-indicator" class="text-[11px] text-gray-400 mt-2">
+    {% if run.status not in ['completed', 'failed', 'running_finished', 'verify_failed', 'move_failed'] %}
+    next refresh in <span id="refresh-countdown">{% if run.status in ['checksumming', 'moving', 'queued', 'verifying'] %}{{ active_refresh }}{% else %}{{ idle_refresh }}{% endif %}</span>s
+    {% endif %}
+  </span>
+</div>
+
+{# ── Stuck upload warning ── #}
+<div id="stuck-warning" class="hidden mb-5 flex items-start gap-3 p-4 bg-orange-50 border border-orange-200 rounded-xl text-sm">
+  <svg class="w-5 h-5 text-orange-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/>
+  </svg>
+  <div>
+    <p class="font-semibold text-orange-800">Upload appears to be stalled</p>
+    <p class="text-orange-700 mt-0.5">No progress has been received for several minutes. The S3 server may be slow or unresponsive.
+      The upload will automatically fail and you can retry once the connection recovers.
     </p>
   </div>
 </div>
 
-<div class="bg-white rounded-xl shadow p-8 max-w-2xl">
-  <div class="flex items-start justify-between mb-6">
-    <div>
-      <h1 class="text-2xl font-bold text-gray-900">{{ run.name }}</h1>
-      <p class="text-sm text-gray-400 mt-1">{{ run.uuid }}</p>
-    </div>
-    <div class="flex flex-col items-end gap-1">
-      <span id="status-badge"
-        class="px-3 py-1 rounded-full text-xs font-semibold {% if run.status == 'completed' %}bg-green-100 text-green-700 {% elif run.status == 'running' %}bg-blue-100 text-blue-700 {% elif run.status == 'running_finished' %}bg-purple-100 text-purple-700 {% elif run.status == 'queued' %}bg-gray-100 text-gray-600 {% elif run.status == 'checksumming' %}bg-yellow-100 text-yellow-700 {% elif run.status == 'moving' %}bg-indigo-100 text-indigo-700 {% elif run.status == 'verifying' %}bg-teal-100 text-teal-700 {% elif run.status == 'verify_failed' %}bg-orange-100 text-orange-700 {% elif run.status == 'move_failed' %}bg-red-100 text-red-700 {% elif run.status == 'failed' %}bg-red-100 text-red-700 {% else %}bg-gray-100 text-gray-500{% endif %}"
-      >
-        {{ run.status }}
-      </span>
-      <span id="refresh-indicator" class="text-xs text-gray-400">
-        {% if run.status in ['checksumming', 'moving', 'queued', 'verifying'] %}refreshing every 5s
-        {% elif run.status not in ['completed', 'failed', 'running_finished', 'verify_failed', 'move_failed'] %}auto-refresh in <span id="refresh-countdown">120</span>s
-        {% endif %}
-      </span>
-    </div>
-  </div>
 
-  <dl class="grid grid-cols-2 gap-4 text-sm mb-8">
-    <div>
-      <dt class="text-gray-400 font-medium">Sequencer</dt>
-      <dd class="text-gray-800 mt-1">{{ run.sequencer_name or run.sequencer_uuid }}</dd>
-    </div>
-    <div>
-      <dt class="text-gray-400 font-medium">Internal ID</dt>
-      <dd class="text-gray-800 mt-1">{{ run.id }}</dd>
-    </div>
-    <div>
-      <dt class="text-gray-400 font-medium">Created</dt>
-      <dd class="text-gray-800 mt-1">{{ run.created_at }}</dd>
-    </div>
-    <div>
-      <dt class="text-gray-400 font-medium">Updated</dt>
-      <dd class="text-gray-800 mt-1">{{ run.updated_at }}</dd>
-    </div>
-  </dl>
+{# ── Main two-column layout ── #}
+<div class="grid grid-cols-3 gap-6 items-start">
 
-  <!-- Progress bar — checksumming (yellow) or moving/upload (indigo) -->
-  <div id="progress-box" class="mb-6 p-4 rounded-lg border
-    {% if run.status == 'checksumming' %}bg-yellow-50 border-yellow-200
-    {% elif run.status == 'moving' %}bg-indigo-50 border-indigo-200
-    {% else %}hidden{% endif %}">
-    <div class="flex items-center justify-between mb-1">
-      <span id="progress-label" class="text-xs font-semibold
-        {% if run.status == 'checksumming' %}text-yellow-700
-        {% elif run.status == 'moving' %}text-indigo-700{% endif %}">
-        {% if run.status == 'checksumming' %}Checksumming in progress
-        {% elif run.status == 'moving' %}Uploading to TRE{% endif %}
-      </span>
-      <span id="progress-text" class="text-xs
-        {% if run.status == 'checksumming' %}text-yellow-600
-        {% elif run.status == 'moving' %}text-indigo-600{% endif %}">
-        {{ run.progress or "starting..." }}
-      </span>
-    </div>
-    <div id="progress-track" class="w-full rounded-full h-2
-      {% if run.status == 'checksumming' %}bg-yellow-100
-      {% elif run.status == 'moving' %}bg-indigo-100{% endif %}">
-      <div id="progress-bar" class="h-2 rounded-full transition-all duration-500
-        {% if run.status == 'checksumming' %}bg-yellow-400
-        {% elif run.status == 'moving' %}bg-indigo-400{% endif %}" style="width: 0%"></div>
-    </div>
-  </div>
+  {# ── LEFT: Info + Progress + Actions (2/3 width) ── #}
+  <div class="col-span-2 flex flex-col gap-5">
 
-  <!-- Status history timeline -->
-  <div id="history-section" class="mb-8">
-    <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">Status History</h2>
-    <ol id="history-list" class="relative border-l border-gray-200 ml-3">
-      {% for entry in history %}
-      <li class="mb-6 ml-6">
-        <span class="absolute -left-2 flex items-center justify-center w-4 h-4 rounded-full {% if entry.status == 'completed' %}bg-green-400 {% elif entry.status == 'running' %}bg-blue-400 {% elif entry.status == 'running_finished' %}bg-purple-400 {% elif entry.status == 'queued' %}bg-gray-400 {% elif entry.status == 'checksumming' %}bg-yellow-400 {% elif entry.status == 'moving' %}bg-indigo-400 {% elif entry.status == 'verifying' %}bg-teal-400 {% elif entry.status == 'verify_failed' %}bg-orange-400 {% elif entry.status == 'move_failed' %}bg-red-400 {% elif entry.status == 'failed' %}bg-red-400 {% else %}bg-gray-400{% endif %}">
-          {% if loop.last and entry.status != 'completed' %}
-          <span class="w-2 h-2 rounded-full bg-red-500 animate-ping" style="animation-duration: 1s"></span>
-          {% endif %}
+    {# Info card #}
+    <div class="bg-white rounded-xl border border-gray-100 divide-y divide-gray-50">
+
+      {# Sequencer row #}
+      <div class="flex items-center gap-4 px-5 py-4">
+        <div class="flex items-center justify-center w-9 h-9 rounded-lg bg-[#0C2461]/5 text-[#0C2461] shrink-0">
+          <svg class="w-4.5 h-4.5 w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 0 0 2.25-2.25V6.75a2.25 2.25 0 0 0-2.25-2.25H6.75A2.25 2.25 0 0 0 4.5 6.75v10.5a2.25 2.25 0 0 0 2.25 2.25Zm.75-12h9v9h-9v-9Z"/>
+          </svg>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-[11px] text-gray-400 font-medium uppercase tracking-wide">Sequencer</p>
+          <p class="text-sm font-semibold text-gray-800 truncate mt-0.5">{{ run.sequencer_name or run.sequencer_uuid }}</p>
+        </div>
+        {# TRE mode #}
+        {% if run.sequencer_sent_to_tre == 'auto' %}
+        <span class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100 shrink-0">
+          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z"/>
+          </svg>
+          Auto TRE
         </span>
-        <span class="font-medium text-gray-800 text-sm">{{ entry.status }}</span>
-        <p class="text-xs text-gray-400 mt-0.5">{{ entry.created_at }}</p>
-        {% if entry.detail %}
-        <pre class="mt-1 text-xs text-red-600 bg-red-50 rounded p-2 whitespace-pre-wrap break-all">{{ entry.detail }}</pre>
+        {% else %}
+        <span class="inline-flex items-center gap-1 text-[11px] font-medium text-gray-400 bg-gray-50 px-2.5 py-1 rounded-full border border-gray-200 shrink-0">
+          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.042 21.672 13.684 16.6m0 0-2.51 2.225.569-9.47 5.227 7.917-3.286-.672ZM12 2.25V4.5m5.834.166-1.591 1.591M20.25 10.5H18M7.757 14.743l-1.59 1.591M6 10.5H3.75m4.007-4.243-1.59-1.591"/>
+          </svg>
+          Manual TRE
+        </span>
         {% endif %}
-      </li>
-      {% endfor %}
-    </ol>
+      </div>
+
+      {# Dates + duration row #}
+      <div class="grid grid-cols-4 divide-x divide-gray-50">
+        <div class="px-5 py-4">
+          <p class="text-[11px] text-gray-400 font-medium uppercase tracking-wide flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/></svg>
+            Started
+          </p>
+          <p class="text-sm text-gray-700 mt-1 tabular-nums">{{ (run.created_at | string)[:16] | replace('T', ' ') }}</p>
+        </div>
+        <div class="px-5 py-4">
+          <p class="text-[11px] text-gray-400 font-medium uppercase tracking-wide flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+            Last Updated
+          </p>
+          <p class="text-sm text-gray-700 mt-1 tabular-nums">{{ (run.updated_at | string)[:16] | replace('T', ' ') }}</p>
+        </div>
+        <div class="px-5 py-4">
+          <p class="text-[11px] text-gray-400 font-medium uppercase tracking-wide flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+            Total Duration
+          </p>
+          {% if duration %}
+          <p class="text-sm text-gray-700 mt-1 tabular-nums font-medium">{{ duration }}</p>
+          {% else %}
+          <p class="text-sm text-gray-500 mt-1 tabular-nums font-medium" id="live-duration">—</p>
+          {% endif %}
+        </div>
+        <div class="px-5 py-4">
+          <p class="text-[11px] text-gray-400 font-medium uppercase tracking-wide flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 0 1-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 0 1 4.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0 1 12 15a9.065 9.065 0 0 1-6.23-.693L5 14.5m14.8.8 1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0 1 12 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5"/></svg>
+            Sequencing
+          </p>
+          {% if sequencing_duration %}
+          <p class="text-sm text-gray-700 mt-1 tabular-nums font-medium">{{ sequencing_duration }}</p>
+          {% elif run.status == "running" %}
+          <p class="text-sm text-gray-500 mt-1 tabular-nums font-medium" id="live-seq-duration">—</p>
+          {% else %}
+          <p class="text-sm text-gray-300 mt-1">—</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    {# ── Pipeline stepper ── #}
+    {# Derive per-stage state from current status #}
+    {% set s = run.status %}
+
+    {% if s == "running" %}{% set st1 = "active" %}
+    {% elif s in ("running_finished","queued","checksumming","moving","move_failed","verifying","verify_failed","completed") %}{% set st1 = "done" %}
+    {% else %}{% set st1 = "waiting" %}{% endif %}
+
+    {% if s == "checksumming" %}{% set st2 = "active" %}
+    {% elif s in ("moving","move_failed","verifying","verify_failed","completed") %}{% set st2 = "done" %}
+    {% elif s in ("running_finished","queued") %}{% set st2 = "pending" %}
+    {% else %}{% set st2 = "waiting" %}{% endif %}
+
+    {% if s == "moving" %}{% set st3 = "active" %}
+    {% elif s == "move_failed" %}{% set st3 = "failed" %}
+    {% elif s in ("verifying","verify_failed","completed") %}{% set st3 = "done" %}
+    {% else %}{% set st3 = "waiting" %}{% endif %}
+
+    {% if s == "verifying" %}{% set st4 = "active" %}
+    {% elif s == "verify_failed" %}{% set st4 = "failed" %}
+    {% elif s == "completed" %}{% set st4 = "done" %}
+    {% else %}{% set st4 = "waiting" %}{% endif %}
+
+    {% if s == "completed" %}{% set st5 = "done" %}
+    {% else %}{% set st5 = "waiting" %}{% endif %}
+
+    {# Stage node macro #}
+    {% macro stage_node(state) %}
+      {% if state == "done" %}
+        <span class="flex items-center justify-center w-8 h-8 rounded-full bg-[#0C2461] text-white shadow-sm">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
+        </span>
+      {% elif state == "active" %}
+        <span class="relative flex items-center justify-center w-8 h-8 rounded-full bg-[#0C2461] text-white shadow-sm">
+          <span class="absolute w-8 h-8 rounded-full bg-[#0C2461] animate-ping opacity-30"></span>
+          <span class="w-2.5 h-2.5 rounded-full bg-white"></span>
+        </span>
+      {% elif state == "failed" %}
+        <span class="flex items-center justify-center w-8 h-8 rounded-full bg-red-500 text-white shadow-sm">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+        </span>
+      {% elif state == "pending" %}
+        <span class="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-400 border border-dashed border-gray-300">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+        </span>
+      {% else %}
+        <span class="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 border border-gray-200">
+          <span class="w-2 h-2 rounded-full bg-gray-300"></span>
+        </span>
+      {% endif %}
+    {% endmacro %}
+
+    {# Connector macro: filled if left stage is done #}
+    {% macro connector(left_state) %}
+      <div class="flex-1 h-0.5 mx-1 rounded-full
+        {% if left_state == 'done' %}bg-[#0C2461]{% else %}bg-gray-200{% endif %}"></div>
+    {% endmacro %}
+
+    <div class="bg-white rounded-xl border border-gray-100 px-6 py-5">
+      <p class="text-[11px] text-gray-400 font-semibold uppercase tracking-wide mb-5">Progress</p>
+
+      {# Nodes + connectors row #}
+      <div class="flex items-center" id="stepper-nodes">
+        {{ stage_node(st1) }}
+        {{ connector(st1) }}
+        {{ stage_node(st2) }}
+        {{ connector(st2) }}
+        {{ stage_node(st3) }}
+        {{ connector(st3) }}
+        {{ stage_node(st4) }}
+        {{ connector(st4) }}
+        {{ stage_node(st5) }}
+      </div>
+
+      {# Labels row #}
+      <div class="flex items-start mt-2.5" id="stepper-labels">
+        {% for label, state in [("Sequencing", st1), ("Checksumming", st2), ("Uploading", st3), ("Verifying", st4), ("Completed", st5)] %}
+        <div class="flex-1 {% if not loop.last %}pr-2{% endif %} {% if loop.first %}text-left{% elif loop.last %}text-right{% else %}text-center{% endif %}">
+          <p class="text-[11px] font-semibold
+            {% if state == 'done' %}text-[#0C2461]
+            {% elif state == 'active' %}text-[#0C2461]
+            {% elif state == 'failed' %}text-red-500
+            {% elif state == 'pending' %}text-gray-400
+            {% else %}text-gray-300{% endif %}">
+            {{ label }}
+          </p>
+          {% if state == "active" %}
+          <p class="text-[10px] text-gray-400 mt-0.5">Running…</p>
+          {% elif state == "failed" %}
+          <p class="text-[10px] text-red-400 mt-0.5">Failed</p>
+          {% elif state == "pending" %}
+          <p class="text-[10px] text-gray-300 mt-0.5">Pending</p>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    {# Progress box — shown during checksumming / moving / verifying #}
+    <div id="progress-box" class="rounded-xl border p-5
+      {% if run.status == 'checksumming' %}bg-yellow-50 border-yellow-200
+      {% elif run.status == 'moving' %}bg-indigo-50 border-indigo-200
+      {% elif run.status == 'verifying' %}bg-teal-50 border-teal-200
+      {% else %}hidden{% endif %}">
+      <div class="flex items-center justify-between mb-3">
+        <p id="progress-label" class="text-sm font-semibold
+          {% if run.status == 'checksumming' %}text-yellow-700
+          {% elif run.status == 'moving' %}text-indigo-700
+          {% elif run.status == 'verifying' %}text-teal-700{% endif %}">
+          {% if run.status == 'checksumming' %}Checksumming in progress
+          {% elif run.status == 'moving' %}Uploading to TRE
+          {% elif run.status == 'verifying' %}Waiting for TRE confirmation{% endif %}
+        </p>
+        <span id="progress-text" class="text-xs font-mono
+          {% if run.status == 'checksumming' %}text-yellow-600
+          {% elif run.status == 'moving' %}text-indigo-600
+          {% elif run.status == 'verifying' %}text-teal-600{% endif %}">
+          {% if run.status == 'verifying' %}polling S3…{% else %}{{ run.progress or "starting…" }}{% endif %}
+        </span>
+      </div>
+      <div id="progress-track" class="w-full rounded-full h-2.5
+        {% if run.status == 'checksumming' %}bg-yellow-100
+        {% elif run.status == 'moving' %}bg-indigo-100
+        {% elif run.status == 'verifying' %}bg-teal-100{% endif %}">
+        <div id="progress-bar" class="h-2.5 rounded-full transition-all duration-500
+          {% if run.status == 'checksumming' %}bg-yellow-400
+          {% elif run.status == 'moving' %}bg-indigo-400
+          {% elif run.status == 'verifying' %}bg-teal-400 animate-pulse w-full{% endif %}"
+          {% if run.status != 'verifying' %}style="width: 0%"{% endif %}></div>
+      </div>
+    </div>
+
+    {# ── Actions card ── #}
+    <div class="bg-white rounded-xl border border-gray-100 p-5">
+      <p class="text-[11px] text-gray-400 font-semibold uppercase tracking-wide mb-4">Actions</p>
+      <div class="flex flex-wrap gap-3" id="actions-buttons"></div>
+      <div id="actions-delete"></div>
+    </div>
+
+  </div>{# end left column #}
+
+  {# ── RIGHT: Status history (1/3 width) ── #}
+  <div class="col-span-1">
+    <div class="bg-white rounded-xl border border-gray-100 overflow-hidden sticky top-6">
+      <div class="px-4 py-3 border-b border-gray-50 flex items-center justify-between">
+        <p class="text-[11px] text-gray-400 font-semibold uppercase tracking-wide">Status History</p>
+        <span class="text-[11px] text-gray-300">{{ history | length }} events</span>
+      </div>
+
+      {# Scroll container with top-fade hint #}
+      <div class="relative">
+        {# Top gradient fade — signals content above #}
+        <div class="absolute top-0 left-0 right-0 h-6 bg-gradient-to-b from-white to-transparent z-10 pointer-events-none rounded-t"></div>
+
+        <ol id="history-list"
+            class="relative overflow-y-auto px-4 py-3"
+            style="max-height: 420px; scroll-behavior: smooth;">
+          {% for entry in history %}
+          <li class="flex gap-3 pb-3 last:pb-0">
+
+            {# Dot + vertical line #}
+            <div class="flex flex-col items-center shrink-0 pt-0.5">
+              <span class="w-2.5 h-2.5 rounded-full shrink-0 relative
+                {% if entry.status == 'completed' %}bg-green-400
+                {% elif entry.status == 'running' %}bg-blue-400
+                {% elif entry.status == 'running_finished' %}bg-purple-400
+                {% elif entry.status == 'queued' %}bg-gray-300
+                {% elif entry.status == 'checksumming' %}bg-yellow-400
+                {% elif entry.status == 'moving' %}bg-indigo-400
+                {% elif entry.status == 'verifying' %}bg-teal-400
+                {% elif entry.status == 'verify_failed' %}bg-orange-400
+                {% elif entry.status in ('move_failed', 'failed') %}bg-red-400
+                {% else %}bg-gray-300{% endif %}">
+                {% if loop.last and entry.status not in ('completed', 'failed', 'move_failed', 'verify_failed', 'running_finished') %}
+                <span class="absolute inset-0 rounded-full animate-ping opacity-60
+                  {% if entry.status == 'running' %}bg-blue-400
+                  {% elif entry.status == 'checksumming' %}bg-yellow-400
+                  {% elif entry.status == 'moving' %}bg-indigo-400
+                  {% elif entry.status == 'verifying' %}bg-teal-400
+                  {% else %}bg-gray-300{% endif %}"></span>
+                {% endif %}
+              </span>
+              {% if not loop.last %}
+              <div class="w-px flex-1 bg-gray-100 mt-1.5 min-h-[16px]"></div>
+              {% endif %}
+            </div>
+
+            {# Content #}
+            <div class="pb-0 min-w-0">
+              <p class="text-xs font-semibold leading-tight
+                {% if entry.status in ('move_failed','verify_failed','failed') %}text-red-500
+                {% elif entry.status == 'completed' %}text-green-600
+                {% else %}text-gray-700{% endif %}">
+                {% if entry.status == "running" %}Sequencing
+                {% elif entry.status == "running_finished" %}Sequencing Done
+                {% elif entry.status == "queued" %}Queued
+                {% elif entry.status == "checksumming" %}Checksumming
+                {% elif entry.status == "moving" %}Uploading
+                {% elif entry.status == "verifying" %}Verifying
+                {% elif entry.status == "completed" %}Completed
+                {% elif entry.status == "move_failed" %}Upload Failed
+                {% elif entry.status == "verify_failed" %}Verify Failed
+                {% elif entry.status == "failed" %}Failed
+                {% else %}{{ entry.status }}{% endif %}
+              </p>
+              <p class="text-[11px] text-gray-400 mt-0.5 tabular-nums">{{ (entry.created_at | string)[:16] | replace('T', ' ') }}</p>
+              {% if entry.detail %}
+              <pre class="mt-1 text-[10px] text-red-600 bg-red-50 rounded p-2 whitespace-pre-wrap break-all border border-red-100">{{ entry.detail }}</pre>
+              {% endif %}
+            </div>
+
+          </li>
+          {% endfor %}
+        </ol>
+
+        {# Bottom gradient fade — signals content below (always present, hidden when at bottom) #}
+        <div id="history-bottom-fade" class="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
+      </div>
+    </div>
   </div>
 
-  <!-- Action buttons — shown only when the run is waiting for a manual trigger -->
-  <div class="flex flex-wrap gap-3 mb-4">
-    {% if run.status == 'queued' %}
-    <span class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-500">
-      <span class="w-2 h-2 rounded-full bg-gray-400 animate-pulse"></span>
-      Waiting in queue…
-    </span>
-    {% elif run.status == 'running_finished' %}
-    <form
-      method="POST"
-      action="/runs/{{ run.uuid }}/start-upload"
-      onsubmit="return confirm('Upload run folder to S3?');"
-    >
-      <button
-        type="submit"
-        class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition"
-      >
-        Send to TRE
-      </button>
-    </form>
-    {% elif run.status == 'move_failed' %}
-    <form
-      method="POST"
-      action="/runs/{{ run.uuid }}/start-upload"
-      onsubmit="return confirm('Retry uploading run folder to S3?');"
-    >
-      <button
-        type="submit"
-        class="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700 transition"
-      >
-        Retry Upload
-      </button>
-    </form>
-    {% elif run.status == 'verify_failed' %}
-    <form
-      method="POST"
-      action="/runs/{{ run.uuid }}/start-upload"
-      onsubmit="return confirm('Retry TRE verification?');"
-    >
-      <button
-        type="submit"
-        class="bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-orange-700 transition"
-      >
-        Retry Verification
-      </button>
-    </form>
-    <form
-      method="POST"
-      action="/runs/{{ run.uuid }}/recheck"
-      onsubmit="return confirm('Delete current checksum and re-checksum + re-upload + re-verify?');"
-    >
-      <button
-        type="submit"
-        class="bg-yellow-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-yellow-700 transition"
-      >
-        Recheck &amp; Re-upload
-      </button>
-    </form>
-    {% elif run.status == 'failed' %}
-    <form
-      method="POST"
-      action="/runs/{{ run.uuid }}/start-upload"
-      onsubmit="return confirm('Retry the full pipeline (checksum → upload → verify)?');"
-    >
-      <button
-        type="submit"
-        class="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700 transition"
-      >
-        Retry
-      </button>
-    </form>
-    {% endif %}
-  </div>
+</div>{# end grid #}
 
-  <!-- Delete uses a form + POST because browsers can't send DELETE -->
-  {% if history and history[-1].status == 'completed' %}
-  <form
-    method="POST"
-    action="/runs/{{ run.uuid }}/delete"
-    onsubmit="return confirm('Delete this run?');"
-  >
-    <button
-      type="submit"
-      class="bg-red-100 text-red-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-200 transition"
-    >
-      Delete the Run
-    </button>
-  </form>
-  {% endif %}
-</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
   const TERMINAL = ['completed', 'failed', 'running_finished', 'verify_failed', 'move_failed'];
+  const ACTIVE_STATUSES = ['checksumming', 'moving', 'queued', 'verifying'];
+  const STUCK_THRESHOLD_MS = 3 * 60 * 1000; // 3 minutes without progress update = warn
+  const ACTIVE_REFRESH = {{ active_refresh }};
+  const IDLE_REFRESH   = {{ idle_refresh }};
+
+  const STATUS_LABEL = {
+    running: 'Sequencing', running_finished: 'Sequencing Done', queued: 'Queued',
+    checksumming: 'Checksumming', moving: 'Uploading', verifying: 'Verifying',
+    completed: 'Completed', move_failed: 'Upload Failed', verify_failed: 'Verify Failed', failed: 'Failed',
+  };
   const DOT_COLORS = {
     completed: 'bg-green-400', running: 'bg-blue-400', running_finished: 'bg-purple-400',
-    queued: 'bg-gray-400', checksumming: 'bg-yellow-400', moving: 'bg-indigo-400',
-    verifying: 'bg-teal-400', verify_failed: 'bg-orange-400', move_failed: 'bg-red-400',
-    failed: 'bg-red-400',
+    queued: 'bg-gray-300', checksumming: 'bg-yellow-400', moving: 'bg-indigo-400',
+    verifying: 'bg-teal-400', verify_failed: 'bg-orange-400', move_failed: 'bg-red-400', failed: 'bg-red-400',
   };
-  const BADGE_COLORS = {
-    completed: 'bg-green-100 text-green-700', running: 'bg-blue-100 text-blue-700',
-    running_finished: 'bg-purple-100 text-purple-700', queued: 'bg-gray-100 text-gray-600',
-    checksumming: 'bg-yellow-100 text-yellow-700', moving: 'bg-indigo-100 text-indigo-700',
-    verifying: 'bg-teal-100 text-teal-700', verify_failed: 'bg-orange-100 text-orange-700',
-    move_failed: 'bg-red-100 text-red-700', failed: 'bg-red-100 text-red-700',
+  const BADGE_HTML = {
+    running:          `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border bg-blue-50 text-blue-600 border-blue-100"><span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse inline-block"></span>Sequencing</span>`,
+    running_finished: `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border bg-purple-50 text-purple-600 border-purple-100"><span class="w-1.5 h-1.5 rounded-full bg-purple-500 inline-block"></span>Sequencing Done</span>`,
+    queued:           `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border bg-gray-100 text-gray-500 border-gray-200"><span class="w-1.5 h-1.5 rounded-full bg-gray-400 inline-block"></span>Queued</span>`,
+    checksumming:     `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border bg-yellow-50 text-yellow-600 border-yellow-100"><span class="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse inline-block"></span>Checksumming</span>`,
+    moving:           `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border bg-indigo-50 text-indigo-600 border-indigo-100"><span class="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse inline-block"></span>Uploading</span>`,
+    verifying:        `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border bg-teal-50 text-teal-600 border-teal-100"><span class="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse inline-block"></span>Verifying</span>`,
+    completed:        `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border bg-green-50 text-green-600 border-green-100"><svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>Completed</span>`,
+    move_failed:      `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border bg-red-50 text-red-600 border-red-100"><svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>Upload Failed</span>`,
+    verify_failed:    `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border bg-orange-50 text-orange-600 border-orange-100"><svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>Verify Failed</span>`,
+    failed:           `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border bg-red-50 text-red-600 border-red-100"><svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>Failed</span>`,
   };
 
-  function renderHistory(history, currentStatus) {
+  const TERMINAL_STATUSES_SET = new Set(['completed','failed','move_failed','verify_failed','running_finished']);
+  const DOT_CLASS = {
+    completed: 'bg-green-400', running: 'bg-blue-400', running_finished: 'bg-purple-400',
+    queued: 'bg-gray-300', checksumming: 'bg-yellow-400', moving: 'bg-indigo-400',
+    verifying: 'bg-teal-400', verify_failed: 'bg-orange-400', move_failed: 'bg-red-400', failed: 'bg-red-400',
+  };
+  const PING_CLASS = {
+    running: 'bg-blue-400', checksumming: 'bg-yellow-400', moving: 'bg-indigo-400', verifying: 'bg-teal-400',
+  };
+  const LABEL_CLASS = {
+    move_failed: 'text-red-500', verify_failed: 'text-red-500', failed: 'text-red-500', completed: 'text-green-600',
+  };
+
+  function renderHistory(history) {
     if (!history.length) return '';
     return history.map((entry, i) => {
-      const isLast    = i === history.length - 1;
-      const dotColor  = DOT_COLORS[entry.status] || 'bg-gray-400';
-      const ping      = isLast && !TERMINAL.includes(entry.status)
-        ? `<span class="w-2 h-2 rounded-full bg-red-500 animate-ping" style="animation-duration:1s"></span>` : '';
-      const detail    = entry.detail
-        ? `<pre class="mt-1 text-xs text-red-600 bg-red-50 rounded p-2 whitespace-pre-wrap break-all">${entry.detail}</pre>` : '';
-      return `<li class="mb-6 ml-6">
-        <span class="absolute -left-2 flex items-center justify-center w-4 h-4 rounded-full ${dotColor}">${ping}</span>
-        <span class="font-medium text-gray-800 text-sm">${entry.status}</span>
-        <p class="text-xs text-gray-400 mt-0.5">${entry.created_at}</p>
-        ${detail}
+      const isLast   = i === history.length - 1;
+      const dot      = DOT_CLASS[entry.status] || 'bg-gray-300';
+      const ping     = isLast && !TERMINAL_STATUSES_SET.has(entry.status) && PING_CLASS[entry.status]
+        ? `<span class="absolute inset-0 rounded-full animate-ping opacity-60 ${PING_CLASS[entry.status]}"></span>` : '';
+      const label    = STATUS_LABEL[entry.status] || entry.status;
+      const lc       = LABEL_CLASS[entry.status] || 'text-gray-700';
+      const ts       = (entry.created_at || '').substring(0, 16).replace('T', ' ');
+      const line     = isLast ? '' : `<div class="w-px flex-1 bg-gray-100 mt-1.5 min-h-[16px]"></div>`;
+      const detail   = entry.detail
+        ? `<pre class="mt-1 text-[10px] text-red-600 bg-red-50 rounded p-2 whitespace-pre-wrap break-all border border-red-100">${entry.detail}</pre>` : '';
+      return `<li class="flex gap-3 pb-3 last:pb-0">
+        <div class="flex flex-col items-center shrink-0 pt-0.5">
+          <span class="w-2.5 h-2.5 rounded-full shrink-0 relative ${dot}">${ping}</span>
+          ${line}
+        </div>
+        <div class="min-w-0">
+          <p class="text-xs font-semibold leading-tight ${lc}">${label}</p>
+          <p class="text-[11px] text-gray-400 mt-0.5 tabular-nums">${ts}</p>
+          ${detail}
+        </div>
       </li>`;
     }).join('');
   }
 
-  let currentStatus = "{{ run.status }}";
-  let countdown = 120;
-  const ACTIVE_STATUSES = ['checksumming', 'moving', 'queued', 'verifying'];
+  function scrollHistoryToBottom(smooth) {
+    const el = document.getElementById('history-list');
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function updateHistoryFades() {
+    const el   = document.getElementById('history-list');
+    const fade = document.getElementById('history-bottom-fade');
+    if (!el || !fade) return;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 4;
+    fade.style.opacity = atBottom ? '0' : '1';
+  }
+
+  let currentStatus = {{ run.status | tojson }};
+  let countdown = ACTIVE_STATUSES.includes(currentStatus) ? ACTIVE_REFRESH : IDLE_REFRESH;
+  var mainTimer = null;
 
   function updateCountdown() {
     const indicator = document.getElementById('refresh-indicator');
     if (!indicator) return;
     if (TERMINAL.includes(currentStatus)) {
       indicator.textContent = '';
-    } else if (ACTIVE_STATUSES.includes(currentStatus)) {
-      indicator.textContent = 'refreshing every 5s';
     } else {
-      const el = document.getElementById('refresh-countdown');
-      if (el) el.textContent = countdown;
+      indicator.innerHTML = `next refresh in <span id="refresh-countdown">${countdown}</span>s`;
     }
   }
 
   const PROGRESS_STYLES = {
     checksumming: {
-      box: 'mb-6 p-4 rounded-lg border bg-yellow-50 border-yellow-200',
-      label: 'text-xs font-semibold text-yellow-700',
-      text: 'text-xs text-yellow-600',
-      track: 'w-full rounded-full h-2 bg-yellow-100',
-      bar: 'h-2 rounded-full transition-all duration-500 bg-yellow-400',
+      box: 'rounded-xl border p-5 bg-yellow-50 border-yellow-200',
+      label: 'text-sm font-semibold text-yellow-700',
+      text: 'text-xs font-mono text-yellow-600',
+      track: 'w-full rounded-full h-2.5 bg-yellow-100',
+      bar: 'h-2.5 rounded-full transition-all duration-500 bg-yellow-400',
       title: 'Checksumming in progress',
+      indeterminate: false,
     },
     moving: {
-      box: 'mb-6 p-4 rounded-lg border bg-indigo-50 border-indigo-200',
-      label: 'text-xs font-semibold text-indigo-700',
-      text: 'text-xs text-indigo-600',
-      track: 'w-full rounded-full h-2 bg-indigo-100',
-      bar: 'h-2 rounded-full transition-all duration-500 bg-indigo-400',
+      box: 'rounded-xl border p-5 bg-indigo-50 border-indigo-200',
+      label: 'text-sm font-semibold text-indigo-700',
+      text: 'text-xs font-mono text-indigo-600',
+      track: 'w-full rounded-full h-2.5 bg-indigo-100',
+      bar: 'h-2.5 rounded-full transition-all duration-500 bg-indigo-400',
       title: 'Uploading to TRE',
+      indeterminate: false,
+    },
+    verifying: {
+      box: 'rounded-xl border p-5 bg-teal-50 border-teal-200',
+      label: 'text-sm font-semibold text-teal-700',
+      text: 'text-xs font-mono text-teal-600',
+      track: 'w-full rounded-full h-2.5 bg-teal-100',
+      bar: 'h-2.5 rounded-full transition-all duration-500 bg-teal-400 animate-pulse w-full',
+      title: 'Waiting for TRE confirmation',
+      indeterminate: true,
     },
   };
 
@@ -275,27 +535,134 @@ content %}
     const track = document.getElementById('progress-track');
     const bar   = document.getElementById('progress-bar');
     if (!box) return;
-
     const style = PROGRESS_STYLES[status];
     if (!style) { box.classList.add('hidden'); return; }
-
-    box.className   = style.box;
-    box.classList.remove('hidden');
+    box.className = style.box; box.classList.remove('hidden');
     if (label) { label.className = style.label; label.textContent = style.title; }
-    if (text)  text.className  = style.text;
+    if (text)  { text.className = style.text; text.textContent = style.indeterminate ? 'polling S3…' : (progress || 'starting…'); }
     if (track) track.className = style.track;
     if (bar)   bar.className   = style.bar;
-
-    if (text) text.textContent = progress || 'starting...';
-    if (bar && progress) {
-      // prefer byte-based progress for a smooth bar; fall back to file count
-      const byteMatch  = progress.match(/([\d.]+)\s*(?:GB|MB|KB|B)\s*\/\s*([\d.]+)\s*(GB|MB|KB|B)/i);
-      const filesMatch = progress.match(/(\d+)\s*\/\s*(\d+)\s*files/);
-      if (byteMatch) {
-        bar.style.width = Math.round(parseFloat(byteMatch[1]) / parseFloat(byteMatch[2]) * 100) + '%';
-      } else if (filesMatch) {
-        bar.style.width = Math.round(parseInt(filesMatch[1]) / parseInt(filesMatch[2]) * 100) + '%';
+    if (bar) {
+      if (style.indeterminate) {
+        bar.style.width = '100%';
+      } else if (progress) {
+        const UNITS = { b: 1, kb: 1024, mb: 1024**2, gb: 1024**3, tb: 1024**4 };
+        const byteMatch  = progress.match(/([\d.]+)\s*(GB|MB|KB|B)\s*\/\s*([\d.]+)\s*(GB|MB|KB|B)/i);
+        const filesMatch = progress.match(/(\d+)\s*\/\s*(\d+)\s*files/);
+        if (byteMatch) {
+          const done  = parseFloat(byteMatch[1]) * (UNITS[byteMatch[2].toLowerCase()] || 1);
+          const total = parseFloat(byteMatch[3]) * (UNITS[byteMatch[4].toLowerCase()] || 1);
+          bar.style.width = Math.min(100, total > 0 ? Math.round(done / total * 100) : 0) + '%';
+        } else if (filesMatch) {
+          bar.style.width = Math.min(100, Math.round(parseInt(filesMatch[1]) / parseInt(filesMatch[2]) * 100)) + '%';
+        }
       }
+    }
+  }
+
+  // ── Pipeline stepper JS update ──
+  function getStepperStates(status) {
+    const st1 = ['running_finished','queued','checksumming','moving','move_failed','verifying','verify_failed','completed'].includes(status) ? 'done'
+               : status === 'running' ? 'active' : 'waiting';
+    const st2 = status === 'checksumming' ? 'active'
+               : ['moving','move_failed','verifying','verify_failed','completed'].includes(status) ? 'done'
+               : ['running_finished','queued'].includes(status) ? 'pending' : 'waiting';
+    const st3 = status === 'moving' ? 'active'
+               : status === 'move_failed' ? 'failed'
+               : ['verifying','verify_failed','completed'].includes(status) ? 'done' : 'waiting';
+    const st4 = status === 'verifying' ? 'active'
+               : status === 'verify_failed' ? 'failed'
+               : status === 'completed' ? 'done' : 'waiting';
+    const st5 = status === 'completed' ? 'done' : 'waiting';
+    return [st1, st2, st3, st4, st5];
+  }
+
+  function nodeHTML(state) {
+    if (state === 'done')
+      return `<span class="flex items-center justify-center w-8 h-8 rounded-full bg-[#0C2461] text-white shadow-sm"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg></span>`;
+    if (state === 'active')
+      return `<span class="relative flex items-center justify-center w-8 h-8 rounded-full bg-[#0C2461] text-white shadow-sm"><span class="absolute w-8 h-8 rounded-full bg-[#0C2461] animate-ping opacity-30"></span><span class="w-2.5 h-2.5 rounded-full bg-white"></span></span>`;
+    if (state === 'failed')
+      return `<span class="flex items-center justify-center w-8 h-8 rounded-full bg-red-500 text-white shadow-sm"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></span>`;
+    if (state === 'pending')
+      return `<span class="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 text-gray-400 border border-dashed border-gray-300"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg></span>`;
+    return `<span class="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 border border-gray-200"><span class="w-2 h-2 rounded-full bg-gray-300"></span></span>`;
+  }
+
+  function updateStepper(status) {
+    const nodesRow  = document.getElementById('stepper-nodes');
+    const labelsRow = document.getElementById('stepper-labels');
+    if (!nodesRow || !labelsRow) return;
+    const states = getStepperStates(status);
+    // Capture refs before any mutation
+    const nodeEls = [0, 2, 4, 6, 8].map(i => nodesRow.children[i]);
+    const connEls = [1, 3, 5, 7].map(i => nodesRow.children[i]);
+    nodeEls.forEach((el, i) => { if (el) el.outerHTML = nodeHTML(states[i]); });
+    connEls.forEach((el, i) => {
+      if (el) el.className = `flex-1 h-0.5 mx-1 rounded-full ${states[i] === 'done' ? 'bg-[#0C2461]' : 'bg-gray-200'}`;
+    });
+    const LABELS = ['Sequencing', 'Checksumming', 'Uploading', 'Verifying', 'Completed'];
+    Array.from(labelsRow.children).forEach((div, i) => {
+      const state = states[i];
+      const lc = (state === 'done' || state === 'active') ? 'text-[#0C2461]'
+                : state === 'failed' ? 'text-red-500'
+                : state === 'pending' ? 'text-gray-400' : 'text-gray-300';
+      const sub = state === 'active' ? `<p class="text-[10px] text-gray-400 mt-0.5">Running…</p>`
+                : state === 'failed' ? `<p class="text-[10px] text-red-400 mt-0.5">Failed</p>`
+                : state === 'pending' ? `<p class="text-[10px] text-gray-300 mt-0.5">Pending</p>` : '';
+      div.innerHTML = `<p class="text-[11px] font-semibold ${lc}">${LABELS[i]}</p>${sub}`;
+    });
+  }
+
+  // ── Actions card JS update ──
+  const RUN_UUID = {{ run.uuid | tojson }};
+  const RETRY_SVG    = `<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>`;
+  const UPLOAD_SVG   = `<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/></svg>`;
+  const SHIELD_SVG   = `<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"/></svg>`;
+  const CANCEL_SVG   = `<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>`;
+
+  function makeForm(action, confirm_msg, btnClass, svg, label) {
+    return `<form method="POST" action="/runs/${RUN_UUID}/${action}" onsubmit="return confirm(${JSON.stringify(confirm_msg)});">
+      <button type="submit" class="${btnClass}">${svg}${label}</button>
+    </form>`;
+  }
+
+  function actionsHTML(status, history) {
+    const base = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition';
+    if (status === 'queued')
+      return `<span class="inline-flex items-center gap-1.5 text-xs text-gray-400 mr-2"><span class="w-1.5 h-1.5 rounded-full bg-gray-300 animate-pulse"></span>Waiting in queue…</span>`
+           + makeForm('cancel-upload', 'Cancel the queued upload?',
+               `${base} border-gray-200 text-gray-500 bg-white hover:border-gray-400 hover:text-gray-700`, CANCEL_SVG, 'Cancel');
+    if (status === 'moving')
+      return makeForm('cancel-upload', 'Cancel the upload and reset to move_failed so you can retry later?',
+        `${base} border-gray-200 text-gray-500 bg-white hover:border-gray-400 hover:text-gray-700`, CANCEL_SVG, 'Cancel Upload');
+    if (status === 'running_finished')
+      return makeForm('start-upload', 'Upload run folder to TRE?',
+        `${base} border-[#0C2461] text-[#0C2461] bg-white hover:bg-[#0C2461] hover:text-white`, UPLOAD_SVG, 'Send to TRE');
+    if (status === 'move_failed')
+      return makeForm('start-upload', 'Retry uploading run folder to TRE?',
+        `${base} border-red-300 text-red-500 bg-white hover:bg-red-50`, RETRY_SVG, 'Retry Upload');
+    if (status === 'verify_failed')
+      return makeForm('start-upload', 'Retry TRE verification without re-uploading?',
+               `${base} border-orange-300 text-orange-500 bg-white hover:bg-orange-50`, SHIELD_SVG, 'Retry Verification');
+    if (status === 'failed')
+      return makeForm('start-upload', 'Retry the full pipeline (checksum → upload → verify)?',
+        `${base} border-red-300 text-red-500 bg-white hover:bg-red-50`, RETRY_SVG, 'Retry');
+    return `<p class="text-xs text-gray-300 italic">No actions available.</p>`;
+  }
+
+  const DELETE_SVG = `<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0"/></svg>`;
+
+  function updateActions(status, history) {
+    const btn = document.getElementById('actions-buttons');
+    if (btn) btn.innerHTML = actionsHTML(status, history);
+    const del = document.getElementById('actions-delete');
+    if (del) {
+      const isCompleted = history.length > 0 && history[history.length - 1].status === 'completed';
+      del.innerHTML = isCompleted
+        ? `<div class="mt-5 pt-4 border-t border-gray-50">${makeForm('delete', 'Permanently delete this run and its folder on disk?',
+            'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-red-200 text-red-400 bg-white hover:bg-red-50 hover:text-red-500 transition',
+            DELETE_SVG, 'Delete Run')}</div>` : '';
     }
   }
 
@@ -303,69 +670,81 @@ content %}
     fetch('/runs/{{ run.uuid }}/history-data')
       .then(r => r.json())
       .then(data => {
-        // update history list
         const list = document.getElementById('history-list');
-        if (list) list.innerHTML = renderHistory(data.history, data.status);
-
-        // update status badge
+        if (list) { list.innerHTML = renderHistory(data.history); scrollHistoryToBottom(); updateHistoryFades(); }
         const badge = document.getElementById('status-badge');
         if (badge && data.status !== currentStatus) {
-          badge.textContent = data.status;
-          badge.className = 'px-3 py-1 rounded-full text-xs font-semibold ' +
-            (BADGE_COLORS[data.status] || 'bg-gray-100 text-gray-500');
+          badge.innerHTML = BADGE_HTML[data.status] || `<span class="px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-500">${data.status}</span>`;
           currentStatus = data.status;
         }
-
-        // update progress bar (checksumming = yellow, moving = indigo)
         updateProgress(data.status, data.progress);
-
-        // stop polling on terminal status
+        updateStepper(data.status);
+        updateActions(data.status, data.history);
+        // track upload stall using server-side updated_at (accurate even on fresh page load)
+        const stuckEl = document.getElementById('stuck-warning');
+        if (stuckEl) {
+          if (data.status === 'moving' && data.progress_updated_at) {
+            const ts = data.progress_updated_at.endsWith('Z') ? data.progress_updated_at : data.progress_updated_at + 'Z';
+            const staleMs = Date.now() - new Date(ts).getTime();
+            if (staleMs > STUCK_THRESHOLD_MS) stuckEl.classList.remove('hidden');
+            else stuckEl.classList.add('hidden');
+          } else {
+            stuckEl.classList.add('hidden');
+          }
+        }
         if (TERMINAL.includes(data.status)) {
           const indicator = document.getElementById('refresh-indicator');
           if (indicator) indicator.textContent = '';
-          clearInterval(countdownTimer);
-          clearInterval(pollTimer);
+          if (mainTimer) clearInterval(mainTimer);
         }
       })
       .catch(() => {});
   }
 
-  // fast poll every 5s for active states
-  const pollTimer = setInterval(() => {
-    if (!ACTIVE_STATUSES.includes(currentStatus)) return;
-    poll();
-  }, 5000);
-
-  // countdown ticker (visual only — full reload every 120s for non-active states)
-  const countdownTimer = setInterval(() => {
-    if (TERMINAL.includes(currentStatus)) return;
-    countdown--;
-    updateCountdown();
-    if (countdown <= 0) {
-      countdown = 120;
-      if (!ACTIVE_STATUSES.includes(currentStatus)) poll();
-    }
-  }, 1000);
-
-  // initial state
-  updateCountdown();
-  updateProgress("{{ run.status }}", {{ ('"%s"' % run.progress) if run.progress else 'null' }});
-
-  // live kubectl proxy status check — toggle warning banner, never reload
-  const UPLOAD_STATUSES = ['queued', 'moving', 'move_failed'];
-  function checkProxyStatus() {
-    if (!UPLOAD_STATUSES.includes(currentStatus)) return;
-    fetch('/k8s-proxy/status-data')
-      .then(r => r.json())
-      .then(data => {
-        const warn = document.getElementById('proxy-warning');
-        if (!warn) return;
-        if (data.status === 'running') warn.classList.add('hidden');
-        else warn.classList.remove('hidden');
-      })
-      .catch(() => {});
+  if (!TERMINAL.includes(currentStatus)) {
+    mainTimer = setInterval(() => {
+      try {
+        if (TERMINAL.includes(currentStatus)) { clearInterval(mainTimer); return; }
+        countdown--;
+        if (countdown <= 0) {
+          poll();
+          countdown = ACTIVE_STATUSES.includes(currentStatus) ? ACTIVE_REFRESH : IDLE_REFRESH;
+        }
+        updateCountdown();
+      } catch(e) { console.error('timer error', e); }
+    }, 1000);
   }
-  setInterval(checkProxyStatus, 10000);
-  checkProxyStatus();
+
+  updateCountdown();
+  updateProgress({{ run.status | tojson }}, {{ run.progress | tojson }});
+  updateStepper({{ run.status | tojson }});
+  updateActions({{ run.status | tojson }}, {{ history | tojson }});
+
+  // Scroll history to bottom on load; update fade on scroll
+  scrollHistoryToBottom();
+  updateHistoryFades();
+  const historyEl = document.getElementById('history-list');
+  if (historyEl) historyEl.addEventListener('scroll', updateHistoryFades);
+
+
+  // Live duration tickers for non-terminal runs
+  const startTime = new Date({{ run.created_at | tojson }});
+  function fmtDelta(sec) {
+    if (sec < 60) return sec + 's';
+    if (sec < 3600) { const m = Math.floor(sec/60), s = sec%60; return m+'m '+(s ? s+'s' : ''); }
+    const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60);
+    return h+'h '+(m ? m+'m' : '');
+  }
+  const liveDurationEl   = document.getElementById('live-duration');
+  const liveSeqDurationEl = document.getElementById('live-seq-duration');
+  if (liveDurationEl || liveSeqDurationEl) {
+    function tickDurations() {
+      const delta = Math.max(0, Math.floor((Date.now() - startTime) / 1000));
+      if (liveDurationEl)    liveDurationEl.textContent    = fmtDelta(delta);
+      if (liveSeqDurationEl) liveSeqDurationEl.textContent = fmtDelta(delta);
+    }
+    tickDurations();
+    setInterval(tickDurations, 1000);
+  }
 </script>
 {% endblock %}

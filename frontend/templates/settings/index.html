@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<div>
+  <div class="mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">Settings</h1>
+    <p class="text-sm text-gray-500 mt-1">Adjust application behaviour without restarting containers. Changes take effect immediately (except Watcher settings — see note below).</p>
+  </div>
+
+  {% if not settings %}
+  <div class="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-5 py-4 mb-6">
+    <p class="font-semibold">Cannot load settings</p>
+    <p class="mt-1">The backend may not be reachable, or the database migration has not been run yet. Run: <code>docker exec fastapi_gateway_backend alembic upgrade head</code></p>
+  </div>
+  {% endif %}
+
+  {# ── Metadata: labels, units, min/max for each key ── #}
+  {% set meta = {
+    "active_refresh_interval":     {"label": "Active status refresh",        "unit": "seconds", "min": 1,  "max": 300,  "hint": "Run detail page while checksumming / moving / verifying"},
+    "idle_refresh_interval":       {"label": "Idle (sequencing) refresh",    "unit": "seconds", "min": 10, "max": 3600, "hint": "Run detail page while the sequencer is still running"},
+    "containers_refresh_interval": {"label": "Containers page refresh",      "unit": "seconds", "min": 1,  "max": 300,  "hint": "Docker container list auto-refresh"},
+"upload_max_attempts":         {"label": "Upload retry attempts",         "unit": "attempts","min": 1,  "max": 20,   "hint": "How many times to retry a failed S3 file upload"},
+    "upload_retry_backoff_max":    {"label": "Upload retry wait cap",         "unit": "seconds", "min": 5,  "max": 300,  "hint": "Maximum pause between retry attempts (exponential backoff)"},
+    "verify_retries":              {"label": "Verification poll attempts",    "unit": "attempts","min": 1,  "max": 100,  "hint": "How many times to check S3 for TRE's checksum confirmation"},
+    "verify_interval":             {"label": "Verification poll interval",    "unit": "seconds", "min": 5,  "max": 3600, "hint": "Wait time between each S3 verification poll"},
+    "run_detection_delay":         {"label": "Run detection delay",           "unit": "seconds", "min": 0,  "max": 120,  "hint": "Pause after a new folder appears before registering it as a run"},
+    "sequencer_check_interval":    {"label": "Sequencer check interval",      "unit": "seconds", "min": 10, "max": 3600, "hint": "How often the watcher polls the DB for newly added sequencers"},
+    "log_lines_count":             {"label": "Log lines to show",             "unit": "lines",   "min": 50, "max": 5000, "hint": "Number of log lines displayed per service in the Logs viewer"},
+    "log_viewer_refresh_interval": {"label": "Log viewer refresh interval",   "unit": "seconds", "min": 1,  "max": 300,  "hint": "How often the Logs viewer auto-refreshes"},
+    "pagination_page_size":        {"label": "Items per page",                "unit": "items",   "min": 5,  "max": 200,  "hint": "Number of rows shown per page on Runs, Sequencers, and Sequencer Types list pages"},
+  } %}
+
+  {% set categories = [
+    ("ui",           "UI Timings",    "Controls how often pages auto-refresh. Changes apply on the next page load.",           false),
+    ("upload",       "Upload",        "Controls retry behaviour when uploading run data to S3.",                               false),
+    ("verification", "Verification",  "Controls how long to wait for TRE to confirm the uploaded data.",                      false),
+    ("watcher",      "Watcher",       "Controls run detection timing. Changes apply on the next watcher polling cycle (no restart needed).", true),
+    ("pagination",   "Pagination",    "Controls how many items appear per page on list views. Changes apply on the next page navigation.", false),
+    ("logs",         "Logs",          "Controls the Logs viewer. Changes apply on the next page load.", false),
+  ] %}
+
+  {% for cat_key, cat_label, cat_desc, needs_restart in categories %}
+  {% set cat_settings = settings.values() | selectattr("category", "equalto", cat_key) | list %}
+  {% if cat_settings %}
+  <div class="mb-8">
+    <div class="flex items-center gap-3 mb-3">
+      <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">{{ cat_label }}</h2>
+      {% if needs_restart %}
+      <span class="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">applies on next watcher poll — no restart needed</span>
+      {% endif %}
+    </div>
+    <p class="text-xs text-gray-400 mb-3">{{ cat_desc }}</p>
+    <div class="bg-white rounded-xl shadow divide-y divide-gray-100">
+      {% for s in cat_settings | sort(attribute='key') %}
+      {% set m = meta.get(s.key, {"label": s.key, "unit": "", "min": 1, "max": 9999, "hint": s.description}) %}
+      <div class="px-5 py-4" id="row-{{ s.key }}">
+        <div class="flex items-center justify-between gap-4">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-800">{{ m.label }}</p>
+            <p class="text-xs text-gray-400 mt-0.5">{{ m.hint }}</p>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <input
+              type="number"
+              id="input-{{ s.key }}"
+              value="{{ s.value }}"
+              min="{{ m.min }}"
+              max="{{ m.max }}"
+              class="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#0C2461]"
+            />
+            {% if m.unit %}
+            <span class="text-xs text-gray-400 w-14">{{ m.unit }}</span>
+            {% endif %}
+            <button
+              onclick="saveSetting('{{ s.key }}')"
+              class="bg-[#0C2461] text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#091B4D] transition"
+            >
+              Save
+            </button>
+            <span id="status-{{ s.key }}" class="text-xs w-16 text-center"></span>
+          </div>
+        </div>
+        {% if s.updated_at %}
+        <p class="text-xs text-gray-300 mt-1.5">Last changed: {{ s.updated_at }}</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function saveSetting(key) {
+    const input  = document.getElementById('input-' + key);
+    const status = document.getElementById('status-' + key);
+    const value  = input.value.trim();
+
+    if (!value || isNaN(value) || parseInt(value) < 1) {
+      status.textContent = 'invalid';
+      status.className = 'text-xs w-16 text-center text-red-500';
+      return;
+    }
+
+    status.textContent = 'saving…';
+    status.className = 'text-xs w-16 text-center text-gray-400';
+
+    fetch('/settings/update/' + key, {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({value: String(parseInt(value))}),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.key) {
+          status.textContent = 'saved ✓';
+          status.className = 'text-xs w-16 text-center text-green-600 font-medium';
+        } else {
+          status.textContent = data.detail || 'error';
+          status.className = 'text-xs w-16 text-center text-red-500';
+        }
+        setTimeout(() => { status.textContent = ''; status.className = 'text-xs w-16 text-center'; }, 3000);
+      })
+      .catch(() => {
+        status.textContent = 'error';
+        status.className = 'text-xs w-16 text-center text-red-500';
+      });
+  }
+
+  // Allow pressing Enter in any input to save
+  document.querySelectorAll('input[type=number]').forEach(input => {
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        const key = input.id.replace('input-', '');
+        saveSetting(key);
+      }
+    });
+  });
+</script>
+{% endblock %}

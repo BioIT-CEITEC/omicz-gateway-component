@@ -102,20 +102,28 @@ def get_failed_pipeline_runs(db: Session) -> list:
     )
 
 
-def count_runs(db: Session) -> int:
-    return db.query(Runs).filter(Runs.is_deleted == False).count()
+def count_runs(db: Session, statuses: list[str] | None = None, search: str | None = None, sequencer_uuid=None) -> int:
+    q = db.query(Runs).filter(Runs.is_deleted == False)
+    if statuses:
+        q = q.filter(Runs.status.in_(statuses))
+    if search:
+        q = q.filter(Runs.name.ilike(f"%{search}%"))
+    if sequencer_uuid:
+        q = q.filter(Runs.sequencer_uuid == sequencer_uuid)
+    return q.count()
 
 
-def get_all_runs(db: Session, skip: int = 0, limit: int = 20):
+def get_all_runs(db: Session, skip: int = 0, limit: int = 20, statuses: list[str] | None = None, search: str | None = None, order: str = "desc", sequencer_uuid=None):
     """Returns all active runs across all sequencers."""
-    return (
-        db.query(Runs)
-        .filter(Runs.is_deleted == False)
-        .order_by(Runs.created_at.desc())
-        .offset(skip)
-        .limit(limit)
-        .all()
-    )
+    q = db.query(Runs).filter(Runs.is_deleted == False)
+    if statuses:
+        q = q.filter(Runs.status.in_(statuses))
+    if search:
+        q = q.filter(Runs.name.ilike(f"%{search}%"))
+    if sequencer_uuid:
+        q = q.filter(Runs.sequencer_uuid == sequencer_uuid)
+    sort_col = Runs.created_at.asc() if order == "asc" else Runs.created_at.desc()
+    return q.order_by(sort_col).offset(skip).limit(limit).all()
 
 
 def get_run_by_uuid(uuid: UUID, db: Session):

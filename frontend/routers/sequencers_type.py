@@ -4,6 +4,7 @@ from fastapi import APIRouter, Request, Form
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from typing import List, Optional
+from routers.settings import get_setting_value
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -20,7 +21,8 @@ def safe_json(response: httpx.Response, fallback=None):
 
 # ── LIST ──
 @router.get("/")
-def list_sequencer_types(request: Request, skip: int = 0, limit: int = 20):
+def list_sequencer_types(request: Request, skip: int = 0, limit: int | None = None):
+    if limit is None: limit = get_setting_value("pagination_page_size", 20)
     response = httpx.get(f"{BACKEND_URL}/sequencers-types/", params={"skip": skip, "limit": limit})
     data = safe_json(response, fallback={"total": 0, "skip": skip, "limit": limit, "results": []})
     return templates.TemplateResponse(request, "sequencers-types/list.html", {"data": data})

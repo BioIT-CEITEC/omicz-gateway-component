@@ -13,7 +13,8 @@ class Runs(Base):
     name         = Column(String, nullable=False)
     sequencer_uuid = Column(PG_UUID(as_uuid=True), ForeignKey("sequencers.uuid"), nullable=False)
     status       = Column(String, nullable=False, default="running", server_default="running")
-    progress     = Column(Text, nullable=True)
+    progress      = Column(Text, nullable=True)
+    checksum_file = Column(String, nullable=True)  # e.g. "abc123.CHECKSUM", stored after checksumming
     is_deleted   = Column(Boolean, nullable=False, default=False, server_default="false")
     created_at   = Column(DateTime, default=datetime.now)
     updated_at   = Column(DateTime, default=datetime.now, onupdate=datetime.now)

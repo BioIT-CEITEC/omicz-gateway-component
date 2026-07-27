@@ -17,7 +17,7 @@ from db.repositories.runs_status_history import add_run_status_history
 import glob
 
 from services.checksum import create_checksum_file, find_file_by_hash, _fmt_bytes
-from services.tre import send_to_tre, verify_checksum_on_s3
+from services.tre import send_to_tre, verify_checksum_on_s3, find_checksum_filename_in_s3
 from db.repositories.settings import get_setting_int
 from core.logger import get_logger
 
@@ -68,6 +68,20 @@ def _make_progress_callback(run_uuid):
         finally:
             db.close()
     return callback
+
+
+def resolve_checksum_filename(run_name: str, sequencer_uuid, db) -> str | None:
+    """
+    Read the checksum filename stored in DB after checksumming completed.
+    Returns the filename (e.g. "abc123.CHECKSUM") or None.
+    """
+    from db.models.runs import Runs
+    run = db.query(Runs).filter(Runs.name == run_name, Runs.sequencer_uuid == sequencer_uuid).first()
+    if run and run.checksum_file:
+        logger.info(f"[verify] checksum filename from DB: {run.checksum_file}")
+        return run.checksum_file
+    logger.warning(f"[verify] no checksum_file stored in DB for run '{run_name}'")
+    return None
 
 
 def get_sequencer(sequencer_uuid) -> Sequencers | None:
@@ -178,14 +192,16 @@ def handle_run_checksum_requested(name: str, sequencer_uuid):
         add_run_status_history(run_uuid=run.uuid, status="checksumming", db=db)
         logger.info(f"status updated to 'checksumming' for run '{name}'")
 
-        create_checksum_file(run_name=name, sequencer_location=sequencer.location, exclusions=sequencer.exclusions or [], on_progress=_make_progress_callback(run.uuid))
+        checksum_path = create_checksum_file(run_name=name, sequencer_location=sequencer.location, exclusions=sequencer.exclusions or [], on_progress=_make_progress_callback(run.uuid))
 
-        # checksumming done — set queued while waiting for upload slot, clear progress
+        # checksumming done — store filename in DB, set queued, clear progress
         run_obj = db.query(Runs).filter(Runs.uuid == run.uuid).first()
         if run_obj:
-            run_obj.status   = "queued"
-            run_obj.progress = None
+            run_obj.status        = "queued"
+            run_obj.progress      = None
+            run_obj.checksum_file = os.path.basename(checksum_path)
             db.commit()
+            logger.info(f"stored checksum_file='{run_obj.checksum_file}' for run '{name}'")
         add_run_status_history(run_uuid=run.uuid, status="queued", db=db)
 
         from services.publisher import publish
@@ -263,11 +279,9 @@ def handle_run_upload_requested(name: str, sequencer_uuid):
         logger.info(f"status updated to 'verifying' for run '{name}'")
 
         run_folder = os.path.join(sequencer.location, name)
-        checksum_files = glob.glob(os.path.join(run_folder, "*.CHECKSUM"))
-        if not checksum_files:
-            raise Exception("no .CHECKSUM file found in run folder — cannot verify")
-        checksum_filename = os.path.basename(checksum_files[0])
-        logger.info(f"[verify] using checksum file: {checksum_filename}")
+        checksum_filename = resolve_checksum_filename(name, sequencer_uuid, db)
+        if not checksum_filename:
+            raise Exception("checksum filename not found in DB — re-upload required")
 
         verified, tre_error = verify_checksum_on_s3(checksum_filename)
         if not verified:
@@ -318,14 +332,16 @@ def handle_run_rechecksum_requested(name: str, sequencer_uuid):
         add_run_status_history(run_uuid=run.uuid, status="checksumming", db=db)
         logger.info(f"status updated to 'checksumming' for run '{name}'")
 
-        create_checksum_file(run_name=name, sequencer_location=sequencer.location, exclusions=sequencer.exclusions or [], on_progress=_make_progress_callback(run.uuid))
+        checksum_path = create_checksum_file(run_name=name, sequencer_location=sequencer.location, exclusions=sequencer.exclusions or [], on_progress=_make_progress_callback(run.uuid))
 
-        # checksumming done — set queued while waiting for upload slot, clear progress
+        # checksumming done — store filename in DB, set queued, clear progress
         run_obj = db.query(Runs).filter(Runs.uuid == run.uuid).first()
         if run_obj:
-            run_obj.status   = "queued"
-            run_obj.progress = None
+            run_obj.status        = "queued"
+            run_obj.progress      = None
+            run_obj.checksum_file = os.path.basename(checksum_path)
             db.commit()
+            logger.info(f"stored checksum_file='{run_obj.checksum_file}' for run '{name}'")
         add_run_status_history(run_uuid=run.uuid, status="queued", db=db)
 
         from services.publisher import publish
@@ -371,11 +387,9 @@ def handle_run_verify_requested(name: str, sequencer_uuid):
         db.commit()
 
         run_folder = os.path.join(sequencer.location, name)
-        checksum_files = glob.glob(os.path.join(run_folder, "*.CHECKSUM"))
-        if not checksum_files:
-            raise Exception("no .CHECKSUM file found in run folder — cannot verify")
-        checksum_filename = os.path.basename(checksum_files[0])
-        logger.info(f"[verify] using checksum file: {checksum_filename}")
+        checksum_filename = resolve_checksum_filename(name, sequencer_uuid, db)
+        if not checksum_filename:
+            raise Exception("checksum filename not found in DB — re-upload required")
 
         verified, tre_error = verify_checksum_on_s3(checksum_filename)
         if not verified:

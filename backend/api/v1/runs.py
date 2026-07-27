@@ -9,7 +9,9 @@ from schemas.pagination import PaginatedResponse
 from db.session import get_db
 from db.repositories.runs import get_all_runs, count_runs, get_run_by_uuid, get_runs_by_sequencer, delete_run, get_queued_runs, count_queued_runs, get_failed_pipeline_runs
 from db.repositories.runs_status_history import get_run_history, add_run_status_history
+from db.models.sequencers import Sequencers
 from services.publisher import publish
+from services.tre import check_verify_status
 from core.config import settings
 
 router = APIRouter()
@@ -60,6 +62,33 @@ def list_runs_by_sequencer(sequencer_uuid: UUID, db: Session = Depends(get_db)):
 @router.get("/{uuid}/history", response_model=list[ShowRunsStatusHistory])
 def get_history(uuid: UUID, db: Session = Depends(get_db)):
     return get_run_history(run_uuid=uuid, db=db)
+
+
+@router.get("/{uuid}/verify-check")
+def verify_check(uuid: UUID, db: Session = Depends(get_db)):
+    """
+    Single-shot check of the TRE checksums bucket for this run.
+    Does NOT start or affect the pipeline — purely diagnostic.
+
+    Returns:
+      {"status": "no_checksum_file"}  — .CHECKSUM file not found in run folder (need Re-upload)
+      {"status": "pending"}           — .CHECKSUM uploaded but TRE hasn't processed it yet
+      {"status": "success"}           — TRE confirmed receipt
+      {"status": "failed", "detail"}  — TRE reported an error
+      {"status": "error",  "detail"}  — unexpected S3/network problem
+    """
+    run = get_run_by_uuid(uuid=uuid, db=db)
+    sequencer = db.query(Sequencers).filter(Sequencers.uuid == run.sequencer_uuid).first()
+    if not sequencer:
+        raise HTTPException(status_code=404, detail="Sequencer not found")
+
+    checksum_filename = run.checksum_file
+    if not checksum_filename:
+        return {"status": "no_checksum_file", "detail": "Checksum filename not stored in DB — run Re-upload to regenerate"}
+
+    result = check_verify_status(checksum_filename)
+    result["checksum_file"] = checksum_filename
+    return result
 
 
 @router.get("/{uuid}", response_model=ShowRun)

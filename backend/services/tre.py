@@ -206,6 +206,36 @@ def send_to_tre(run_name: str, sequencer_location: str, sequencer_slug: str, exc
     return True
 
 
+def find_checksum_filename_in_s3(run_name: str, sequencer_slug: str) -> str | None:
+    """
+    When the local .CHECKSUM file is missing (e.g. SMB mount dropped), look it up
+    in the S3 upload bucket by listing the run's prefix.
+    Returns just the filename (e.g. "abc123.CHECKSUM") or None if not found.
+    """
+    s3 = boto3.client(
+        "s3",
+        endpoint_url=S3_ENDPOINT,
+        aws_access_key_id=S3_ACCESS_KEY,
+        aws_secret_access_key=S3_SECRET_KEY,
+        region_name=S3_REGION,
+        config=boto3.session.Config(s3={"addressing_style": "path"}),
+    )
+    prefix = f"{S3_PREFIX}{sequencer_slug}/{run_name}/"
+    try:
+        resp = s3.list_objects_v2(Bucket=S3_BUCKET, Prefix=prefix)
+        for obj in resp.get("Contents", []):
+            key = obj["Key"]
+            if key.endswith(".CHECKSUM"):
+                filename = os.path.basename(key)
+                logger.info(f"[verify] found checksum filename in S3: {filename}")
+                return filename
+        logger.warning(f"[verify] no .CHECKSUM object found in S3 at {S3_BUCKET}/{prefix}")
+        return None
+    except Exception as e:
+        logger.warning(f"[verify] failed to list S3 for checksum filename: {e}")
+        return None
+
+
 def verify_checksum_on_s3(checksum_filename: str) -> tuple[bool, str | None]:
     """
     Poll S3 until TRE places the checksum file in the checksums/ prefix.
@@ -258,6 +288,38 @@ def verify_checksum_on_s3(checksum_filename: str) -> tuple[bool, str | None]:
 
     logger.warning(f"[TRE verify] FAILED — not found after {VERIFY_RETRIES} attempts: s3://checksums/{s3_key}")
     return False, None
+
+
+def check_verify_status(checksum_filename: str) -> dict:
+    """
+    Single-shot check of the TRE checksums bucket — no retries, no sleeping.
+    Returns a dict:
+      {"status": "pending"}              — file not in bucket yet (TRE still processing)
+      {"status": "success"}              — empty file = TRE confirmed OK
+      {"status": "failed", "detail": x}  — file has content = TRE reported an error
+      {"status": "error",  "detail": x}  — unexpected S3/network error
+    """
+    s3 = boto3.client(
+        "s3",
+        endpoint_url=S3_ENDPOINT,
+        aws_access_key_id=S3_ACCESS_KEY,
+        aws_secret_access_key=S3_SECRET_KEY,
+        region_name=S3_REGION,
+        config=boto3.session.Config(s3={"addressing_style": "path"}),
+    )
+    try:
+        obj = s3.get_object(Bucket="checksums", Key=checksum_filename)
+        content = obj["Body"].read().decode("utf-8")
+        if len(content) == 0:
+            return {"status": "success"}
+        return {"status": "failed", "detail": content.strip()}
+    except ClientError as e:
+        code = e.response.get("Error", {}).get("Code", "")
+        if code in ("NoSuchKey", "404"):
+            return {"status": "pending"}
+        return {"status": "error", "detail": str(e)}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
 
 
 def delete_zip(zip_path: str) -> bool:

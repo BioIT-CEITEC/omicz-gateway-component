@@ -105,9 +105,7 @@
   {# Filter pills #}
   {% for gkey, glabel, gstatuses in groups %}
     {% set is_active = (ns.active_group == gkey) %}
-    <button type="submit" name="{% if gstatuses %}status{% endif %}"
-            value="{% if gstatuses %}{{ gstatuses | join(',') }}{% endif %}"
-            onclick="applyFilter(event, {{ gstatuses | tojson }})"
+    <button type="button" data-filter-statuses='{{ gstatuses | tojson }}'
             class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium transition border cursor-pointer
               {% if is_active %}bg-[#0C2461] text-white border-[#0C2461]
               {% else %}bg-white text-gray-500 border-gray-200 hover:border-[#0C2461] hover:text-[#0C2461]{% endif %}">
@@ -353,14 +351,16 @@
     });
   }
 
-  function applyFilter(event, statuses) {
-    event.preventDefault();
-    const params = new URLSearchParams(window.location.search);
-    params.delete('status');
-    params.delete('skip');
-    statuses.forEach(s => params.append('status', s));
-    window.location.href = '/runs/?' + params.toString();
-  }
+  document.querySelectorAll('[data-filter-statuses]').forEach(btn => {
+    btn.addEventListener('click', function () {
+      const statuses = JSON.parse(this.dataset.filterStatuses);
+      const params = new URLSearchParams(window.location.search);
+      params.delete('status');
+      params.delete('skip');
+      statuses.forEach(s => params.append('status', s));
+      window.location.href = '/runs/?' + params.toString();
+    });
+  });
 
   // Search submits on Enter (default) or by clicking the search button
 </script>

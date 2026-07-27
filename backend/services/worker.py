@@ -187,11 +187,6 @@ def handle_run_checksum_requested(name: str, sequencer_uuid):
         stale_queued = existing and existing.status == "queued" and bool(existing.checksum_file)
         if existing and (existing.is_deleted or stale_queued or existing.status in ("move_failed", "verify_failed", "checksumming", "moving", "verifying", "completed")):
             logger.warning(f"run_checksum_requested ignored for '{name}' — is_deleted={existing.is_deleted} status='{existing.status}' stale_queued={stale_queued}")
-            if stale_queued:
-                # Record in history so operators can see a duplicate upload was prevented
-                add_run_status_history(run_uuid=existing.uuid, status="queued", db=db,
-                                       detail="Duplicate upload request discarded — upload already in progress")
-                db.commit()
             return
 
         run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="checksumming", db=db)

@@ -119,6 +119,7 @@ def start_upload(uuid: UUID, db: Session = Depends(get_db)):
         publish("run_verify_requested", run.name, run.sequencer_uuid)
     else:
         run.status = "queued"
+        run.checksum_file = None  # clear stale checksum so worker re-checksums from scratch
         db.commit()
         db.refresh(run)
         add_run_status_history(run_uuid=run.uuid, status="queued", db=db)

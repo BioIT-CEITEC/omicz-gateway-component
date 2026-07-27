@@ -3,7 +3,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import JSONResponse
 
-from routers import home, sequencers, test, sequencers_type, runs, containers, settings, logs
+from routers import home, sequencers, test, sequencers_type, runs, containers, settings, logs, changelog
 from logger import get_logger
 
 logger = get_logger("frontend")
@@ -31,5 +31,6 @@ app.include_router(runs.router, prefix="/runs")
 app.include_router(containers.router, prefix="/containers")
 app.include_router(settings.router, prefix="/settings")
 app.include_router(logs.router, prefix="/logs")
+app.include_router(changelog.router, prefix="/changelog")
 app.include_router(test.router, prefix="/test")
 

@@ -189,6 +189,16 @@ def handle_run_checksum_requested(name: str, sequencer_uuid):
             logger.warning(f"run_checksum_requested ignored for '{name}' — is_deleted={existing.is_deleted} status='{existing.status}' stale_queued={stale_queued}")
             return
 
+        # If checksum_file was cleared in DB (user triggered a fresh retry via the API),
+        # delete any stale .CHECKSUM file on disk so create_checksum_file re-generates it.
+        # This prevents reusing an old checksum after the run folder contents have changed.
+        if existing and not existing.checksum_file:
+            run_folder = os.path.join(sequencer.location, name)
+            stale_checksums = glob.glob(os.path.join(run_folder, "*.CHECKSUM"))
+            for f in stale_checksums:
+                os.remove(f)
+                logger.info(f"deleted stale checksum file before re-checksumming: {os.path.basename(f)}")
+
         run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="checksumming", db=db)
         add_run_status_history(run_uuid=run.uuid, status="checksumming", db=db)
         logger.info(f"status updated to 'checksumming' for run '{name}'")

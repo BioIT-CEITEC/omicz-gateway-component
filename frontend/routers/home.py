@@ -35,7 +35,7 @@ def home(request: Request):
     completed        = count("completed")
 
     # sequencer stats
-    seq_data     = _get("/sequencers/", {"limit": 100}) or {}
+    seq_data     = _get("/sequencers/", {"limit": 50}) or {}
     sequencers   = seq_data.get("results", [])
     seq_active   = sum(1 for s in sequencers if s.get("status") == "active")
     seq_total    = len(sequencers)

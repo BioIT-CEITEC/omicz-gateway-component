@@ -135,8 +135,8 @@ def handle_run_completed(name: str, sequencer_uuid):
     try:
         # guard: skip if the run has already moved past running_finished
         existing = db.query(Runs).filter(Runs.name == name, Runs.sequencer_uuid == sequencer_uuid).first()
-        if existing and existing.status in ("checksumming", "moving", "completed", "move_failed"):
-            logger.warning(f"run_completed ignored for '{name}' — already in status '{existing.status}'")
+        if existing and (existing.is_deleted or existing.status in ("checksumming", "moving", "completed", "move_failed")):
+            logger.warning(f"run_completed ignored for '{name}' — is_deleted={existing.is_deleted} status='{existing.status}'")
             return
 
         run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="running_finished", db=db)
@@ -184,8 +184,8 @@ def handle_run_checksum_requested(name: str, sequencer_uuid):
         # - checksumming / moving / verifying: already in flight (stale duplicate event)
         # - completed: already done
         existing = db.query(Runs).filter(Runs.name == name, Runs.sequencer_uuid == sequencer_uuid).first()
-        if existing and existing.status in ("move_failed", "checksumming", "moving", "verifying", "completed"):
-            logger.warning(f"run_checksum_requested ignored for '{name}' — status is '{existing.status}'")
+        if existing and (existing.is_deleted or existing.status in ("move_failed", "checksumming", "moving", "verifying", "completed")):
+            logger.warning(f"run_checksum_requested ignored for '{name}' — is_deleted={existing.is_deleted} status='{existing.status}'")
             return
 
         run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="checksumming", db=db)
@@ -236,10 +236,10 @@ def handle_run_upload_requested(name: str, sequencer_uuid):
         db.close()
         return
 
-    # Guard: skip if run was cancelled or a verify-only retry is already in progress
+    # Guard: skip if run was cancelled, deleted, or a verify-only retry is already in progress
     existing = db.query(Runs).filter(Runs.name == name, Runs.sequencer_uuid == sequencer_uuid).first()
-    if existing and existing.status in ("move_failed", "verify_failed", "verifying", "completed"):
-        logger.warning(f"run_upload_requested ignored for '{name}' — status is '{existing.status}' (cancelled or superseded)")
+    if existing and (existing.is_deleted or existing.status in ("move_failed", "verify_failed", "verifying", "completed")):
+        logger.warning(f"run_upload_requested ignored for '{name}' — is_deleted={existing.is_deleted} status='{existing.status}'")
         db.close()
         return
 
@@ -322,6 +322,11 @@ def handle_run_rechecksum_requested(name: str, sequencer_uuid):
             logger.error(f"sequencer {sequencer_uuid} not found — cannot rechecksum run '{name}'")
             return
 
+        existing = db.query(Runs).filter(Runs.name == name, Runs.sequencer_uuid == sequencer_uuid).first()
+        if existing and existing.is_deleted:
+            logger.warning(f"run_rechecksum_requested ignored for '{name}' — run is deleted")
+            return
+
         run_folder = os.path.join(sequencer.location, name)
         existing = glob.glob(os.path.join(run_folder, "*.CHECKSUM"))
         for f in existing:
@@ -375,6 +380,10 @@ def handle_run_verify_requested(name: str, sequencer_uuid):
 
     try:
         existing_for_verify = db.query(Runs).filter(Runs.name == name, Runs.sequencer_uuid == sequencer_uuid).first()
+        if existing_for_verify and existing_for_verify.is_deleted:
+            logger.warning(f"run_verify_requested ignored for '{name}' — run is deleted")
+            db.close()
+            return
         if existing_for_verify and existing_for_verify.status == "verifying":
             # API already set status to verifying (verify-only retry path) — skip duplicate
             run = existing_for_verify

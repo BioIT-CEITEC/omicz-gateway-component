@@ -1,5 +1,3 @@
-import os
-import shutil
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -7,7 +5,6 @@ from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
 
 from db.models.runs import Runs
-from db.models.sequencers import Sequencers
 from core.logger import get_logger
 
 logger = get_logger("backend")
@@ -134,29 +131,14 @@ def get_run_by_uuid(uuid: UUID, db: Session):
 
 
 def delete_run(uuid: UUID, db: Session):
+    from db.repositories.runs_status_history import add_run_status_history
     run = db.query(Runs).filter(Runs.uuid == uuid, Runs.is_deleted == False).first()
     if not run:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
 
-    # save these before the session changes state
-    run_name = run.name
-    sequencer_uuid = run.sequencer_uuid
-
-    # soft delete first — this must always succeed regardless of filesystem state
     run.is_deleted = True
     db.commit()
-
-    # now separately query the sequencer to get its location — no lazy loading
-    sequencer = db.query(Sequencers).filter(Sequencers.uuid == sequencer_uuid).first()
-    if sequencer and sequencer.location:
-        run_folder = os.path.join(sequencer.location, run_name)
-        if os.path.isdir(run_folder):
-            try:
-                shutil.rmtree(run_folder)
-                logger.info(f"deleted run folder: {run_folder}")
-            except Exception as e:
-                logger.error(f"failed to delete run folder '{run_folder}': {e}", exc_info=True)
-        else:
-            logger.warning(f"run folder not found on disk, skipping: {run_folder}")
+    add_run_status_history(run_uuid=uuid, status="deleted", db=db)
+    logger.info(f"soft-deleted run '{run.name}' (uuid={uuid})")
 
     return {"detail": "Run has been deleted"}

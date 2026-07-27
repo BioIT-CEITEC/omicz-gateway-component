@@ -24,7 +24,7 @@ def mount_status(db: Session = Depends(get_db)):
     """Check filesystem accessibility of every active sequencer location."""
     sequencers = (
         db.query(Sequencers)
-        .filter(Sequencers.is_deleted == False, Sequencers.location != None)
+        .filter(Sequencers.is_deleted == False, Sequencers.location != None, Sequencers.status == "active")
         .all()
     )
     mounts = [

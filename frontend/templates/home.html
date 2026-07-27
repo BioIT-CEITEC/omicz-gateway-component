@@ -75,6 +75,60 @@
 
 </div>
 
+{# ── Charts row ── #}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+
+  {# Status Donut #}
+  <div class="bg-white rounded-xl border border-gray-100 px-5 py-4">
+    <h2 class="text-sm font-semibold text-gray-700 mb-1">Run Status</h2>
+    <p class="text-[10px] text-gray-400 mb-3">Distribution across all runs</p>
+    <div class="flex items-center gap-4">
+      <div class="relative w-28 h-28 shrink-0">
+        <canvas id="statusDonut"></canvas>
+        <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+          <span class="text-xl font-bold text-gray-700">{{ stats.total }}</span>
+          <span class="text-[9px] text-gray-400 uppercase tracking-wide">total</span>
+        </div>
+      </div>
+      <div class="flex flex-col gap-1.5 text-[10px] min-w-0">
+        {% if stats.completed > 0 %}
+        <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-green-400 shrink-0"></span><span class="text-gray-500 truncate">Completed</span><span class="ml-auto font-semibold text-gray-700 pl-2">{{ stats.completed }}</span></div>
+        {% endif %}
+        {% if stats.sequencing > 0 %}
+        <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-blue-400 shrink-0"></span><span class="text-gray-500 truncate">Sequencing</span><span class="ml-auto font-semibold text-gray-700 pl-2">{{ stats.sequencing }}</span></div>
+        {% endif %}
+        {% if stats.ready_to_upload > 0 %}
+        <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-indigo-400 shrink-0"></span><span class="text-gray-500 truncate">Ready</span><span class="ml-auto font-semibold text-gray-700 pl-2">{{ stats.ready_to_upload }}</span></div>
+        {% endif %}
+        {% if stats.in_pipeline > 0 %}
+        <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-400 shrink-0"></span><span class="text-gray-500 truncate">Pipeline</span><span class="ml-auto font-semibold text-gray-700 pl-2">{{ stats.in_pipeline }}</span></div>
+        {% endif %}
+        {% if stats.failed > 0 %}
+        <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-red-400 shrink-0"></span><span class="text-gray-500 truncate">Failed</span><span class="ml-auto font-semibold text-red-500 pl-2">{{ stats.failed }}</span></div>
+        {% endif %}
+        {% if stats.total == 0 %}
+        <p class="text-gray-300">No runs yet</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# Daily Activity Bar #}
+  <div class="bg-white rounded-xl border border-gray-100 px-5 py-4">
+    <h2 class="text-sm font-semibold text-gray-700 mb-1">Activity</h2>
+    <p class="text-[10px] text-gray-400 mb-3">Runs created — last 14 days</p>
+    <canvas id="activityBar" height="90"></canvas>
+  </div>
+
+  {# Per-sequencer Bar #}
+  <div class="bg-white rounded-xl border border-gray-100 px-5 py-4">
+    <h2 class="text-sm font-semibold text-gray-700 mb-1">By Sequencer</h2>
+    <p class="text-[10px] text-gray-400 mb-3">Recent runs per machine (last 50)</p>
+    <canvas id="seqBar" height="90"></canvas>
+  </div>
+
+</div>
+
 {# ── Two-column lower section ── #}
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
@@ -90,7 +144,6 @@
       {% set s = run.status %}
       <li>
         <a href="/runs/{{ run.uuid }}" class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition">
-          {# status dot #}
           <span class="w-2 h-2 shrink-0 rounded-full
             {% if s == 'completed' %}bg-green-400
             {% elif s in ('move_failed','verify_failed','failed') %}bg-red-400
@@ -100,7 +153,7 @@
             {% else %}bg-gray-300{% endif %}"></span>
           <div class="flex-1 min-w-0">
             <p class="text-sm font-medium text-gray-800 truncate">{{ run.name }}</p>
-            <p class="text-[11px] text-gray-400 truncate">{{ seq_names.get(run.sequencer_uuid, '—') }}</p>
+            <p class="text-[11px] text-gray-400 truncate">{{ seq_names.get(run.sequencer_uuid, run.sequencer_name or '—') }}</p>
           </div>
           <span class="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border
             {% if s == 'completed' %}bg-green-50 text-green-600 border-green-100
@@ -120,7 +173,7 @@
     {% endif %}
   </div>
 
-  {# Quick Links #}
+  {# Quick Links + Alert #}
   <div class="flex flex-col gap-3">
     <div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
       <div class="px-5 py-4 border-b border-gray-50">
@@ -148,7 +201,6 @@
       </div>
     </div>
 
-    {# Alert if failures #}
     {% if stats.failed > 0 %}
     <a href="/runs/?status=move_failed&status=verify_failed&status=failed"
        class="bg-red-50 border border-red-100 rounded-xl px-5 py-4 flex items-start gap-3 hover:bg-red-100 transition">
@@ -161,8 +213,119 @@
       </div>
     </a>
     {% endif %}
-
   </div>
+
 </div>
 
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+Chart.defaults.font.family = 'ui-sans-serif, system-ui, sans-serif';
+Chart.defaults.font.size = 10;
+Chart.defaults.color = '#9ca3af';
+
+// ── Status Donut ──
+(function() {
+  const ctx = document.getElementById('statusDonut');
+  if (!ctx) return;
+  const data = [
+    {{ stats.completed }},
+    {{ stats.sequencing }},
+    {{ stats.ready_to_upload }},
+    {{ stats.in_pipeline }},
+    {{ stats.failed }},
+  ];
+  const total = data.reduce((a,b)=>a+b,0);
+  if (total === 0) { ctx.parentElement.parentElement.classList.add('opacity-40'); return; }
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Completed','Sequencing','Ready','Pipeline','Failed'],
+      datasets: [{
+        data,
+        backgroundColor: ['#4ade80','#60a5fa','#818cf8','#fbbf24','#f87171'],
+        borderWidth: 0,
+        hoverOffset: 4,
+      }]
+    },
+    options: {
+      cutout: '72%',
+      plugins: { legend: { display: false }, tooltip: {
+        callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw}` }
+      }},
+      animation: { duration: 600 },
+    }
+  });
+})();
+
+// ── Daily Activity Bar ──
+(function() {
+  const ctx = document.getElementById('activityBar');
+  if (!ctx) return;
+  const labels = {{ daily_labels | tojson }};
+  const values = {{ daily_values | tojson }};
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: values.map(v => v > 0 ? '#6366f1' : '#e5e7eb'),
+        borderRadius: 3,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false }, tooltip: {
+        callbacks: { title: t => t[0].label, label: t => ` ${t.raw} run${t.raw !== 1 ? 's' : ''}` }
+      }},
+      scales: {
+        x: { grid: { display: false }, ticks: { maxRotation: 0, maxTicksLimit: 7 } },
+        y: { grid: { color: '#f3f4f6' }, ticks: { stepSize: 1, precision: 0 }, beginAtZero: true },
+      },
+      animation: { duration: 600 },
+    }
+  });
+})();
+
+// ── Sequencer Bar ──
+(function() {
+  const ctx = document.getElementById('seqBar');
+  if (!ctx) return;
+  const labels = {{ seq_bar_labels | tojson }};
+  const values = {{ seq_bar_values | tojson }};
+  if (!labels.length) { ctx.parentElement.classList.add('opacity-40'); return; }
+  const colors = ['#6366f1','#22c55e','#f59e0b','#3b82f6','#ec4899','#14b8a6'];
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: labels.map((_,i) => colors[i % colors.length]),
+        borderRadius: 3,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      plugins: { legend: { display: false }, tooltip: {
+        callbacks: { label: t => ` ${t.raw} run${t.raw !== 1 ? 's' : ''}` }
+      }},
+      scales: {
+        x: { grid: { color: '#f3f4f6' }, ticks: { stepSize: 1, precision: 0 }, beginAtZero: true },
+        y: { grid: { display: false }, ticks: {
+          callback: function(val) {
+            const lbl = this.getLabelForValue(val);
+            return lbl.length > 16 ? lbl.slice(0, 15) + '…' : lbl;
+          }
+        }},
+      },
+      animation: { duration: 600 },
+    }
+  });
+})();
+</script>
 {% endblock %}

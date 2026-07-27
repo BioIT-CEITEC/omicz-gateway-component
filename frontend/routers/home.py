@@ -1,5 +1,7 @@
 import os
 import httpx
+from collections import Counter
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Request
 from fastapi.templating import Jinja2Templates
 
@@ -40,9 +42,26 @@ def home(request: Request):
     seq_active   = sum(1 for s in sequencers if s.get("status") == "active")
     seq_total    = len(sequencers)
 
-    # recent runs (last 5)
-    recent_data  = _get("/runs/", {"limit": 5, "order": "desc"}) or {}
+    # recent runs (last 6 for the list)
+    recent_data  = _get("/runs/", {"limit": 6, "order": "desc"}) or {}
     recent_runs  = recent_data.get("results", [])
+
+    # chart data: fetch last 50 runs for analysis
+    chart_raw = _get("/runs/", {"limit": 50, "order": "desc"}) or {}
+    chart_runs = chart_raw.get("results", [])
+
+    # daily activity — last 14 days
+    today = datetime.now().date()
+    days_14 = [(today - timedelta(days=i)).isoformat() for i in range(13, -1, -1)]
+    daily_counts = Counter(r["created_at"][:10] for r in chart_runs)
+    daily_labels = [d[5:].replace("-", "/") for d in days_14]  # MM/DD
+    daily_values = [daily_counts.get(d, 0) for d in days_14]
+
+    # runs by sequencer (top 6, from chart_runs)
+    seq_run_counts = Counter(r["sequencer_name"] for r in chart_runs if r.get("sequencer_name"))
+    top_seqs = seq_run_counts.most_common(6)
+    seq_bar_labels = [s[0] for s in top_seqs]
+    seq_bar_values = [s[1] for s in top_seqs]
 
     # sequencer name lookup for recent runs
     seq_names = {s["uuid"]: s["name"] for s in sequencers}
@@ -55,10 +74,15 @@ def home(request: Request):
         "completed":       completed,
         "seq_active":      seq_active,
         "seq_total":       seq_total,
+        "total":           sequencing + ready_to_upload + in_pipeline + failed + completed,
     }
 
     return templates.TemplateResponse(request, "home.html", {
         "stats": stats,
         "recent_runs": recent_runs,
         "seq_names": seq_names,
+        "daily_labels": daily_labels,
+        "daily_values": daily_values,
+        "seq_bar_labels": seq_bar_labels,
+        "seq_bar_values": seq_bar_values,
     })

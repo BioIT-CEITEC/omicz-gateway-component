@@ -639,9 +639,7 @@
         `${base} border-red-300 text-red-500 bg-white hover:bg-red-50`, RETRY_SVG, 'Retry Upload');
     if (status === 'verify_failed')
       return makeForm('start-upload', 'Retry TRE verification without re-uploading?',
-               `${base} border-orange-300 text-orange-500 bg-white hover:bg-orange-50`, SHIELD_SVG, 'Retry Verification')
-           + makeForm('recheck', 'Re-checksum and re-upload the entire run folder to TRE?',
-               `${base} border-red-300 text-red-500 bg-white hover:bg-red-50`, RETRY_SVG, 'Re-upload');
+               `${base} border-orange-300 text-orange-500 bg-white hover:bg-orange-50`, SHIELD_SVG, 'Retry Verification');
     if (status === 'failed')
       return makeForm('start-upload', 'Retry the full pipeline (checksum → upload → verify)?',
         `${base} border-red-300 text-red-500 bg-white hover:bg-red-50`, RETRY_SVG, 'Retry');

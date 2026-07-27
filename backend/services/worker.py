@@ -135,7 +135,7 @@ def handle_run_completed(name: str, sequencer_uuid):
     try:
         # guard: skip if the run has already moved past running_finished
         existing = db.query(Runs).filter(Runs.name == name, Runs.sequencer_uuid == sequencer_uuid).first()
-        if existing and (existing.is_deleted or existing.status in ("checksumming", "moving", "completed", "move_failed")):
+        if existing and (existing.is_deleted or existing.status != "running"):
             logger.warning(f"run_completed ignored for '{name}' — is_deleted={existing.is_deleted} status='{existing.status}'")
             return
 
@@ -184,7 +184,7 @@ def handle_run_checksum_requested(name: str, sequencer_uuid):
         # - checksumming / moving / verifying: already in flight (stale duplicate event)
         # - completed: already done
         existing = db.query(Runs).filter(Runs.name == name, Runs.sequencer_uuid == sequencer_uuid).first()
-        if existing and (existing.is_deleted or existing.status in ("move_failed", "checksumming", "moving", "verifying", "completed")):
+        if existing and (existing.is_deleted or existing.status in ("move_failed", "verify_failed", "checksumming", "moving", "verifying", "completed")):
             logger.warning(f"run_checksum_requested ignored for '{name}' — is_deleted={existing.is_deleted} status='{existing.status}'")
             return
 

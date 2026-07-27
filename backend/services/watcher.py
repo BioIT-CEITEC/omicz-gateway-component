@@ -344,6 +344,9 @@ def check_file_stability(sequencers: list, stability_tracker: dict):
                     del tracker[run_name]
 
 
+_signal_published: set = set()  # run UUIDs already published this process lifetime
+
+
 def check_signal_files(sequencers: list):
     """
     For sequencers using the 'signal' completion method:
@@ -353,6 +356,12 @@ def check_signal_files(sequencers: list):
     This replaces the depth-2 on_created handler that was removed when we
     switched the PollingObserver to recursive=False. Polling every ~10s gives
     the same responsiveness with none of the recursive-scan overhead.
+
+    _signal_published tracks which run UUIDs have already had run_completed
+    published this session, preventing repeated messages while the worker is
+    busy. When the watcher restarts the set is cleared, but by then the worker
+    will have updated the run status away from 'running' so the query won't
+    return them again.
     """
     for sequencer in sequencers:
         if not sequencer.type or sequencer.type.completion_method != "signal":
@@ -380,10 +389,13 @@ def check_signal_files(sequencers: list):
             db.close()
 
         for run in runs:
+            if run.uuid in _signal_published:
+                continue
             run_folder = os.path.join(sequencer.location, run.name)
             try:
                 if is_completed(run_folder, sequencer):
                     logger.info(f"run completed (signal check): {run.name} on sequencer '{sequencer.name}'")
+                    _signal_published.add(run.uuid)
                     publish("run_completed", run.name, sequencer.uuid)
             except Exception as e:
                 logger.error(f"signal check: error checking '{run.name}': {e}")

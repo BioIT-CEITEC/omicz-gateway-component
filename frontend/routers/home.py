@@ -77,6 +77,10 @@ def home(request: Request):
         "total":           sequencing + ready_to_upload + in_pipeline + failed + completed,
     }
 
+    # mount health
+    mount_raw = _get("/sequencers/mount-status") or {}
+    mount_warnings = [m for m in mount_raw.get("mounts", []) if not m.get("accessible", True)]
+
     return templates.TemplateResponse(request, "home.html", {
         "stats": stats,
         "recent_runs": recent_runs,
@@ -85,4 +89,5 @@ def home(request: Request):
         "daily_values": daily_values,
         "seq_bar_labels": seq_bar_labels,
         "seq_bar_values": seq_bar_values,
+        "mount_warnings": mount_warnings,
     })

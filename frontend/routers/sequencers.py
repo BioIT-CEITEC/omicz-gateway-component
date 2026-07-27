@@ -26,13 +26,21 @@ def fetch_types() -> list:
     return safe_json(response, fallback={}).get("results", [])
 
 
-# ── LIST 
+# ── LIST
 @router.get("/")
 def list_sequencers(request: Request, skip: int = 0, limit: int | None = None):
     if limit is None: limit = get_setting_value("pagination_page_size", 20)
     response = httpx.get(f"{BACKEND_URL}/sequencers/", params={"skip": skip, "limit": limit})
     data = safe_json(response, fallback={"total": 0, "skip": skip, "limit": limit, "results": []})
-    return templates.TemplateResponse(request, "sequencers/list.html", {"data": data})
+    mount_res = httpx.get(f"{BACKEND_URL}/sequencers/mount-status")
+    mount_data = safe_json(mount_res, fallback={"mounts": [], "all_accessible": True, "inaccessible_count": 0})
+    # Build a lookup: uuid → accessible bool for use in the template
+    mount_map = {m["uuid"]: m["accessible"] for m in mount_data.get("mounts", [])}
+    return templates.TemplateResponse(request, "sequencers/list.html", {
+        "data": data,
+        "mount_map": mount_map,
+        "mount_warnings": [m for m in mount_data.get("mounts", []) if not m["accessible"]],
+    })
 
 
 # ── CREATE — show form 

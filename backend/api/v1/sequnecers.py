@@ -1,3 +1,4 @@
+import os
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, status, Query
@@ -7,6 +8,7 @@ from schemas.sequencers import SequencerCreate, SequencerUpdate, ShowSequencer
 from schemas.pagination import PaginatedResponse
 from db.session import get_db
 from db.repositories.sequencers import create_new_sequencer, get_all_sequencers, count_sequencers, get_sequencer_by_uuid, update_sequencer, delete_sequencer
+from db.models.sequencers import Sequencers
 from core.config import settings
 
 router = APIRouter()
@@ -15,6 +17,27 @@ router = APIRouter()
 @router.post("/", response_model=ShowSequencer, status_code=status.HTTP_201_CREATED)
 def create_sequencer(sequencer: SequencerCreate, db: Session = Depends(get_db)):
     return create_new_sequencer(sequencer=sequencer, db=db)
+
+
+@router.get("/mount-status")
+def mount_status(db: Session = Depends(get_db)):
+    """Check filesystem accessibility of every active sequencer location."""
+    sequencers = (
+        db.query(Sequencers)
+        .filter(Sequencers.is_deleted == False, Sequencers.location != None)
+        .all()
+    )
+    mounts = [
+        {
+            "uuid":       str(s.uuid),
+            "name":       s.name,
+            "location":   s.location,
+            "accessible": os.path.isdir(s.location),
+        }
+        for s in sequencers
+    ]
+    inaccessible = [m for m in mounts if not m["accessible"]]
+    return {"mounts": mounts, "all_accessible": len(inaccessible) == 0, "inaccessible_count": len(inaccessible)}
 
 
 @router.get("/", response_model=PaginatedResponse[ShowSequencer])

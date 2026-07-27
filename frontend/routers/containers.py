@@ -36,9 +36,9 @@ def containers_data():
 
 
 @router.post("/{name}/restart")
-def restart_container(name: str):
+def restart_container(name: str, next: str = "/containers/"):
     try:
         httpx.post(f"{BACKEND_URL}/containers/{name}/restart", timeout=15)
     except Exception:
         pass
-    return RedirectResponse(url="/containers/", status_code=303)
+    return RedirectResponse(url=next, status_code=303)

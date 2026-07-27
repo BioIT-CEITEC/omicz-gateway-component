@@ -17,6 +17,9 @@ CHANGELOG = [
                 "Graphical SVG countdown ring on all auto-refresh pages — Logs, Containers, Queue, Run Detail (click to refresh immediately)",
                 "Sequencer active/inactive toggle button directly on the sequencer list — no need to open the detail page",
                 "Version badge in sidebar links to this changelog page",
+                "Mount health monitoring: backend checks filesystem accessibility of every sequencer location at page load",
+                "Warning banner on Dashboard and Sequencers page when storage mounts are inaccessible, with per-card badge on affected sequencers",
+                "One-click Restart Watcher button in the warning banner — watcher picks up newly-mounted locations within its 60 s poll cycle",
             ],
             "Pipeline Improvements": [
                 "Two-queue RabbitMQ architecture: run events (run_created, run_completed) on a separate fast queue so new runs are always detected even during long uploads",

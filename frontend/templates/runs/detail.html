@@ -248,26 +248,21 @@
         {{ stage_node(st5) }}
       </div>
 
-      {# Labels row #}
+      {# Labels row — mirrors nodes row (w-8 slots + flex-1 spacers) so labels sit under their circles #}
       <div class="flex items-start mt-2.5" id="stepper-labels">
         {% for label, state in [("Sequencing", st1), ("Checksumming", st2), ("Uploading", st3), ("Verifying", st4), ("Completed", st5)] %}
-        <div class="flex-1 {% if not loop.last %}pr-2{% endif %} {% if loop.first %}text-left{% elif loop.last %}text-right{% else %}text-center{% endif %}">
-          <p class="text-[11px] font-semibold
-            {% if state == 'done' %}text-[#0C2461]
-            {% elif state == 'active' %}text-[#0C2461]
+        <div class="w-8 shrink-0 flex flex-col items-center text-center" data-step-label>
+          <p class="text-[11px] font-semibold whitespace-nowrap
+            {% if state == 'done' or state == 'active' %}text-[#0C2461]
             {% elif state == 'failed' %}text-red-500
             {% elif state == 'pending' %}text-gray-400
-            {% else %}text-gray-300{% endif %}">
-            {{ label }}
-          </p>
-          {% if state == "active" %}
-          <p class="text-[10px] text-gray-400 mt-0.5">Running…</p>
-          {% elif state == "failed" %}
-          <p class="text-[10px] text-red-400 mt-0.5">Failed</p>
-          {% elif state == "pending" %}
-          <p class="text-[10px] text-gray-300 mt-0.5">Pending</p>
+            {% else %}text-gray-300{% endif %}">{{ label }}</p>
+          {% if state == "active" %}<p class="text-[10px] text-gray-400 mt-0.5">Running…</p>
+          {% elif state == "failed" %}<p class="text-[10px] text-red-400 mt-0.5">Failed</p>
+          {% elif state == "pending" %}<p class="text-[10px] text-gray-300 mt-0.5">Pending</p>
           {% endif %}
         </div>
+        {% if not loop.last %}<div class="flex-1"></div>{% endif %}
         {% endfor %}
       </div>
     </div>
@@ -278,7 +273,7 @@
       {% elif run.status == 'moving' %}bg-indigo-50 border-indigo-200
       {% elif run.status == 'verifying' %}bg-teal-50 border-teal-200
       {% else %}hidden{% endif %}">
-      <div class="flex items-center justify-between mb-3">
+      <div class="flex items-center justify-center gap-3 mb-3">
         <p id="progress-label" class="text-sm font-semibold
           {% if run.status == 'checksumming' %}text-yellow-700
           {% elif run.status == 'moving' %}text-indigo-700
@@ -602,7 +597,7 @@
       if (el) el.className = `flex-1 h-0.5 mx-1 rounded-full ${states[i] === 'done' ? 'bg-[#0C2461]' : 'bg-gray-200'}`;
     });
     const LABELS = ['Sequencing', 'Checksumming', 'Uploading', 'Verifying', 'Completed'];
-    Array.from(labelsRow.children).forEach((div, i) => {
+    Array.from(labelsRow.querySelectorAll('[data-step-label]')).forEach((div, i) => {
       const state = states[i];
       const lc = (state === 'done' || state === 'active') ? 'text-[#0C2461]'
                 : state === 'failed' ? 'text-red-500'
@@ -610,7 +605,7 @@
       const sub = state === 'active' ? `<p class="text-[10px] text-gray-400 mt-0.5">Running…</p>`
                 : state === 'failed' ? `<p class="text-[10px] text-red-400 mt-0.5">Failed</p>`
                 : state === 'pending' ? `<p class="text-[10px] text-gray-300 mt-0.5">Pending</p>` : '';
-      div.innerHTML = `<p class="text-[11px] font-semibold ${lc}">${LABELS[i]}</p>${sub}`;
+      div.innerHTML = `<p class="text-[11px] font-semibold whitespace-nowrap ${lc}">${LABELS[i]}</p>${sub}`;
     });
   }
 
@@ -644,7 +639,9 @@
         `${base} border-red-300 text-red-500 bg-white hover:bg-red-50`, RETRY_SVG, 'Retry Upload');
     if (status === 'verify_failed')
       return makeForm('start-upload', 'Retry TRE verification without re-uploading?',
-               `${base} border-orange-300 text-orange-500 bg-white hover:bg-orange-50`, SHIELD_SVG, 'Retry Verification');
+               `${base} border-orange-300 text-orange-500 bg-white hover:bg-orange-50`, SHIELD_SVG, 'Retry Verification')
+           + makeForm('recheck', 'Re-checksum and re-upload the entire run folder to TRE?',
+               `${base} border-red-300 text-red-500 bg-white hover:bg-red-50`, RETRY_SVG, 'Re-upload');
     if (status === 'failed')
       return makeForm('start-upload', 'Retry the full pipeline (checksum → upload → verify)?',
         `${base} border-red-300 text-red-500 bg-white hover:bg-red-50`, RETRY_SVG, 'Retry');

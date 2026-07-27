@@ -18,7 +18,7 @@ from core.logger import get_logger
 
 logger = get_logger("tre")
 
-S3_ENDPOINT    = os.getenv("S3_ENDPOINT",    "http://host.docker.internal:8080")
+S3_ENDPOINT    = os.getenv("S3_ENDPOINT",    "https://omicz-s3proxy.dyn.cloud.e-infra.cz")
 S3_ACCESS_KEY  = os.getenv("S3_ACCESS_KEY",  "EiqbDIIzDfz5Bda2Vc2GF57x")
 S3_SECRET_KEY  = os.getenv("S3_SECRET_KEY",  "SIP4zaJnw8Bhi37POMVDQoPb")
 S3_REGION      = os.getenv("S3_REGION",      "us-east-1")

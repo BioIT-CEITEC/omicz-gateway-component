@@ -90,6 +90,14 @@ def handle_run_created(name: str, sequencer_uuid: str):
     logger.info(f"run_created → name={name} sequencer_uuid={sequencer_uuid}")
     db = SESSION_LOCAL()
     try:
+        # Guard: PollingObserver fires on_created for ALL existing folders on startup,
+        # so this event can arrive for a run that is already in the DB (e.g. after
+        # watcher restart). Skip silently to avoid duplicate rows.
+        existing = db.query(Runs).filter(Runs.name == name, Runs.sequencer_uuid == sequencer_uuid).first()
+        if existing:
+            logger.warning(f"run_created ignored for '{name}' — already in DB (status={existing.status})")
+            return
+
         run = create_run(name=name, sequencer_uuid=sequencer_uuid, db=db)
         add_run_status_history(run_uuid=run.uuid, status="running", db=db)
         logger.info(f"saved run '{name}' to DB")
@@ -154,10 +162,16 @@ def handle_run_checksum_requested(name: str, sequencer_uuid):
             logger.error(f"sequencer {sequencer_uuid} not found — cannot checksum run '{name}'")
             return
 
-        # Guard: skip if run was cancelled while this event was queued
+        # Guard: skip if run is already actively processing or done.
+        # NOTE: do NOT include "queued" here — the start-upload API sets status=queued
+        # BEFORE publishing run_checksum_requested, so the worker would discard the
+        # legitimate first event if queued were in this list.
+        # - move_failed: cancelled by user
+        # - checksumming / moving / verifying: already in flight (stale duplicate event)
+        # - completed: already done
         existing = db.query(Runs).filter(Runs.name == name, Runs.sequencer_uuid == sequencer_uuid).first()
-        if existing and existing.status == "move_failed":
-            logger.warning(f"run_checksum_requested ignored for '{name}' — run was cancelled (move_failed)")
+        if existing and existing.status in ("move_failed", "checksumming", "moving", "verifying", "completed"):
+            logger.warning(f"run_checksum_requested ignored for '{name}' — status is '{existing.status}'")
             return
 
         run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="checksumming", db=db)

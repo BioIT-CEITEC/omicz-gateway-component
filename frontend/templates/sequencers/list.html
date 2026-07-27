@@ -21,71 +21,87 @@
 {% if data.results %}
 <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
   {% for s in data.results %}
-  <a href="/sequencers/{{ s.uuid }}"
-     class="group bg-white rounded-xl border border-gray-100 p-5 hover:border-[#0C2461]/20 hover:shadow-sm transition flex items-center gap-5">
+  <div class="group relative bg-white rounded-xl border border-gray-100 hover:border-[#0C2461]/20 hover:shadow-sm transition
+    {% if s.status != 'active' %}opacity-60{% endif %}">
 
-    {# Machine image #}
-    <div class="w-20 h-20 shrink-0 flex items-center justify-center rounded-xl bg-gray-50 overflow-hidden p-2">
-      {% if 'illumina' in s.slug %}
-      <img src="/static/images/illumina.png" alt="{{ s.slug }}" class="w-full h-full object-contain" />
-      {% elif 'aviti' in s.slug %}
-      <img src="/static/images/aviti.png" alt="{{ s.slug }}" class="w-full h-full object-contain" />
-      {% elif 'ont' in s.slug %}
-      <img src="/static/images/ont.png" alt="{{ s.slug }}" class="w-full h-full object-contain" />
-      {% else %}
-      <img src="/static/images/default.png" alt="{{ s.slug }}" class="w-full h-full object-contain" />
-      {% endif %}
-    </div>
+    {# Toggle button — top-right corner, outside the nav link #}
+    <form method="POST" action="/sequencers/{{ s.uuid }}/toggle-status" class="absolute top-3 right-3 z-10">
+      <button type="submit"
+        title="{{ 'Deactivate' if s.status == 'active' else 'Activate' }} sequencer"
+        class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border transition cursor-pointer
+          {% if s.status == 'active' %}bg-green-50 text-green-600 border-green-100 hover:bg-green-100{% else %}bg-gray-100 text-gray-400 border-gray-200 hover:bg-gray-200{% endif %}">
+        {# Toggle icon #}
+        {% if s.status == 'active' %}
+        <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M17 6H7a6 6 0 0 0 0 12h10a6 6 0 0 0 0-12zm0 10H7A4 4 0 0 1 7 8h10a4 4 0 0 1 0 8zm0-6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>
+        </svg>
+        {% else %}
+        <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M17 6H7a6 6 0 0 0 0 12h10a6 6 0 0 0 0-12zm0 10H7A4 4 0 0 1 7 8h10a4 4 0 0 1 0 8zM7 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>
+        </svg>
+        {% endif %}
+        {{ s.status | capitalize }}
+      </button>
+    </form>
 
-    {# Info #}
-    <div class="flex-1 min-w-0">
-      <div class="flex items-start justify-between gap-2">
+    {# Card link #}
+    <a href="/sequencers/{{ s.uuid }}" class="flex items-center gap-5 p-5 pr-24">
+
+      {# Machine image #}
+      <div class="w-20 h-20 shrink-0 flex items-center justify-center rounded-xl bg-gray-50 overflow-hidden p-2">
+        {% if 'illumina' in s.slug %}
+        <img src="/static/images/illumina.png" alt="{{ s.slug }}" class="w-full h-full object-contain" />
+        {% elif 'aviti' in s.slug %}
+        <img src="/static/images/aviti.png" alt="{{ s.slug }}" class="w-full h-full object-contain" />
+        {% elif 'ont' in s.slug %}
+        <img src="/static/images/ont.png" alt="{{ s.slug }}" class="w-full h-full object-contain" />
+        {% else %}
+        <img src="/static/images/default.png" alt="{{ s.slug }}" class="w-full h-full object-contain" />
+        {% endif %}
+      </div>
+
+      {# Info #}
+      <div class="flex-1 min-w-0">
         <div class="min-w-0">
           <h2 class="text-sm font-semibold text-gray-900 group-hover:text-[#0C2461] transition truncate">{{ s.name }}</h2>
           <p class="text-xs text-gray-400 font-mono mt-0.5 truncate">{{ s.slug }}</p>
         </div>
-        {# Status dot #}
-        <span class="shrink-0 mt-0.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border
-          {% if s.status == 'active' %}bg-green-50 text-green-600 border-green-100{% else %}bg-gray-100 text-gray-400 border-gray-200{% endif %}">
-          <span class="w-1.5 h-1.5 rounded-full {% if s.status == 'active' %}bg-green-500{% else %}bg-gray-400{% endif %}"></span>
-          {{ s.status | capitalize }}
-        </span>
+
+        {# Location #}
+        <p class="text-xs text-gray-500 font-mono mt-2 truncate flex items-center gap-1">
+          <svg class="w-3 h-3 text-gray-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"/>
+          </svg>
+          {{ s.location }}
+        </p>
+
+        {# TRE badge #}
+        <div class="mt-2">
+          {% if s.sent_to_tre == 'auto' %}
+          <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
+            <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z"/>
+            </svg>
+            Auto TRE
+          </span>
+          {% else %}
+          <span class="inline-flex items-center gap-1 text-[10px] font-medium text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full border border-gray-200">
+            <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15.042 21.672 13.684 16.6m0 0-2.51 2.225.569-9.47 5.227 7.917-3.286-.672ZM12 2.25V4.5m5.834.166-1.591 1.591M20.25 10.5H18M7.757 14.743l-1.59 1.591M6 10.5H3.75m4.007-4.243-1.59-1.591"/>
+            </svg>
+            Manual TRE
+          </span>
+          {% endif %}
+        </div>
       </div>
 
-      {# Location #}
-      <p class="text-xs text-gray-500 font-mono mt-2 truncate flex items-center gap-1">
-        <svg class="w-3 h-3 text-gray-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"/>
-        </svg>
-        {{ s.location }}
-      </p>
+      {# Arrow #}
+      <svg class="w-4 h-4 text-gray-300 group-hover:text-[#0C2461] transition shrink-0 -translate-x-1 group-hover:translate-x-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/>
+      </svg>
 
-      {# TRE badge #}
-      <div class="mt-2">
-        {% if s.sent_to_tre == 'auto' %}
-        <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
-          <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z"/>
-          </svg>
-          Auto TRE
-        </span>
-        {% else %}
-        <span class="inline-flex items-center gap-1 text-[10px] font-medium text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full border border-gray-200">
-          <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15.042 21.672 13.684 16.6m0 0-2.51 2.225.569-9.47 5.227 7.917-3.286-.672ZM12 2.25V4.5m5.834.166-1.591 1.591M20.25 10.5H18M7.757 14.743l-1.59 1.591M6 10.5H3.75m4.007-4.243-1.59-1.591"/>
-          </svg>
-          Manual TRE
-        </span>
-        {% endif %}
-      </div>
-    </div>
-
-    {# Arrow #}
-    <svg class="w-4 h-4 text-gray-300 group-hover:text-[#0C2461] transition shrink-0 -translate-x-1 group-hover:translate-x-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/>
-    </svg>
-
-  </a>
+    </a>
+  </div>
   {% endfor %}
 </div>
 

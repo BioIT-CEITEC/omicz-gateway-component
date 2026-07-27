@@ -37,6 +37,15 @@ def patch_sequencer(uuid: UUID, sequencer: SequencerUpdate, db: Session = Depend
     return update_sequencer(uuid=uuid, sequencer=sequencer, db=db)
 
 
+@router.post("/{uuid}/toggle-status", response_model=ShowSequencer)
+def toggle_sequencer_status(uuid: UUID, db: Session = Depends(get_db)):
+    """Toggle sequencer status between 'active' and 'inactive'."""
+    sequencer = get_sequencer_by_uuid(uuid=uuid, db=db)
+    new_status = "inactive" if sequencer.status == "active" else "active"
+    from schemas.sequencers import SequencerUpdate
+    return update_sequencer(uuid=uuid, sequencer=SequencerUpdate(status=new_status), db=db)
+
+
 @router.delete("/{uuid}", status_code=status.HTTP_200_OK)
 def soft_delete_sequencer(uuid: UUID, db: Session = Depends(get_db)):
     return delete_sequencer(uuid=uuid, db=db)

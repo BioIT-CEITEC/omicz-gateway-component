@@ -7,40 +7,44 @@ from core.logger import get_logger
 logger = get_logger("publisher")
 
 RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
-QUEUE_NAME   = "runs"
 
-def _get_channel():
-    connection = pika.BlockingConnection(pika.URLParameters(RABBITMQ_URL)) # open TCP connection to RabbitMQ
-    channel    = connection.channel() # open a channel on the connection 
+# Two queues: fast watcher events vs slow pipeline tasks.
+# This ensures run_created/run_completed are always processed immediately,
+# even when the worker is busy with a multi-hour upload.
+QUEUE_EVENTS   = "runs_events"    # run_created, run_completed
+QUEUE_PIPELINE = "runs_pipeline"  # checksum, upload, verify
 
-    # durable=True means the queue itself survives a RabbitMQ restart. Without this, if RabbitMQ crashes, the queue definition is gone
-    channel.queue_declare(queue=QUEUE_NAME, durable=True)
-
-    return connection, channel
+_EVENT_QUEUES = {
+    "run_created":              QUEUE_EVENTS,
+    "run_completed":            QUEUE_EVENTS,
+    "run_checksum_requested":   QUEUE_PIPELINE,
+    "run_upload_requested":     QUEUE_PIPELINE,
+    "run_verify_requested":     QUEUE_PIPELINE,
+    "run_rechecksum_requested": QUEUE_PIPELINE,
+}
 
 
 def publish(event: str, name: str, sequencer_uuid: str):
     """
-    Sends a message to the RabbitMQ "runs" queue.
+    Sends a message to the appropriate RabbitMQ queue based on event type.
+    Watcher events (run_created, run_completed) go to runs_events so they
+    are processed immediately even while a long upload is in progress.
+    Pipeline tasks go to runs_pipeline.
     """
+    queue = _EVENT_QUEUES.get(event, QUEUE_PIPELINE)
     message = json.dumps({
-        "event":          event, # "run_created" | "run_completed" | "run_failed" | "run_moved"
-        "name":           name, # "run_2026_04_15"
-        "sequencer_uuid": str(sequencer_uuid), # "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+        "event":          event,
+        "name":           name,
+        "sequencer_uuid": str(sequencer_uuid),
     })
-
-    # Open TCP connection to RabbitMQ, send message, then close connection.
-    connection, channel = _get_channel()
-
-    # Direct, Topic, Fanout, Headers
+    connection = pika.BlockingConnection(pika.URLParameters(RABBITMQ_URL))
+    channel    = connection.channel()
+    channel.queue_declare(queue=queue, durable=True)
     channel.basic_publish(
-        exchange="",          # Direct Exchange
-        routing_key=QUEUE_NAME, # runs
-        body=message, # JSON string containing event info
-        properties=pika.BasicProperties(
-            delivery_mode=2,  # makes the message persistent & if RabbitMQ restarts, the message is not lost / # 1=transient (lost on restart), 2=persistent (survives restart)
-        )
+        exchange="",
+        routing_key=queue,
+        body=message,
+        properties=pika.BasicProperties(delivery_mode=2),
     )
-
     connection.close()
     logger.info(f"sent → {message}")

@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import time
+import threading
 from uuid import UUID
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -23,8 +24,9 @@ from core.logger import get_logger
 
 logger = get_logger("worker")
 
-RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
-QUEUE_NAME   = "runs"
+RABBITMQ_URL   = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
+QUEUE_EVENTS   = "runs_events"    # run_created, run_completed  — fast, always processed immediately
+QUEUE_PIPELINE = "runs_pipeline"  # checksum, upload, verify    — slow, one at a time
 
 
 def resolve_verify_detail(tre_error: str | None, run_folder: str, retries: int) -> str:
@@ -510,35 +512,56 @@ def recover_stuck_runs():
         db.close()
 
 
-def start():
-    recover_stuck_runs()
-    logger.info("connecting to RabbitMQ...")
+def _connect_rabbitmq(label: str):
+    """Connect to RabbitMQ with retries. Returns a pika BlockingConnection."""
     for attempt in range(1, 11):
         try:
-            connection = pika.BlockingConnection(pika.URLParameters(RABBITMQ_URL))
-            break
+            return pika.BlockingConnection(pika.URLParameters(RABBITMQ_URL))
         except Exception as e:
-            logger.warning(f"attempt {attempt}/10 failed to connect to RabbitMQ: {e} — retrying in 5s...")
+            logger.warning(f"[{label}] attempt {attempt}/10 failed to connect to RabbitMQ: {e} — retrying in 5s...")
             time.sleep(5)
-    else:
-        logger.error("could not connect to RabbitMQ after 10 attempts, exiting.")
-        sys.exit(1)
+    logger.error(f"[{label}] could not connect to RabbitMQ after 10 attempts, exiting.")
+    sys.exit(1)
+
+
+def _start_events_consumer():
+    """
+    Consumes from runs_events in a daemon thread.
+    Handles run_created and run_completed — fast DB operations that must
+    never be blocked by a long upload on the pipeline queue.
+    """
+    connection = _connect_rabbitmq("events")
     channel    = connection.channel()
-
-    # declare the same queue as the publisher — safe to call multiple times
-    channel.queue_declare(queue=QUEUE_NAME, durable=True)
-
-    # prefetch_count=1 means: only give me one message at a time
-    # don't send the next message until I ack the current one
-    # this prevents the worker from being overwhelmed
-    # Without this, RabbitMQ could push many messages at once and the worker would start processing them all in parallel — dangerous when zipping large BAM files.
+    channel.queue_declare(queue=QUEUE_EVENTS, durable=True)
     channel.basic_qos(prefetch_count=1)
-
-    channel.basic_consume(queue=QUEUE_NAME, on_message_callback=on_message)
-
-    logger.info(f"waiting for messages on queue '{QUEUE_NAME}'. press Ctrl+C to stop.")
+    channel.basic_consume(queue=QUEUE_EVENTS, on_message_callback=on_message)
+    logger.info(f"events consumer ready on queue '{QUEUE_EVENTS}'")
     try:
-        # blocks here — runs forever, calling on_message for each new message
+        channel.start_consuming()
+    except Exception as e:
+        logger.error(f"events consumer crashed: {e}", exc_info=True)
+
+
+def start():
+    recover_stuck_runs()
+
+    # Start the fast events consumer in a daemon thread so run_created /
+    # run_completed are always processed immediately, even during long uploads.
+    t = threading.Thread(target=_start_events_consumer, daemon=True, name="events-consumer")
+    t.start()
+
+    logger.info("connecting to RabbitMQ (pipeline)...")
+    connection = _connect_rabbitmq("pipeline")
+    channel    = connection.channel()
+    channel.queue_declare(queue=QUEUE_PIPELINE, durable=True)
+
+    # prefetch_count=1: process one pipeline task at a time — prevents
+    # concurrent uploads which would overwhelm the network and storage.
+    channel.basic_qos(prefetch_count=1)
+    channel.basic_consume(queue=QUEUE_PIPELINE, on_message_callback=on_message)
+
+    logger.info(f"waiting for messages on queues '{QUEUE_EVENTS}' (thread) and '{QUEUE_PIPELINE}' (main). press Ctrl+C to stop.")
+    try:
         channel.start_consuming()
     except KeyboardInterrupt:
         channel.stop_consuming()

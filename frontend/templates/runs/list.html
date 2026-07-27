@@ -362,14 +362,6 @@
     window.location.href = '/runs/?' + params.toString();
   }
 
-  // Auto-submit search form after 400 ms of inactivity
-  const searchInput = document.querySelector('input[name="search"]');
-  if (searchInput) {
-    let debounce;
-    searchInput.addEventListener('input', () => {
-      clearTimeout(debounce);
-      debounce = setTimeout(() => searchInput.closest('form').submit(), 400);
-    });
-  }
+  // Search submits on Enter (default) or by clicking the search button
 </script>
 {% endblock %}

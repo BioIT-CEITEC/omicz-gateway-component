@@ -67,68 +67,27 @@ class RunEventHandler(FileSystemEventHandler):
         publish("run_created", run_name, self.sequencer.uuid)
 
     def on_created(self, event):
-        # get the path relative to the sequencer location
-        # e.g. "run_2026_04_15" or "run_2026_04_15/RTAComplete.txt"
+        # The observer uses recursive=False so only top-level directory events fire here.
+        # We only care about new run folders (directories) directly inside the location.
+        if not event.is_directory:
+            return
+
         relative = os.path.relpath(event.src_path, self.location)
         parts    = relative.split(os.sep)
 
-        # ── depth 1: a new folder directly inside the location ────────────────
-        # parts = ["run_2026_04_15"]
-        if len(parts) == 1 and event.is_directory:
-            run_name = parts[0]
-            delay = get_setting_int("run_detection_delay", _RUN_DETECTION_DELAY_DEFAULT)
-            logger.info(f"folder detected: '{run_name}' — waiting {delay}s before registering")
-            with self._lock:
-                # cancel any existing timer for this name (safety guard)
-                if run_name in self._pending:
-                    self._pending[run_name].cancel()
-                t = threading.Timer(delay, self._register_run, args=[run_name])
-                self._pending[run_name] = t
-                t.start()
+        if len(parts) != 1:
+            return
 
-        # ── depth 2: a new file inside a run folder ────────────────────────────
-        # parts = ["run_2026_04_15", "RTAComplete.txt"]
-        elif len(parts) == 2 and not event.is_directory:
-            run_name = parts[0]
-            filename = parts[1]
-
-            if self.completion_method == "signal":
-                if self.signal is None:
-                    logger.warning(f"sequencer '{self.sequencer.name}' has no type set — skipping completion check")
-                    return
-                matched = (
-                    (self.signal_match == "exact"  and filename == self.signal) or
-                    (self.signal_match == "prefix" and filename.startswith(self.signal)) or
-                    (self.signal_match == "suffix" and filename.endswith(self.signal))
-                )
-                if matched:
-                    logger.info(f"run completed: {run_name} on sequencer {self.sequencer.name}")
-                    publish("run_completed", run_name, self.sequencer.uuid)
-
-            elif self.completion_method == "file_stability" and self.stability_files:
-                # A file appeared inside a run folder — if it's a stability file,
-                # immediately check whether all stability files are now present and
-                # start the stability clock without waiting for the next poll cycle.
-                if filename in self.stability_files:
-                    run_folder    = os.path.join(self.location, run_name)
-                    current_sizes = {}
-                    all_present   = True
-                    for sf in self.stability_files:
-                        fp = os.path.join(run_folder, sf)
-                        if not os.path.isfile(fp):
-                            all_present = False
-                            break
-                        try:
-                            current_sizes[sf] = os.path.getsize(fp)
-                        except OSError:
-                            all_present = False
-                            break
-                    if all_present:
-                        seq_uuid = str(self.sequencer.uuid)
-                        tracker  = self.stability_tracker.setdefault(seq_uuid, {})
-                        if run_name not in tracker:
-                            tracker[run_name] = {"sizes": current_sizes, "stable_since": datetime.now()}
-                            logger.info(f"stability clock started (event-driven) for '{run_name}' — sizes: {current_sizes}")
+        run_name = parts[0]
+        delay = get_setting_int("run_detection_delay", _RUN_DETECTION_DELAY_DEFAULT)
+        logger.info(f"folder detected: '{run_name}' — waiting {delay}s before registering")
+        with self._lock:
+            # cancel any existing timer for this name (safety guard)
+            if run_name in self._pending:
+                self._pending[run_name].cancel()
+            t = threading.Timer(delay, self._register_run, args=[run_name])
+            self._pending[run_name] = t
+            t.start()
 
     def on_deleted(self, event):
         """Cancel pending timer if a folder is renamed/deleted before the delay expires."""
@@ -274,6 +233,7 @@ def scan_existing_runs(sequencer):
 
             run = Runs(name=run_name, sequencer_uuid=sequencer.uuid, status=status)
             db.add(run)
+            db.flush()  # assigns run.uuid before we reference it below
             db.add(RunsStatusHistory(run_uuid=run.uuid, status=status))
             added += 1
             logger.info(f"backfill → {run_name} (status={status})")
@@ -384,6 +344,51 @@ def check_file_stability(sequencers: list, stability_tracker: dict):
                     del tracker[run_name]
 
 
+def check_signal_files(sequencers: list):
+    """
+    For sequencers using the 'signal' completion method:
+    polls each run folder that is still 'running' to see if the completion
+    signal file has appeared.
+
+    This replaces the depth-2 on_created handler that was removed when we
+    switched the PollingObserver to recursive=False. Polling every ~10s gives
+    the same responsiveness with none of the recursive-scan overhead.
+    """
+    for sequencer in sequencers:
+        if not sequencer.type or sequencer.type.completion_method != "signal":
+            continue
+        if not sequencer.type.completion_signal:
+            continue
+        if not os.path.isdir(sequencer.location):
+            continue
+
+        db = SESSION_LOCAL()
+        try:
+            runs = (
+                db.query(Runs)
+                .filter(
+                    Runs.sequencer_uuid == sequencer.uuid,
+                    Runs.status == "running",
+                    Runs.is_deleted == False,
+                )
+                .all()
+            )
+        except Exception as e:
+            logger.error(f"signal check: failed to query runs for '{sequencer.name}': {e}")
+            continue
+        finally:
+            db.close()
+
+        for run in runs:
+            run_folder = os.path.join(sequencer.location, run.name)
+            try:
+                if is_completed(run_folder, sequencer):
+                    logger.info(f"run completed (signal check): {run.name} on sequencer '{sequencer.name}'")
+                    publish("run_completed", run.name, sequencer.uuid)
+            except Exception as e:
+                logger.error(f"signal check: error checking '{run.name}': {e}")
+
+
 _SEQUENCER_CHECK_INTERVAL_DEFAULT = 60
 _RUN_DETECTION_DELAY_DEFAULT      = 15
 
@@ -402,7 +407,11 @@ def watch_sequencer(sequencer, observer, watched_uuids: set, stability_tracker: 
     scan_existing_runs(sequencer)
 
     handler = RunEventHandler(sequencer, stability_tracker)
-    observer.schedule(handler, path=sequencer.location, recursive=True)
+    # recursive=False: only watch the top-level directory for new run folders.
+    # Scanning run folder contents recursively on large SMB mounts is very slow
+    # (each poll could take many minutes), causing missed detections.
+    # Completion signal detection is handled by check_signal_files() in the main loop.
+    observer.schedule(handler, path=sequencer.location, recursive=False)
     watched_uuids.add(str(sequencer.uuid))
     logger.info(f"watching: {sequencer.location} ({sequencer.name})")
 
@@ -440,10 +449,11 @@ def start():
             seq_elapsed       += 1
             stability_elapsed += 1
 
-            # ── stability check (every 10s) ────────────────────────────────────
+            # ── stability + signal check (every 10s) ──────────────────────────
             if stability_elapsed >= _STABILITY_POLL_INTERVAL:
                 stability_elapsed = 0
                 check_file_stability(current_sequencers, stability_tracker)
+                check_signal_files(current_sequencers)
 
             # ── sequencer poll (every 60s) — detect newly added sequencers ────
             if seq_elapsed >= get_setting_int("sequencer_check_interval", _SEQUENCER_CHECK_INTERVAL_DEFAULT):

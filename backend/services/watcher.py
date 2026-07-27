@@ -403,6 +403,7 @@ def check_signal_files(sequencers: list):
 
 _SEQUENCER_CHECK_INTERVAL_DEFAULT = 60
 _RUN_DETECTION_DELAY_DEFAULT      = 15
+_RUN_SCAN_INTERVAL_DEFAULT        = 120  # re-scan run folders every 2 min to catch PollingObserver misses
 
 
 def watch_sequencer(sequencer, observer, watched_uuids: set, stability_tracker: dict):
@@ -453,6 +454,7 @@ def start():
     current_sequencers  = sequencers
     seq_elapsed         = 0
     stability_elapsed   = 0
+    run_scan_elapsed    = 0
     _STABILITY_POLL_INTERVAL = 10  # check stability every 10s (independent of sequencer poll)
 
     try:
@@ -460,12 +462,23 @@ def start():
             time.sleep(1)
             seq_elapsed       += 1
             stability_elapsed += 1
+            run_scan_elapsed  += 1
 
             # ── stability + signal check (every 10s) ──────────────────────────
             if stability_elapsed >= _STABILITY_POLL_INTERVAL:
                 stability_elapsed = 0
                 check_file_stability(current_sequencers, stability_tracker)
                 check_signal_files(current_sequencers)
+
+            # ── periodic run scan (every 2 min) — catch folders missed by PollingObserver ──
+            # The PollingObserver can miss on_created when a folder is renamed on an SMB/NFS
+            # mount (atomic rename = delete+create that the poller sometimes only sees half of).
+            # scan_existing_runs only adds folders not already in the DB, so it is safe to call repeatedly.
+            if run_scan_elapsed >= get_setting_int("run_scan_interval", _RUN_SCAN_INTERVAL_DEFAULT):
+                run_scan_elapsed = 0
+                for sequencer in current_sequencers:
+                    if str(sequencer.uuid) in watched_uuids:
+                        scan_existing_runs(sequencer)
 
             # ── sequencer poll (every 60s) — detect newly added sequencers ────
             if seq_elapsed >= get_setting_int("sequencer_check_interval", _SEQUENCER_CHECK_INTERVAL_DEFAULT):

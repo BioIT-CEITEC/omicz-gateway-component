@@ -23,6 +23,13 @@ DEFAULTS = [
         "category": "ui",
         "description": "How often (seconds) the Containers page auto-refreshes",
     },
+    # ── Checksum ──────────────────────────────────────────────────────────────
+    {
+        "key": "checksum_chunk_size_mb",
+        "value": "5",
+        "category": "checksum",
+        "description": "Read chunk size in MB used when computing SHA256 checksums. Larger values (e.g. 32–64) speed up checksumming of large files over network shares. Maximum 4096 MB (4 GB).",
+    },
     # ── Upload ────────────────────────────────────────────────────────────────
     {
         "key": "upload_max_attempts",

@@ -29,6 +29,7 @@
     "log_lines_count":             {"label": "Log lines to show",             "unit": "lines",   "min": 50, "max": 5000, "hint": "Number of log lines displayed per service in the Logs viewer"},
     "log_viewer_refresh_interval": {"label": "Log viewer refresh interval",   "unit": "seconds", "min": 1,  "max": 300,  "hint": "How often the Logs viewer auto-refreshes"},
     "pagination_page_size":        {"label": "Items per page",                "unit": "items",   "min": 5,  "max": 200,  "hint": "Number of rows shown per page on Runs, Sequencers, and Sequencer Types list pages"},
+    "checksum_chunk_size_mb":      {"label": "Checksum read chunk size",      "unit": "MB",      "min": 1,  "max": 4096, "hint": "Chunk size for reading files during SHA256 checksumming. Larger values (e.g. 32–64) are faster over network shares. Max 4096 MB (4 GB)."},
   } %}
 
   {% set categories = [
@@ -38,6 +39,7 @@
     ("watcher",      "Watcher",       "Controls run detection timing. Changes apply on the next watcher polling cycle (no restart needed).", true),
     ("pagination",   "Pagination",    "Controls how many items appear per page on list views. Changes apply on the next page navigation.", false),
     ("logs",         "Logs",          "Controls the Logs viewer. Changes apply on the next page load.", false),
+    ("checksum",     "Checksum",      "Controls checksumming behaviour. Changes apply on the next run that starts checksumming.", false),
   ] %}
 
   {% for cat_key, cat_label, cat_desc, needs_restart in categories %}

@@ -10,7 +10,13 @@ from core.logger import get_logger
 logger = get_logger("checksum")
 
 CHECKSUM_FILENAME = "checksum.CHECKSUM"
-CHUNK_SIZE        = 5 * 1024 * 1024   # 5 MB — faster than default 8 KB for large sequencing files
+_DEFAULT_CHUNK_MB = 5
+
+
+def _chunk_size() -> int:
+    """Read checksum_chunk_size_mb from settings DB at runtime. Falls back to default."""
+    from db.repositories.settings import get_setting_int
+    return get_setting_int("checksum_chunk_size_mb", _DEFAULT_CHUNK_MB) * 1024 * 1024
 
 # Always exclude hidden files/folders (names starting with ".") regardless of user exclusions.
 # This covers macOS resource forks (._*), SMB temp files (.smbdelete*), .DS_Store, etc.
@@ -43,7 +49,7 @@ def _is_excluded(relative_path: str, exclusions: list[str]) -> bool:
 def _sha256(file_path: str, chunk_callback: Callable | None = None) -> str:
     h = hashlib.sha256()
     with open(file_path, "rb") as f:
-        for chunk in iter(lambda: f.read(CHUNK_SIZE), b""):
+        for chunk in iter(lambda: f.read(_chunk_size()), b""):
             h.update(chunk)
             if chunk_callback:
                 chunk_callback(len(chunk))

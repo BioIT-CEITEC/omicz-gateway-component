@@ -23,12 +23,6 @@ DEFAULTS = [
         "category": "ui",
         "description": "How often (seconds) the Containers page auto-refreshes",
     },
-    {
-        "key": "k8s_log_refresh_interval",
-        "value": "10",
-        "category": "ui",
-        "description": "How often (seconds) the K8s Proxy log auto-refreshes",
-    },
     # ── Upload ────────────────────────────────────────────────────────────────
     {
         "key": "upload_max_attempts",

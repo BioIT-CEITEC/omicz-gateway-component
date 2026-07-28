@@ -156,6 +156,6 @@ def recheck_run(request: Request, uuid: str):
 
 # ── DELETE
 @router.post("/{uuid}/delete")
-def delete_run(request: Request, uuid: str):
+def delete_run(request: Request, uuid: str, next: str = "/runs/"):
     httpx.delete(f"{BACKEND_URL}/runs/{uuid}")
-    return RedirectResponse(url="/runs/", status_code=303)
+    return RedirectResponse(url=next, status_code=303)

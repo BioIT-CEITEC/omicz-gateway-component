@@ -23,12 +23,11 @@
     </div>
   </div>
 
-  {% if not containers %}
-  <div class="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-5 py-4 mb-6">
+  <div id="docker-error-banner"
+       class="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-5 py-4 mb-6{% if not docker_error %} hidden{% endif %}">
     <p class="font-semibold">Cannot connect to Docker</p>
-    <p class="mt-1">Make sure <code>/var/run/docker.sock</code> is mounted into the backend container in <code>docker-compose.yml</code> and the backend was rebuilt.</p>
+    <p class="mt-1">Make sure <code>/var/run/docker.sock</code> is mounted into the <strong>frontend</strong> container in <code>docker-compose.yml</code> and the frontend was rebuilt.</p>
   </div>
-  {% endif %}
 
   <div class="bg-white rounded-xl shadow overflow-hidden">
     <table class="w-full">
@@ -112,6 +111,12 @@
     fetch('/containers/data')
       .then(r => r.json())
       .then(d => {
+        const banner = document.getElementById('docker-error-banner');
+        if (d.docker_error) {
+          banner.classList.remove('hidden');
+        } else {
+          banner.classList.add('hidden');
+        }
         document.getElementById('container-rows').innerHTML = renderRows(d.containers || []);
       })
       .catch(() => {});

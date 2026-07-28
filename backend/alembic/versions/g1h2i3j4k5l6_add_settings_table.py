@@ -18,7 +18,6 @@ DEFAULTS = [
     ("active_refresh_interval",     "5",   "ui",           "How often (seconds) the run detail page auto-refreshes while checksumming, moving, verifying, or queued"),
     ("idle_refresh_interval",       "120", "ui",           "How often (seconds) the run detail page auto-refreshes while the run is still sequencing (running status)"),
     ("containers_refresh_interval", "10",  "ui",           "How often (seconds) the Containers page auto-refreshes"),
-    ("k8s_log_refresh_interval",    "10",  "ui",           "How often (seconds) the K8s Proxy log auto-refreshes"),
     ("upload_max_attempts",         "5",   "upload",       "Maximum number of retry attempts when uploading a single file to S3 before giving up"),
     ("upload_retry_backoff_max",    "30",  "upload",       "Maximum wait time (seconds) between consecutive upload retry attempts"),
     ("verify_retries",              "10",  "verification", "How many times to poll S3 waiting for TRE to place the checksum confirmation file"),

@@ -1,0 +1,16 @@
+# Force LF line endings in the repository for all text files.
+# This prevents Windows from checking out files with CRLF,
+# which would break Python scripts running inside Linux containers.
+
+* text=auto eol=lf
+
+# Explicitly binary — never touch line endings
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary

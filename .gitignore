@@ -2,7 +2,6 @@ __pycache__/
 *.pyc
 .env
 env/
-docker-compose.y*ml
 run_outputs/
 **/logs/
 REPORT/

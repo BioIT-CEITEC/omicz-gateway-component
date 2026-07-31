@@ -19,7 +19,7 @@ services:
     container_name: fastapi_gateway_adminer
     restart: always
     ports:
-      - "8090:8080"
+      - "8090:8080" # moved to 8090 — port 8080 is reserved for kubectl port-forward
     depends_on:
       - db
 
@@ -28,8 +28,8 @@ services:
     container_name: fastapi_gateway_rabbitmq
     restart: always
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "5672:5672" # AMQP protocol (used by pika)
+      - "15672:15672" # Management UI → http://localhost:15672  (guest/guest)
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
@@ -53,18 +53,20 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: fastapi_gateway_db
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
-      LOG_LEVEL: INFO
+      LOG_LEVEL: DEBUG
     depends_on:
       - db
       - rabbitmq
     volumes:
       - ./backend:/app
       # ── Sequencer machine output folders ──────────────────────────────────────
-      # Add one line per machine: left side = real path on this machine (from .env)
+      # Add one line per machine: left side = real path on this machine (host)
       #                           right side = path inside container (always /runs/...)
-      - ${MACHINE_1_PATH}:/runs/machine-1
-      # - ${MACHINE_2_PATH}:/runs/machine-2    # uncomment to add more machines
-      # ── Docker socket (required for container management UI) ──────────────────
+      # Linux/Mac example:  - /data/illumina/outputs:/runs/machine-1
+      # Windows example:    - C:\Sequencer\Illumina:/runs/machine-1
+      - ${MACHINE_7_PATH}:/runs/machine-7
+      - ${MACHINE_1_PATH_SHARED}:/runs/machine-1-path-shared
+      # ── Docker socket (required for container management API) ──────────────────
       # Linux / macOS:
       - /var/run/docker.sock:/var/run/docker.sock
       # Windows (Docker Desktop) — comment out the line above and uncomment this:
@@ -80,12 +82,12 @@ services:
       - "8001:8001"
     environment:
       BACKEND_URL: http://backend:8000
-      LOG_LEVEL: INFO
+      LOG_LEVEL: DEBUG
     depends_on:
       - backend
     volumes:
       - ./frontend:/app
-      # ── Docker socket (required for container management UI) ──────────────────
+      # ── Docker socket (required for container management UI) ───────────────────
       # Linux / macOS:
       - /var/run/docker.sock:/var/run/docker.sock
       # Windows (Docker Desktop) — comment out the line above and uncomment this:
@@ -104,7 +106,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: fastapi_gateway_db
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
-      LOG_LEVEL: INFO
+      LOG_LEVEL: DEBUG
     depends_on:
       db:
         condition: service_started
@@ -112,8 +114,8 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app
-      - ${MACHINE_1_PATH}:/runs/machine-1
-      # - ${MACHINE_2_PATH}:/runs/machine-2
+      - ${MACHINE_7_PATH}:/runs/machine-7
+      - ${MACHINE_1_PATH_SHARED}:/runs/machine-1-path-shared
 
   watcher:
     build:
@@ -128,7 +130,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: fastapi_gateway_db
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
-      LOG_LEVEL: INFO
+      LOG_LEVEL: DEBUG
     depends_on:
       db:
         condition: service_started
@@ -136,8 +138,8 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app
-      - ${MACHINE_1_PATH}:/runs/machine-1
-      # - ${MACHINE_2_PATH}:/runs/machine-2
+      - ${MACHINE_7_PATH}:/runs/machine-7
+      - ${MACHINE_1_PATH_SHARED}:/runs/machine-1-path-shared
 
 volumes:
   postgres_data:

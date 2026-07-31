@@ -1,0 +1,143 @@
+services:
+  # ── Infrastructure ───────────────────────────────────────────────────────────
+
+  db:
+    image: postgres:15
+    container_name: fastapi_gateway_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: fastapi_gateway_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  adminer:
+    image: adminer
+    container_name: fastapi_gateway_adminer
+    restart: always
+    ports:
+      - "8090:8080"
+    depends_on:
+      - db
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: fastapi_gateway_rabbitmq
+    restart: always
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Application ──────────────────────────────────────────────────────────────
+
+  backend:
+    build:
+      context: ./backend
+    container_name: fastapi_gateway_backend
+    restart: always
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_USERNAME: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: fastapi_gateway_db
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      LOG_LEVEL: INFO
+    depends_on:
+      - db
+      - rabbitmq
+    volumes:
+      - ./backend:/app
+      # ── Sequencer machine output folders ──────────────────────────────────────
+      # Add one line per machine: left side = real path on this machine (from .env)
+      #                           right side = path inside container (always /runs/...)
+      - ${MACHINE_1_PATH}:/runs/machine-1
+      # - ${MACHINE_2_PATH}:/runs/machine-2    # uncomment to add more machines
+      # ── Docker socket (required for container management UI) ──────────────────
+      # Linux / macOS:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Windows (Docker Desktop) — comment out the line above and uncomment this:
+      # - //var/run/docker.sock:/var/run/docker.sock
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: fastapi_gateway_frontend
+    restart: always
+    command: uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+    ports:
+      - "8001:8001"
+    environment:
+      BACKEND_URL: http://backend:8000
+      LOG_LEVEL: INFO
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      # ── Docker socket (required for container management UI) ──────────────────
+      # Linux / macOS:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Windows (Docker Desktop) — comment out the line above and uncomment this:
+      # - //var/run/docker.sock:/var/run/docker.sock
+
+  worker:
+    build:
+      context: ./backend
+    container_name: fastapi_gateway_worker
+    restart: always
+    command: python services/worker.py
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_USERNAME: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: fastapi_gateway_db
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      LOG_LEVEL: INFO
+    depends_on:
+      db:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - ${MACHINE_1_PATH}:/runs/machine-1
+      # - ${MACHINE_2_PATH}:/runs/machine-2
+
+  watcher:
+    build:
+      context: ./backend
+    container_name: fastapi_gateway_watcher
+    restart: always
+    command: python services/watcher.py
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_USERNAME: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: fastapi_gateway_db
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      LOG_LEVEL: INFO
+    depends_on:
+      db:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - ${MACHINE_1_PATH}:/runs/machine-1
+      # - ${MACHINE_2_PATH}:/runs/machine-2
+
+volumes:
+  postgres_data:

@@ -68,6 +68,18 @@ MACHINE_1_PATH_SHARED=/data/sequencers/machine-1-shared
 **Why these variable names?**
 The `docker-compose.yml` already has volume lines that reference `${MACHINE_7_PATH}` and `${MACHINE_1_PATH_SHARED}`. Docker reads your `.env` file and substitutes those values automatically. The names must match exactly.
 
+**If you are adding a new machine** that is not already in `docker-compose.yml`, you also need to add a volume line for it in the `backend`, `worker`, and `watcher` services. Open `docker-compose.yml` and add one line per machine under the volumes section of each of those three services:
+
+```yaml
+volumes:
+  - ./backend:/app
+  - ${MACHINE_7_PATH}:/runs/machine-7          # already there
+  - ${MACHINE_1_PATH_SHARED}:/runs/machine-1-shared   # already there
+  - ${MACHINE_2_PATH}:/runs/machine-2          # add this for a new machine
+```
+
+The right side (`/runs/machine-2`) is the path **inside the container** — this is what you will enter in the **Location** field when creating the sequencer in the UI.
+
 **Windows paths:**
 ```env
 MACHINE_7_PATH=C:\Sequencer\Machine7

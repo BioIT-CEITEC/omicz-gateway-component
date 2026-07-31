@@ -1,6 +1,6 @@
 # Sequencer Gateway
 
-A web application for managing DNA sequencer runs. It monitors sequencer output folders, detects when runs complete, generates checksums, and uploads run data to S3 storage automatically.
+A web application for managing DNA sequencer runs. It monitors sequencer output folders on your computer, detects when runs complete, generates checksums, and uploads run data to S3 storage automatically.
 
 ---
 
@@ -10,200 +10,308 @@ A web application for managing DNA sequencer runs. It monitors sequencer output 
 - Detects run completion via a **signal file** (e.g. `RTAComplete.txt`) or **file stability** (files stop growing)
 - Generates a SHA256 checksum file for the run
 - Uploads the run folder to S3
-- Provides a web UI to manage sequencers, runs, and monitor status in real time
+- Provides a web UI to manage sequencers, runs, and monitor upload status in real time
 
 ---
 
 ## Requirements
 
-- [Docker](https://docs.docker.com/get-docker/) + [Docker Compose](https://docs.docker.com/compose/)
-- S3 storage credentials (endpoint URL, access key, secret key)
+- [Docker Desktop](https://docs.docker.com/get-docker/) installed and running
+- S3 storage credentials (endpoint URL, access key, secret key) — get these from the project administrator
+
+---
+
+## How it works (overview)
+
+The app runs as a set of Docker containers on your computer. It needs to know where your sequencer machine saves its output folders. You tell it this by setting a path in a `.env` file. Docker then makes that folder visible to the app containers, and the app watches it for new runs.
+
+```
+Your computer's folder  →  Docker volume mount  →  App sees it as /runs/machine-7
+e.g. /data/illumina          (docker-compose.yml)
+```
 
 ---
 
 ## Installation
 
-### 1. Clone the repository
+Follow these steps in order. Each step explains what you are doing and why.
+
+---
+
+### Step 1 — Clone the repository
+
+Download the project code to your computer:
 
 ```bash
 git clone git@github.com:BioIT-CEITEC/omicz-gateway-component.git
 cd omicz-gateway-component
 ```
 
-### 2. Create the root environment file
+---
+
+### Step 2 — Create your `.env` file
+
+The `.env` file tells Docker where your sequencer output folders are on **your** computer.
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` and set the real path to your sequencer machine output folder on this computer:
+Open `.env` and replace the example paths with real paths on your machine:
 
 ```env
-# Linux / Mac:
-MACHINE_1_PATH=/data/sequencers/machine-1
-
-# Windows:
-# MACHINE_1_PATH=C:\Sequencer\Machine1
+# The real path to your sequencer output folder on this computer:
+MACHINE_7_PATH=/data/sequencers/machine-7
+MACHINE_1_PATH_SHARED=/data/sequencers/machine-1-shared
 ```
 
-### 3. Create the docker-compose file
+**Why these variable names?**
+The `docker-compose.yml` already has volume lines that reference `${MACHINE_7_PATH}` and `${MACHINE_1_PATH_SHARED}`. Docker reads your `.env` file and substitutes those values automatically. The names must match exactly.
 
-```bash
-cp docker-compose.example.yml docker-compose.yml
+**Windows paths:**
+```env
+MACHINE_7_PATH=C:\Sequencer\Machine7
+MACHINE_1_PATH_SHARED=C:\Sequencer\Machine1Shared
 ```
 
-The example file is pre-configured for one machine (`MACHINE_1_PATH`). If you have more machines, add a volume line for each one in the `backend`, `worker`, and `watcher` services:
+---
 
-```yaml
-volumes:
-  - ./backend:/app
-  - ${MACHINE_1_PATH}:/runs/machine-1     # already there
-  - ${MACHINE_2_PATH}:/runs/machine-2     # add for each extra machine
-```
+### Step 3 — Create the backend `.env` file
 
-> The right side (`/runs/machine-1`) is the path **inside the container** — always use `/runs/` prefix.
-> The left side is the real path on your computer — set it in `.env`.
-
-### 4. Create the backend environment file
+The backend needs its own configuration file for S3 credentials and database settings.
 
 ```bash
 cp backend/.env.example backend/.env
 ```
 
-Edit `backend/.env` and fill in your S3 credentials:
+Open `backend/.env` and fill in your S3 credentials:
 
 ```env
 S3_ENDPOINT=https://your-s3-proxy-url
 S3_ACCESS_KEY=your_access_key
 S3_SECRET_KEY=your_secret_key
 S3_BUCKET=your-bucket-name
+S3_PREFIX=raw_run_data/
 ```
 
-### 5. Build and start the services
+The database settings in this file can be left as-is — they match the database container defined in `docker-compose.yml`.
+
+---
+
+### Step 4 — Build and start the containers
+
+This downloads the required images (PostgreSQL, RabbitMQ) and builds the application containers. It takes a few minutes the first time.
 
 ```bash
 docker compose up -d --build
 ```
 
-### 6. Run database migrations
+What this starts:
+
+| Container | Purpose |
+|-----------|---------|
+| `fastapi_gateway_db` | PostgreSQL database — stores sequencers, runs, history |
+| `fastapi_gateway_rabbitmq` | Message queue — passes events between services |
+| `fastapi_gateway_backend` | REST API — the brain of the application |
+| `fastapi_gateway_frontend` | Web UI — what you see in the browser |
+| `fastapi_gateway_worker` | Processes run events — does checksumming and S3 upload |
+| `fastapi_gateway_watcher` | Watches the sequencer folders for new runs |
+
+To check that all containers are running:
+
+```bash
+docker ps
+```
+
+All 6 containers should show `Up`.
+
+---
+
+### Step 5 — Run database migrations
+
+This creates all the database tables. Only needed the first time (or after an update that includes schema changes).
 
 ```bash
 docker exec fastapi_gateway_backend alembic upgrade head
 ```
 
-### 7. Open the web UI
-
-| Service | URL |
-|---------|-----|
-| Frontend (main UI) | http://localhost:8001 |
-| Backend API | http://localhost:8000 |
-| API docs (Swagger) | http://localhost:8000/docs |
-| RabbitMQ management | http://localhost:15672 (guest / guest) |
-| Adminer (database UI) | http://localhost:8090 |
+You should see output like:
+```
+INFO  [alembic.runtime.migration] Running upgrade ...
+```
 
 ---
 
-## First-time setup in the UI
+### Step 6 — Open the web UI
 
-### 1. Create a Sequencer Type
+| Service | URL | Login |
+|---------|-----|-------|
+| **Frontend (main UI)** | http://localhost:8001 | — |
+| Backend API docs | http://localhost:8000/docs | — |
+| RabbitMQ management | http://localhost:15672 | guest / guest |
+| Adminer (database UI) | http://localhost:8090 | see below |
 
-Go to **Sequencer Types → Create** and define how the sequencer signals run completion:
-
-| Field | Description |
-|-------|-------------|
-| Name | Display name (e.g. `Illumina NovaSeq`) |
-| Completion Method | `signal` — wait for a specific file to appear |
-| | `file_stability` — wait for files to stop growing |
-| Completion Signal | Filename to watch for (signal method only, e.g. `RTAComplete.txt`) |
-| Signal Match | `exact`, `prefix`, or `suffix` |
-| Stability Files | List of filenames to monitor for size changes (file_stability only) |
-| Stability Threshold | Minutes of no growth before declaring run complete (default: 10) |
-
-### 2. Create a Sequencer
-
-Go to **Sequencers → Create** and fill in:
-
-| Field | Description |
-|-------|-------------|
-| Name | Display name (e.g. `Machine 1 - Illumina`) |
-| Location | Path **inside the container** — always starts with `/runs/` (e.g. `/runs/machine-1`) |
-| Type | Select the sequencer type you created above |
-| Send to TRE | `auto` — upload automatically after run finishes; `manual` — wait for button click |
-| Exclusions | Files/patterns to skip during upload (e.g. `*.png`, `Thumbnail_Images`) |
-
-> After adding a sequencer, the watcher picks it up within 60 seconds — no restart needed.
+**Adminer login:**
+- System: `PostgreSQL`
+- Server: `db`
+- Username: `postgres`
+- Password: `postgres`
+- Database: `fastapi_gateway_db`
 
 ---
 
-## Adding a New Machine
+## First-time configuration in the UI
 
-When a new sequencer machine is connected:
-
-1. **Add to `.env`:**
-   ```env
-   MACHINE_2_PATH=/data/sequencers/ont
-   ```
-
-2. **Add to `docker-compose.yml`** (backend, worker, watcher volumes):
-   ```yaml
-   - ${MACHINE_2_PATH}:/runs/machine-2
-   ```
-
-3. **Restart the stack:**
-   ```bash
-   docker compose down && docker compose up -d
-   ```
-
-4. **Create the sequencer in the UI** with location `/runs/machine-2`
+After the app is running, you need to configure it through the web interface before it can watch any sequencer runs.
 
 ---
 
-## Run Status Flow
+### Step A — Create a Sequencer Type
+
+A **Sequencer Type** defines the model/brand of machine and how it signals that a run is complete. You create one type per machine model (not per machine).
+
+Go to **Sequencer Types → Create** in the top navigation.
+
+| Field | What to enter | Example |
+|-------|--------------|---------|
+| **Name** | A label for this machine model | `Illumina NovaSeq 6000` |
+| **Completion Method** | How the machine signals it is done | see below |
+| **Completion Signal** | The filename it creates when done *(signal method only)* | `RTAComplete.txt` |
+| **Signal Match** | How to match the filename | `exact` |
+| **Stability Files** | Files to watch for size changes *(file_stability method only)* | `RunParameters.xml` |
+| **Stability Threshold** | Minutes of no change before declaring done *(file_stability only)* | `10` |
+
+**Completion Method options:**
+
+- `signal` — the machine creates a specific file (e.g. `RTAComplete.txt`) when a run is done. The app watches for that file to appear.
+- `file_stability` — the app monitors specific files and waits until they stop growing (no size change for N minutes). Use this for machines that do not create a completion file.
+
+---
+
+### Step B — Create a Sequencer
+
+A **Sequencer** represents a specific physical machine connected to this computer. You create one entry per machine.
+
+Go to **Sequencers → Create** in the top navigation.
+
+| Field | What to enter | Example |
+|-------|--------------|---------|
+| **Name** | A label for this specific machine | `Machine 7 - Illumina` |
+| **Location** | The path **inside the container** where this machine's folder is mounted | `/runs/machine-7` |
+| **Type** | Select the sequencer type you created in Step A | |
+| **Send to TRE** | When to upload to S3 | see below |
+| **Exclusions** | Files or patterns to skip during upload *(optional)* | `*.png`, `Thumbnail_Images` |
+
+**Location field explained:**
+This is not a path on your computer — it is the path *inside the Docker container*. It always starts with `/runs/`. The mapping between your computer's folder and this path is defined in `docker-compose.yml`:
+
+```yaml
+- ${MACHINE_7_PATH}:/runs/machine-7
+#   ^ your computer       ^ container path (put this in Location field)
+```
+
+**Send to TRE options:**
+
+- `auto` — upload to S3 automatically as soon as a run is detected as complete
+- `manual` — wait for you to click the "Send to TRE" button on the run detail page
+
+> After saving the sequencer, the watcher detects it within 60 seconds — no restart needed.
+
+---
+
+## Run status reference
+
+Once a sequencer is configured, the app detects new runs automatically. You can monitor them under **Runs** in the navigation.
 
 ```
 running → running_finished → checksumming → moving → verifying → completed
                                           ↘ move_failed        ↘ verify_failed
 ```
 
-| Status | Meaning |
-|--------|---------|
-| `running` | Run folder detected, sequencing in progress |
-| `running_finished` | Completion signal detected, waiting for upload |
-| `checksumming` | Generating SHA256 checksum file |
-| `moving` | Uploading folder to S3 |
-| `verifying` | Waiting for TRE to confirm checksum |
-| `completed` | Done |
-| `move_failed` | Upload failed — use **Retry Upload** button |
-| `verify_failed` | TRE verification failed — use **Retry Verification** button |
+| Status | What it means | What to do |
+|--------|--------------|------------|
+| `running` | New run folder detected, sequencing in progress | Wait |
+| `running_finished` | Machine finished; waiting to start upload | Click **Send to TRE** (if manual mode) |
+| `checksumming` | Generating SHA256 checksum file for the run | Wait |
+| `moving` | Uploading the run folder to S3 | Wait |
+| `verifying` | Waiting for the TRE system to confirm receipt | Wait |
+| `completed` | Run fully uploaded and confirmed | Done |
+| `move_failed` | Upload failed | Click **Retry Upload** |
+| `verify_failed` | TRE verification failed | Click **Retry Verification** |
 
 ---
 
-## Windows Notes
+## Adding a new machine later
 
-The app runs entirely inside Linux Docker containers — the Python code does not change for Windows. The only difference is the volume mount syntax and the Docker socket path.
+If a new sequencer machine is connected to this computer:
 
-In `docker-compose.yml`, for the Docker socket:
+1. **Add its path to `.env`:**
+   ```env
+   MACHINE_2_PATH=/data/sequencers/new-machine
+   ```
+
+2. **Add a volume line in `docker-compose.yml`** — in the `backend`, `worker`, and `watcher` services:
+   ```yaml
+   - ${MACHINE_2_PATH}:/runs/machine-2
+   ```
+
+3. **Restart the full stack** (needed for Docker to pick up the new volume):
+   ```bash
+   docker compose down && docker compose up -d
+   ```
+
+4. **Create a new Sequencer in the UI** with Location `/runs/machine-2`
+
+---
+
+## Windows-specific notes
+
+The application runs inside Linux Docker containers — no Python code changes are needed for Windows. Only two things differ:
+
+**1. Machine paths in `.env` use Windows format:**
+```env
+MACHINE_7_PATH=C:\Sequencer\Machine7
+```
+
+**2. Docker socket path in `docker-compose.yml`** (needed for the container management UI):
 ```yaml
-# Linux / macOS:
+# Linux / macOS (default — already in docker-compose.yml):
 - /var/run/docker.sock:/var/run/docker.sock
 
-# Windows (Docker Desktop) — use this instead:
+# Windows (Docker Desktop) — replace the line above with:
 - //var/run/docker.sock:/var/run/docker.sock
 ```
 
-For machine paths in `.env`, use Windows format:
-```env
-MACHINE_1_PATH=C:\Sequencer\Machine1
+---
+
+## Troubleshooting
+
+**Containers not starting:**
+```bash
+docker compose logs
+```
+
+**One service has errors:**
+```bash
+docker logs fastapi_gateway_backend
+docker logs fastapi_gateway_worker
+docker logs fastapi_gateway_watcher
+```
+
+**Run stuck / not progressing:**
+Check the worker logs — the worker processes all upload events:
+```bash
+docker logs fastapi_gateway_worker --tail 50
 ```
 
 ---
 
-## After Code Changes
+## After code changes
 
-| Change | Command |
-|--------|---------|
-| Python code (backend/frontend) | `docker restart fastapi_gateway_backend fastapi_gateway_frontend` |
-| Worker or watcher code | `docker restart fastapi_gateway_worker fastapi_gateway_watcher` |
-| New DB migration | `docker exec fastapi_gateway_backend alembic upgrade head` |
-| Dockerfile changes | `docker compose build <service> && docker compose up -d <service>` |
-| Settings changed in UI | No restart needed — applied at runtime |
+| What changed | Command to apply it |
+|---|---|
+| Python code in `backend/` or `frontend/` | `docker restart fastapi_gateway_backend fastapi_gateway_frontend` |
+| `worker.py` or `watcher.py` | `docker restart fastapi_gateway_worker fastapi_gateway_watcher` |
+| Database schema (new migration) | `docker exec fastapi_gateway_backend alembic upgrade head` |
+| `Dockerfile` or `requirements.txt` | `docker compose build <service> && docker compose up -d <service>` |
+| Settings in the UI | No restart needed — applied at runtime |

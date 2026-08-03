@@ -43,7 +43,7 @@ Follow these steps in order. Each step explains what you are doing and why.
 Download the project code to your computer:
 
 ```bash
-git clone git@github.com:BioIT-CEITEC/omicz-gateway-component.git
+git clone https://github.com/BioIT-CEITEC/omicz-gateway-component.git
 cd omicz-gateway-component
 ```
 
@@ -53,8 +53,13 @@ cd omicz-gateway-component
 
 The `.env` file tells Docker where your sequencer output folders are on **your** computer.
 
+Linux / macOS:
 ```bash
 cp .env.example .env
+```
+Windows (Command Prompt):
+```cmd
+copy .env.example .env
 ```
 
 Open `.env` and replace the example paths with real paths on your machine:
@@ -92,8 +97,13 @@ MACHINE_1_PATH_SHARED=C:\Sequencer\Machine1Shared
 
 The backend needs its own configuration file for S3 credentials and database settings.
 
+Linux / macOS:
 ```bash
 cp backend/.env.example backend/.env
+```
+Windows (Command Prompt):
+```cmd
+copy backend/.env.example backend.env
 ```
 
 Open `backend/.env` and fill in your S3 credentials:
@@ -272,7 +282,7 @@ If a new sequencer machine is connected to this computer:
    docker compose down && docker compose up -d
    ```
 
-4. **Create a new Sequencer in the UI** with Location `/runs/machine-2`
+5. **Create a new Sequencer in the UI** with Location `/runs/machine-2`
 
 ---
 

@@ -252,14 +252,15 @@ running → running_finished → checksumming → moving → verifying → compl
 
 | Status | What it means | What to do |
 |--------|--------------|------------|
-| `running` | New run folder detected, sequencing in progress | Wait |
-| `running_finished` | Machine finished; waiting to start upload | Click **Send to TRE** (if manual mode) |
-| `checksumming` | Generating SHA256 checksum file for the run | Wait |
-| `moving` | Uploading the run folder to S3 | Wait |
-| `verifying` | Waiting for the TRE system to confirm receipt | Wait |
-| `completed` | Run fully uploaded and confirmed | Done |
-| `move_failed` | Upload failed | Click **Retry Upload** |
-| `verify_failed` | TRE verification failed | Click **Retry Verification** |
+| `Sequencing` | New run folder detected, sequencing in progress | Wait |
+| `Sequencing Done` | Machine finished; waiting to start upload | Click **Send to TRE** (if manual mode) |
+| `Checksumming` | Generating SHA256 checksum file for the run | Wait |
+| `Queued` | Waiting after previous upload is finished | Wait |
+| `Uploading` | Uploading the run folder to S3 | Wait |
+| `Verifying` | Waiting for the TRE system to confirm receipt | Wait |
+| `Completed` | Run fully uploaded and confirmed | Done |
+| `Upload Failed` | Upload failed | Click **Retry Upload** |
+| `Verifying Failed` | TRE verification failed | Click **Retry Verification** |
 
 ---
 
@@ -283,26 +284,6 @@ If a new sequencer machine is connected to this computer:
    ```
 
 5. **Create a new Sequencer in the UI** with Location `/runs/machine-2`
-
----
-
-## Windows-specific notes
-
-The application runs inside Linux Docker containers — no Python code changes are needed for Windows. Only two things differ:
-
-**1. Machine paths in `.env` use Windows format:**
-```env
-MACHINE_7_PATH=C:\Sequencer\Machine7
-```
-
-**2. Docker socket path in `docker-compose.yml`** (needed for the container management UI):
-```yaml
-# Linux / macOS (default — already in docker-compose.yml):
-- /var/run/docker.sock:/var/run/docker.sock
-
-# Windows (Docker Desktop) — replace the line above with:
-- //var/run/docker.sock:/var/run/docker.sock
-```
 
 ---
 

@@ -512,6 +512,39 @@ def recover_stuck_runs():
         db.close()
 
 
+def recover_auto_runs():
+    """
+    On worker startup, find any runs stuck in 'running_finished' with
+    sent_to_tre=auto that have no pending RabbitMQ event (e.g. after a
+    restart). Re-publishes run_checksum_requested for each so they
+    resume the pipeline automatically without manual intervention.
+    """
+    db = SESSION_LOCAL()
+    try:
+        stranded = (
+            db.query(Runs)
+            .join(Sequencers, Runs.sequencer_uuid == Sequencers.uuid)
+            .filter(
+                Runs.status == "running_finished",
+                Runs.is_deleted == False,
+                Sequencers.sent_to_tre == "auto",
+            )
+            .all()
+        )
+        if not stranded:
+            return
+
+        from services.publisher import publish
+        logger.info(f"found {len(stranded)} stranded auto run(s) in 'running_finished' — re-queuing")
+        for run in stranded:
+            logger.info(f"re-queuing run_checksum_requested for '{run.name}' (sequencer_uuid={run.sequencer_uuid})")
+            publish("run_checksum_requested", run.name, run.sequencer_uuid)
+    except Exception as e:
+        logger.error(f"failed to recover auto runs: {e}", exc_info=True)
+    finally:
+        db.close()
+
+
 def _connect_rabbitmq(label: str):
     """Connect to RabbitMQ with retries. Returns a pika BlockingConnection."""
     for attempt in range(1, 11):
@@ -544,6 +577,7 @@ def _start_events_consumer():
 
 def start():
     recover_stuck_runs()
+    recover_auto_runs()
 
     # Start the fast events consumer in a daemon thread so run_created /
     # run_completed are always processed immediately, even during long uploads.

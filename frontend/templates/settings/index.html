@@ -8,6 +8,66 @@
     <p class="text-sm text-gray-500 mt-1">Adjust application behaviour without restarting containers. Changes take effect immediately (except Watcher settings — see note below).</p>
   </div>
 
+  {# ── Application / Update section ── #}
+  <div class="mb-8">
+    <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Application</h2>
+    <div class="bg-white rounded-xl shadow divide-y divide-gray-100">
+      <div class="px-5 py-4 flex items-center justify-between gap-4">
+        <div>
+          <p class="text-sm font-medium text-gray-800">Current version</p>
+          <p class="text-xs text-gray-400 mt-0.5">Installed on this machine</p>
+        </div>
+        <span class="text-sm font-mono font-semibold text-[#0C2461]">v{{ APP_VERSION }}</span>
+      </div>
+      <div class="px-5 py-4">
+        <div class="flex items-center justify-between gap-4">
+          <div>
+            <p class="text-sm font-medium text-gray-800">Latest version</p>
+            <p class="text-xs text-gray-400 mt-0.5">From GitHub repository</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <span id="latest-version" class="text-sm font-mono text-gray-400">—</span>
+            <button onclick="checkVersion()"
+              class="bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg text-xs font-medium hover:border-gray-400 hover:text-gray-800 transition">
+              Check
+            </button>
+          </div>
+        </div>
+
+        {# Update available banner — hidden until check returns update_available=true #}
+        <div id="update-banner" class="hidden mt-4 p-4 bg-indigo-50 border border-indigo-200 rounded-xl">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <p class="text-sm font-semibold text-indigo-800">Update available</p>
+              <p class="text-xs text-indigo-600 mt-0.5">
+                Pulls the latest code from GitHub, then restarts backend / worker / watcher automatically.
+                Refresh this page after the update completes.
+              </p>
+            </div>
+            <button id="update-btn" onclick="runUpdate()"
+              class="shrink-0 bg-[#0C2461] text-white px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-[#091B4D] transition">
+              Update Now
+            </button>
+          </div>
+          {# Terminal output box — shown while/after update runs #}
+          <div id="update-output" class="hidden mt-3">
+            <pre id="update-log" class="text-[11px] font-mono bg-gray-900 text-green-400 rounded-lg p-3 whitespace-pre-wrap break-all max-h-48 overflow-y-auto"></pre>
+          </div>
+        </div>
+
+        {# Up to date banner #}
+        <div id="uptodate-banner" class="hidden mt-4 p-3 bg-green-50 border border-green-200 rounded-xl">
+          <p class="text-xs text-green-700 font-medium">You are running the latest version.</p>
+        </div>
+
+        {# Error banner #}
+        <div id="check-error" class="hidden mt-4 p-3 bg-red-50 border border-red-200 rounded-xl">
+          <p class="text-xs text-red-700 font-medium" id="check-error-msg"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
   {% if not settings %}
   <div class="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-5 py-4 mb-6">
     <p class="font-semibold">Cannot load settings</p>
@@ -142,5 +202,73 @@
       }
     });
   });
+
+  function checkVersion() {
+    const latestEl      = document.getElementById('latest-version');
+    const updateBanner  = document.getElementById('update-banner');
+    const uptodateBanner= document.getElementById('uptodate-banner');
+    const errorBanner   = document.getElementById('check-error');
+    const errorMsg      = document.getElementById('check-error-msg');
+    latestEl.textContent = 'checking…';
+    updateBanner.classList.add('hidden');
+    uptodateBanner.classList.add('hidden');
+    errorBanner.classList.add('hidden');
+    fetch('/system/version')
+      .then(r => r.json())
+      .then(data => {
+        latestEl.textContent = data.latest ? 'v' + data.latest : 'unavailable';
+        if (!data.workspace_mounted) {
+          errorMsg.textContent = "Workspace not mounted — add '- .:/workspace' to frontend volumes in docker-compose.yml.";
+          errorBanner.classList.remove('hidden');
+        } else if (data.update_available) {
+          updateBanner.classList.remove('hidden');
+        } else if (data.latest) {
+          uptodateBanner.classList.remove('hidden');
+        } else {
+          errorMsg.textContent = 'Could not reach GitHub to check for updates.';
+          errorBanner.classList.remove('hidden');
+        }
+      })
+      .catch(() => {
+        latestEl.textContent = 'error';
+        errorMsg.textContent = 'Version check failed — check your internet connection.';
+        errorBanner.classList.remove('hidden');
+      });
+  }
+
+  function runUpdate() {
+    const btn       = document.getElementById('update-btn');
+    const outputBox = document.getElementById('update-output');
+    const log       = document.getElementById('update-log');
+    btn.disabled    = true;
+    btn.textContent = 'Updating…';
+    outputBox.classList.remove('hidden');
+    log.textContent = 'Running git pull…\n';
+    fetch('/system/update', { method: 'POST' })
+      .then(r => r.json())
+      .then(data => {
+        if (!data.success) {
+          log.textContent += '\nERROR:\n' + (data.error || 'unknown error');
+          btn.textContent = 'Failed';
+          btn.className = btn.className.replace('bg-[#0C2461]', 'bg-red-500');
+          return;
+        }
+        log.textContent += data.git_output + '\n';
+        if (data.restart_log && data.restart_log.length)
+          log.textContent += '\n' + data.restart_log.join('\n') + '\n';
+        if (data.needs_rebuild)
+          log.textContent += '\n⚠ requirements.txt or Dockerfile changed — run: docker compose build && docker compose up -d\n';
+        if (data.needs_migration)
+          log.textContent += '\n⚠ New database migration detected — run: docker exec fastapi_gateway_backend alembic upgrade head\n';
+        log.textContent += '\nDone. Please refresh this page.';
+        btn.textContent = 'Done ✓';
+        btn.disabled = false;
+        log.scrollTop = log.scrollHeight;
+      })
+      .catch(() => {
+        log.textContent += '\nRequest failed — the backend may be restarting. Refresh in a few seconds.';
+        btn.textContent = 'Error';
+      });
+  }
 </script>
 {% endblock %}

@@ -26,3 +26,4 @@ build/
 backend/alembic/versions/__pycache__/
 manuscript/
 
+backend/k8s_proxy_config/kubeconfig.yaml

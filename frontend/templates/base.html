@@ -18,51 +18,28 @@
     {% block scripts %}{% endblock %}
 
     <script>
-      // Clear stale localStorage keys left over from previous version
+      // Clear any stale localStorage keys from old implementation
+      localStorage.removeItem('update_available');
+      localStorage.removeItem('latest_version');
       localStorage.removeItem('update_check_time');
 
-      // Show update dot immediately from cached state (before fetch completes)
-      if (localStorage.getItem('update_available') === 'true') {
-        var dot = document.getElementById('update-dot');
-        if (dot) {
-          dot.classList.remove('hidden');
-          var latest = localStorage.getItem('latest_version');
-          var badge = document.getElementById('version-badge-link');
-          if (badge && latest) badge.title = 'Update available: v' + latest + ' — click to update';
-        }
-        var banner = document.getElementById('update-available-banner');
-        if (banner) {
-          var latest = localStorage.getItem('latest_version');
-          var msg = document.getElementById('update-available-msg');
-          if (msg && latest) msg.textContent = 'Version ' + latest + ' is available.';
-          banner.classList.remove('hidden');
-        }
-      }
-
-      // Background version check on every page load.
-      // Server caches the GitHub response for 5 minutes so GitHub is not hammered.
+      // Check for updates on every page load. Server caches GitHub result for 5 min.
       fetch('/system/version')
         .then(function(r) { return r.json(); })
         .then(function(data) {
+          var dot    = document.getElementById('update-dot');
+          var badge  = document.getElementById('version-badge-link');
+          var banner = document.getElementById('update-available-banner');
+          var msg    = document.getElementById('update-available-msg');
           if (data.update_available) {
-            localStorage.setItem('update_available', 'true');
-            localStorage.setItem('latest_version', data.latest);
-            var dot = document.getElementById('update-dot');
-            if (dot) dot.classList.remove('hidden');
-            var badge = document.getElementById('version-badge-link');
+            if (dot)   dot.classList.remove('hidden');
             if (badge) badge.title = 'Update available: v' + data.latest + ' — click to update';
-            var banner = document.getElementById('update-available-banner');
             if (banner) {
-              var msg = document.getElementById('update-available-msg');
               if (msg) msg.textContent = 'Version ' + data.latest + ' is available.';
               banner.classList.remove('hidden');
             }
-          } else if (data.latest) {
-            localStorage.removeItem('update_available');
-            localStorage.removeItem('latest_version');
-            var dot = document.getElementById('update-dot');
-            if (dot) dot.classList.add('hidden');
-            var banner = document.getElementById('update-available-banner');
+          } else {
+            if (dot)    dot.classList.add('hidden');
             if (banner) banner.classList.add('hidden');
           }
         })

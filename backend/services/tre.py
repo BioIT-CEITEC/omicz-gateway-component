@@ -25,6 +25,24 @@ S3_REGION      = os.getenv("S3_REGION")
 S3_BUCKET      = os.getenv("S3_BUCKET")
 S3_PREFIX      = os.getenv("S3_PREFIX")
 
+_REQUIRED_S3_VARS = {
+    "S3_ENDPOINT": S3_ENDPOINT,
+    "S3_ACCESS_KEY": S3_ACCESS_KEY,
+    "S3_SECRET_KEY": S3_SECRET_KEY,
+    "S3_REGION": S3_REGION,
+    "S3_BUCKET": S3_BUCKET,
+    "S3_PREFIX": S3_PREFIX,
+}
+_missing = [k for k, v in _REQUIRED_S3_VARS.items() if not v]
+if _missing:
+    import warnings
+    warnings.warn(
+        f"[TRE] Missing required environment variables: {', '.join(_missing)}. "
+        "S3 upload/verify operations will fail. Set these in backend/.env.",
+        RuntimeWarning,
+        stacklevel=1,
+    )
+
 
 from db.repositories.settings import get_setting_int
 

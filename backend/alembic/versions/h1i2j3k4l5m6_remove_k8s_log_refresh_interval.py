@@ -18,9 +18,16 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    from datetime import datetime
+    import sqlalchemy as sa
     op.execute(
-        f"INSERT INTO settings (key, value, category, description, updated_at) "
-        f"VALUES ('k8s_log_refresh_interval', '10', 'ui', "
-        f"'How often (seconds) the K8s Proxy log auto-refreshes', '{datetime.now()}')"
+        sa.text(
+            "INSERT INTO settings (key, value, category, description, updated_at) "
+            "VALUES (:key, :value, :category, :description, NOW())"
+        ),
+        {
+            "key": "k8s_log_refresh_interval",
+            "value": "10",
+            "category": "ui",
+            "description": "How often (seconds) the K8s Proxy log auto-refreshes",
+        },
     )

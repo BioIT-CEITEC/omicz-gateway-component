@@ -77,6 +77,12 @@ def do_update():
             capture_output=True,
             timeout=10,
         )
+        # Rewrite SSH remote URLs to HTTPS so git pull works without an SSH client
+        subprocess.run(
+            ["git", "config", "--global", "url.https://github.com/.insteadOf", "git@github.com:"],
+            capture_output=True,
+            timeout=10,
+        )
         result = subprocess.run(
             ["git", "-C", WORKSPACE, "pull", "--ff-only"],
             capture_output=True,

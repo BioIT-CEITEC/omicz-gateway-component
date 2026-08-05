@@ -21,6 +21,7 @@ _RESTART_ORDER = [
     "fastapi_gateway_watcher",
     "fastapi_gateway_worker",
     "fastapi_gateway_backend",
+    "fastapi_gateway_frontend",
 ]
 
 _cached_latest: str | None = None

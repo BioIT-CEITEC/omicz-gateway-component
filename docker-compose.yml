@@ -87,6 +87,8 @@ services:
       - backend
     volumes:
       - ./frontend:/app
+      # ── Repo root (required for one-click update feature) ──────────────────────
+      - .:/workspace
       # ── Docker socket (required for container management UI) ───────────────────
       # Linux / macOS:
       - /var/run/docker.sock:/var/run/docker.sock

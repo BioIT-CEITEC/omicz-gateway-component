@@ -6,10 +6,23 @@ templates = Jinja2Templates(directory="templates")
 
 CHANGELOG = [
     {
-        "version": "1.0.0",
-        "date": "2026-07-27",
+        "version": "1.1.0",
+        "date": "2026-08-05",
         "tag": "Latest",
         "tag_color": "indigo",
+        "sections": {
+            "Bug Fixes": [
+                "Fixed auto-upload runs getting stuck in 'Sequencing Done' after worker restart — worker now re-queues them automatically on startup",
+                "Fixed 'Send to TRE' button appearing for auto-upload sequencers when the run is already queued — replaced with a clear 'Auto-upload queued — waiting for worker…' indicator",
+                "Fixed run detail page stopping polling when status is 'Sequencing Done' for auto sequencers — page now refreshes automatically until the pipeline resumes",
+            ],
+        },
+    },
+    {
+        "version": "1.0.0",
+        "date": "2026-07-27",
+        "tag": None,
+        "tag_color": None,
         "sections": {
             "New Features": [
                 "Dashboard with live stat widgets: Sequencing, Ready to Upload, Pipeline, Failed, Completed, Sequencers",

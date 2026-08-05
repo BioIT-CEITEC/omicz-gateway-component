@@ -106,6 +106,11 @@ def do_update():
 
     logger.info(f"git pull completed: {git_output}")
 
+    # Invalidate version cache so the next check reflects the newly pulled version
+    global _cached_latest, _cache_fetched_at
+    _cached_latest = None
+    _cache_fetched_at = 0.0
+
     # Detect if a Docker rebuild or migration is needed
     needs_rebuild  = any(k in result.stdout for k in ["requirements.txt", "Dockerfile"])
     needs_migration = "alembic/versions" in result.stdout

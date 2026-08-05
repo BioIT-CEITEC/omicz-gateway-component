@@ -288,6 +288,7 @@
         log.textContent += '\nDone. Please refresh this page.';
         localStorage.removeItem('update_available');
         localStorage.removeItem('latest_version');
+        localStorage.removeItem('update_check_time');
         document.getElementById('update-dot')?.classList.add('hidden');
         btn.textContent = 'Done ✓';
         btn.disabled = false;

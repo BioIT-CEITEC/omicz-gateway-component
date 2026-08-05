@@ -1,5 +1,6 @@
 import os
 import subprocess
+import threading
 import time
 
 import docker
@@ -115,10 +116,15 @@ def do_update():
     needs_migration = "alembic/versions" in result.stdout
 
     # ── Step 2: restart services via Docker SDK ───────────────────────────────
+    # Frontend is restarted last in a background thread with a delay so the
+    # response reaches the browser before the container shuts down.
     restart_log = []
+    frontend_name = "fastapi_gateway_frontend"
     try:
         client = docker.from_env()
         for name in _RESTART_ORDER:
+            if name == frontend_name:
+                continue  # handled below
             try:
                 client.containers.get(name).restart()
                 restart_log.append(f"restarted {name}")
@@ -129,6 +135,18 @@ def do_update():
     except Exception as e:
         restart_log.append(f"Docker SDK error: {e}")
         logger.error(f"Docker SDK error during update: {e}")
+
+    # Schedule frontend restart after a 3-second delay so response is delivered first
+    def _restart_frontend():
+        time.sleep(3)
+        try:
+            docker.from_env().containers.get(frontend_name).restart()
+            logger.info(f"restarted {frontend_name}")
+        except Exception as e:
+            logger.warning(f"could not restart {frontend_name}: {e}")
+
+    threading.Thread(target=_restart_frontend, daemon=True).start()
+    restart_log.append(f"restarting {frontend_name} in 3 s…")
 
     return JSONResponse({
         "success": True,

@@ -36,9 +36,13 @@
         }
       }
 
-      // Background version check — runs at most once per hour across all pages
+      // Background version check:
+      // - If update_available is already cached → no need to re-check, banner already shown
+      // - If no cached result → check immediately (e.g. after an update cleared the cache)
+      // - If last check returned "up to date" → wait 1 hour before re-checking
       (function() {
         var CHECK_INTERVAL_MS = 60 * 60 * 1000;
+        if (localStorage.getItem('update_available') === 'true') return; // already showing banner
         var lastCheck = parseInt(localStorage.getItem('update_check_time') || '0');
         if (Date.now() - lastCheck < CHECK_INTERVAL_MS) return;
         fetch('/system/version')

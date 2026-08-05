@@ -18,11 +18,35 @@
     {% block scripts %}{% endblock %}
 
     <script>
-      // Show update dot in sidebar on every page if a pending update was detected
+      // Show update dot immediately from cached state (before fetch completes)
       if (localStorage.getItem('update_available') === 'true') {
         var dot = document.getElementById('update-dot');
         if (dot) dot.classList.remove('hidden');
       }
+
+      // Background version check — runs at most once per hour across all pages
+      (function() {
+        var CHECK_INTERVAL_MS = 60 * 60 * 1000;
+        var lastCheck = parseInt(localStorage.getItem('update_check_time') || '0');
+        if (Date.now() - lastCheck < CHECK_INTERVAL_MS) return;
+        fetch('/system/version')
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            localStorage.setItem('update_check_time', Date.now());
+            if (data.update_available) {
+              localStorage.setItem('update_available', 'true');
+              localStorage.setItem('latest_version', data.latest);
+              var dot = document.getElementById('update-dot');
+              if (dot) dot.classList.remove('hidden');
+            } else if (data.latest) {
+              localStorage.removeItem('update_available');
+              localStorage.removeItem('latest_version');
+              var dot = document.getElementById('update-dot');
+              if (dot) dot.classList.add('hidden');
+            }
+          })
+          .catch(function() {});
+      })();
     </script>
   </body>
 </html>

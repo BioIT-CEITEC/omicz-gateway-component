@@ -246,7 +246,7 @@
       });
   }
 
-  // Auto-check on page load; restore cached result instantly, then re-verify in background
+  // Restore cached result instantly on page load, then re-verify in background
   (function() {
     const cached = localStorage.getItem('latest_version');
     if (cached) {
@@ -256,6 +256,8 @@
       else
         document.getElementById('uptodate-banner').classList.remove('hidden');
     }
+    // Always do a fresh check when visiting settings (bypass the hourly cooldown)
+    localStorage.removeItem('update_check_time');
     checkVersion(true);
   })();
 

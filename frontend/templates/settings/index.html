@@ -217,7 +217,6 @@
       .then(r => r.json())
       .then(data => {
         latestEl.textContent = data.latest ? 'v' + data.latest : 'unavailable';
-        localStorage.setItem('update_check_time', Date.now());
         if (!data.workspace_mounted) {
           errorMsg.textContent = "Workspace not mounted — add '- .:/workspace' to frontend volumes in docker-compose.yml.";
           errorBanner.classList.remove('hidden');
@@ -247,17 +246,8 @@
       });
   }
 
-  // Restore cached result on page load — no auto-check here, base.html handles it
-  (function() {
-    const cached = localStorage.getItem('latest_version');
-    if (cached) {
-      document.getElementById('latest-version').textContent = 'v' + cached;
-      if (localStorage.getItem('update_available') === 'true')
-        document.getElementById('update-banner').classList.remove('hidden');
-      else
-        document.getElementById('uptodate-banner').classList.remove('hidden');
-    }
-  })();
+  // Always fetch fresh version data on page load
+  checkVersion(true);
 
   function runUpdate() {
     const btn       = document.getElementById('update-btn');

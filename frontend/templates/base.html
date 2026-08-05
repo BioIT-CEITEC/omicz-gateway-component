@@ -18,16 +18,8 @@
     {% block scripts %}{% endblock %}
 
     <script>
-      // If cached latest_version is same or older than installed version, update was already applied — clear stale cache
-      (function() {
-        var cached = localStorage.getItem('latest_version');
-        var installed = '{{ APP_VERSION }}';
-        if (cached && cached <= installed) {
-          localStorage.removeItem('update_available');
-          localStorage.removeItem('latest_version');
-          localStorage.removeItem('update_check_time');
-        }
-      })();
+      // Clear stale localStorage keys left over from previous version
+      localStorage.removeItem('update_check_time');
 
       // Show update dot immediately from cached state (before fetch completes)
       if (localStorage.getItem('update_available') === 'true') {
@@ -47,38 +39,34 @@
         }
       }
 
-      // Background version check every hour regardless of cached state —
-      // this ensures stale "update available" banners are cleared if already up to date.
-      (function() {
-        var CHECK_INTERVAL_MS = 60 * 60 * 1000;
-        var lastCheck = parseInt(localStorage.getItem('update_check_time') || '0');
-        if (Date.now() - lastCheck < CHECK_INTERVAL_MS) return;
-        fetch('/system/version')
-          .then(function(r) { return r.json(); })
-          .then(function(data) {
-            localStorage.setItem('update_check_time', Date.now());
-            if (data.update_available) {
-              localStorage.setItem('update_available', 'true');
-              localStorage.setItem('latest_version', data.latest);
-              var dot = document.getElementById('update-dot');
-              if (dot) dot.classList.remove('hidden');
-              var badge = document.getElementById('version-badge-link');
-              if (badge) badge.title = 'Update available: v' + data.latest + ' — click to update';
-              var banner = document.getElementById('update-available-banner');
-              if (banner) {
-                var msg = document.getElementById('update-available-msg');
-                if (msg) msg.textContent = 'Version ' + data.latest + ' is available.';
-                banner.classList.remove('hidden');
-              }
-            } else if (data.latest) {
-              localStorage.removeItem('update_available');
-              localStorage.removeItem('latest_version');
-              var dot = document.getElementById('update-dot');
-              if (dot) dot.classList.add('hidden');
+      // Background version check on every page load.
+      // Server caches the GitHub response for 5 minutes so GitHub is not hammered.
+      fetch('/system/version')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.update_available) {
+            localStorage.setItem('update_available', 'true');
+            localStorage.setItem('latest_version', data.latest);
+            var dot = document.getElementById('update-dot');
+            if (dot) dot.classList.remove('hidden');
+            var badge = document.getElementById('version-badge-link');
+            if (badge) badge.title = 'Update available: v' + data.latest + ' — click to update';
+            var banner = document.getElementById('update-available-banner');
+            if (banner) {
+              var msg = document.getElementById('update-available-msg');
+              if (msg) msg.textContent = 'Version ' + data.latest + ' is available.';
+              banner.classList.remove('hidden');
             }
-          })
-          .catch(function() {});
-      })();
+          } else if (data.latest) {
+            localStorage.removeItem('update_available');
+            localStorage.removeItem('latest_version');
+            var dot = document.getElementById('update-dot');
+            if (dot) dot.classList.add('hidden');
+            var banner = document.getElementById('update-available-banner');
+            if (banner) banner.classList.add('hidden');
+          }
+        })
+        .catch(function() {});
     </script>
   </body>
 </html>

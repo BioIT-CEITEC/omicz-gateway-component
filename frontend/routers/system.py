@@ -1,5 +1,6 @@
 import os
 import subprocess
+import time
 
 import docker
 import httpx
@@ -13,6 +14,7 @@ logger = get_logger("frontend")
 
 WORKSPACE = "/workspace"
 GITHUB_RAW_VERSION = "https://raw.githubusercontent.com/BioIT-CEITEC/omicz-gateway-component/main/VERSION"
+_VERSION_CACHE_TTL = 300  # seconds — hit GitHub at most once every 5 minutes
 
 # Services to restart after a git pull (frontend restarts itself last via Docker SDK)
 _RESTART_ORDER = [
@@ -20,6 +22,9 @@ _RESTART_ORDER = [
     "fastapi_gateway_worker",
     "fastapi_gateway_backend",
 ]
+
+_cached_latest: str | None = None
+_cache_fetched_at: float = 0.0
 
 
 def read_current_version() -> str:
@@ -31,13 +36,16 @@ def read_current_version() -> str:
 
 
 def fetch_latest_version() -> str | None:
+    global _cached_latest, _cache_fetched_at
+    if _cached_latest is not None and time.time() - _cache_fetched_at < _VERSION_CACHE_TTL:
+        return _cached_latest
     try:
-        import time
-        # Timestamp param busts CDN/proxy cache so we always get the latest file
         url = f"{GITHUB_RAW_VERSION}?t={int(time.time())}"
         r = httpx.get(url, headers={"Cache-Control": "no-cache"}, timeout=5)
         if r.status_code == 200:
-            return r.text.strip()
+            _cached_latest = r.text.strip()
+            _cache_fetched_at = time.time()
+            return _cached_latest
     except Exception:
         pass
     return None

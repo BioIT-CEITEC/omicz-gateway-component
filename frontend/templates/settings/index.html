@@ -267,12 +267,12 @@
           return;
         }
         log.textContent += data.git_output + '\n';
+        if (data.migration_log && data.migration_log.length)
+          log.textContent += '\n' + data.migration_log.join('\n') + '\n';
         if (data.restart_log && data.restart_log.length)
           log.textContent += '\n' + data.restart_log.join('\n') + '\n';
         if (data.needs_rebuild)
           log.textContent += '\n⚠ requirements.txt or Dockerfile changed — run: docker compose build && docker compose up -d\n';
-        if (data.needs_migration)
-          log.textContent += '\n⚠ New database migration detected — run: docker exec fastapi_gateway_backend alembic upgrade head\n';
         log.textContent += '\nDone. Please refresh this page.';
         localStorage.removeItem('update_available');
         localStorage.removeItem('latest_version');

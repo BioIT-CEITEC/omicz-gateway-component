@@ -115,7 +115,28 @@ def do_update():
     needs_rebuild   = any(k in result.stdout for k in ["requirements.txt", "Dockerfile"])
     needs_migration = "alembic/versions" in result.stdout
 
-    # ── Step 2: restart services via Docker SDK ───────────────────────────────
+    # ── Step 2: run migrations if needed ─────────────────────────────────────
+    migration_log = []
+    if needs_migration:
+        try:
+            client = docker.from_env()
+            backend = client.containers.get("fastapi_gateway_backend")
+            exit_code, output = backend.exec_run(
+                ["alembic", "upgrade", "head"],
+                workdir="/app",
+            )
+            migration_output = output.decode("utf-8", errors="replace").strip()
+            if exit_code == 0:
+                migration_log.append("migrations applied successfully")
+                logger.info(f"alembic upgrade head: {migration_output}")
+            else:
+                migration_log.append(f"migration failed (exit {exit_code}): {migration_output}")
+                logger.error(f"alembic upgrade head failed: {migration_output}")
+        except Exception as e:
+            migration_log.append(f"could not run migrations: {e}")
+            logger.error(f"migration error: {e}")
+
+    # ── Step 3: restart services via Docker SDK ───────────────────────────────
     # Frontend is restarted last in a background thread with a delay so the
     # response reaches the browser before the container shuts down.
     restart_log = []
@@ -151,6 +172,7 @@ def do_update():
     return JSONResponse({
         "success": True,
         "git_output": git_output,
+        "migration_log": migration_log,
         "restart_log": restart_log,
         "needs_rebuild": needs_rebuild,
         "needs_migration": needs_migration,

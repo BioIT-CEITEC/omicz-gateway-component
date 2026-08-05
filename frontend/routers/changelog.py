@@ -5,10 +5,30 @@ from shared_templates import templates
 
 CHANGELOG = [
     {
-        "version": "1.1.0",
+        "version": "1.1.7",
         "date": "2026-08-05",
         "tag": "Latest",
         "tag_color": "indigo",
+        "sections": {
+            "New Features": [
+                "One-click in-app update: Settings page shows current and latest version, fetches from GitHub automatically, and updates all services with a single button click",
+                "Update notification: animated red dot on the version badge and a banner on the Dashboard appear automatically when a new version is available",
+                "Version check runs on every page load using server-side GitHub API caching (5-minute TTL) — no manual check needed",
+                "Frontend container restarts automatically as part of the update flow so template changes take effect immediately",
+            ],
+            "Bug Fixes": [
+                "Fixed auto-upload runs getting stuck in 'Sequencing Done' after worker restart — worker now re-queues them automatically on startup",
+                "Fixed 'Send to TRE' button appearing for auto-upload sequencers when the run is already queued — replaced with a clear 'Auto-upload queued — waiting for worker…' indicator",
+                "Fixed run detail page stopping polling when status is 'Sequencing Done' for auto sequencers — page now refreshes automatically until the pipeline resumes",
+                "Fixed Changelog missing from sidebar navigation",
+            ],
+        },
+    },
+    {
+        "version": "1.1.0",
+        "date": "2026-08-05",
+        "tag": None,
+        "tag_color": None,
         "sections": {
             "Bug Fixes": [
                 "Fixed auto-upload runs getting stuck in 'Sequencing Done' after worker restart — worker now re-queues them automatically on startup",

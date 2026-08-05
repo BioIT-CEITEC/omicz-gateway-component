@@ -19,14 +19,6 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 # static/css/style.css → http://localhost:8001/static/css/style.css
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Inject current app version into every template as APP_VERSION (shared instance)
-try:
-    with open("/workspace/VERSION") as _vf:
-        _app_version = _vf.read().strip()
-except Exception:
-    _app_version = "1.1.0"
-templates.env.globals["APP_VERSION"] = _app_version
-
 # Routers
 app.include_router(home.router)
 

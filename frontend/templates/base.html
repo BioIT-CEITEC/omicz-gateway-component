@@ -18,6 +18,13 @@
     {% block scripts %}{% endblock %}
 
     <script>
+      // If cached latest_version matches current installed version, the update was already applied — clear stale cache
+      if (localStorage.getItem('latest_version') === '{{ APP_VERSION }}') {
+        localStorage.removeItem('update_available');
+        localStorage.removeItem('latest_version');
+        localStorage.removeItem('update_check_time');
+      }
+
       // Show update dot immediately from cached state (before fetch completes)
       if (localStorage.getItem('update_available') === 'true') {
         var dot = document.getElementById('update-dot');

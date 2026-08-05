@@ -2,11 +2,10 @@ import os
 import httpx
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
-from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 router = APIRouter()
-templates = Jinja2Templates(directory="templates")
+from shared_templates import templates
 
 BACKEND_URL = os.getenv("BACKEND_URL", "http://backend:8000")
 

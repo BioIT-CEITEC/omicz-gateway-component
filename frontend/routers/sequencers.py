@@ -4,11 +4,10 @@ from typing import List
 
 from fastapi import APIRouter, Request, Form
 from fastapi.responses import RedirectResponse
-from fastapi.templating import Jinja2Templates
 from routers.settings import get_setting_value
 
 router = APIRouter()
-templates = Jinja2Templates(directory="templates")
+from shared_templates import templates
 
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 

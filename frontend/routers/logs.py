@@ -1,11 +1,10 @@
 import os
 import httpx
 from fastapi import APIRouter, Request, Query
-from fastapi.templating import Jinja2Templates
 from routers.settings import get_setting_value
 
 router = APIRouter()
-templates = Jinja2Templates(directory="templates")
+from shared_templates import templates
 
 BACKEND_URL  = os.getenv("BACKEND_URL", "http://backend:8000")
 FRONTEND_LOG = "/app/logs/frontend/frontend.log"

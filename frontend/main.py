@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from fastapi.responses import JSONResponse
+from shared_templates import templates
 
 from routers import home, sequencers, test, sequencers_type, runs, containers, settings, logs, changelog, system
 from logger import get_logger
@@ -19,10 +19,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 # static/css/style.css → http://localhost:8001/static/css/style.css
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Tell FastAPI where our HTML templates live
-templates = Jinja2Templates(directory="templates")
-
-# Inject current app version into every template as APP_VERSION
+# Inject current app version into every template as APP_VERSION (shared instance)
 try:
     with open("/workspace/VERSION") as _vf:
         _app_version = _vf.read().strip()

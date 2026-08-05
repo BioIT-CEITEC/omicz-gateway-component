@@ -3,7 +3,6 @@ import httpx
 from datetime import datetime
 from fastapi import APIRouter, Request, Query
 from fastapi.responses import RedirectResponse
-from fastapi.templating import Jinja2Templates
 from routers.settings import get_setting_value
 
 
@@ -52,7 +51,7 @@ def _page_size() -> int:
     return get_setting_value("pagination_page_size", 20)
 
 router = APIRouter()
-templates = Jinja2Templates(directory="templates")
+from shared_templates import templates
 
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 

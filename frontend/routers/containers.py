@@ -2,11 +2,10 @@ import docker
 import docker.errors
 from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
-from fastapi.templating import Jinja2Templates
 from routers.settings import get_setting_value
 
 router = APIRouter()
-templates = Jinja2Templates(directory="templates")
+from shared_templates import templates
 
 # Containers to recreate on remount-restart (order matters: stop reverse, start forward)
 _REMOUNT_CONTAINERS = [

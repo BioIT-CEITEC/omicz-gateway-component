@@ -5,9 +5,12 @@
     <a href="/" class="block">
       <img src="/static/images/logo.png" alt="OmiCZ GateWay" class="w-full" />
     </a>
-    <a href="/settings/" class="mt-1.5 flex justify-end items-center gap-1 group">
+    <a href="/settings/" id="version-badge-link" class="mt-1.5 flex justify-end items-center gap-1 group">
       <span class="text-[9px] text-gray-300 group-hover:text-indigo-400 transition tabular-nums">v{{ APP_VERSION }}</span>
-      <span id="update-dot" class="hidden w-2 h-2 rounded-full bg-orange-400 shrink-0" title="Update available"></span>
+      <span id="update-dot" class="hidden relative shrink-0 w-2 h-2">
+        <span class="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-75"></span>
+        <span class="relative block w-2 h-2 rounded-full bg-red-500"></span>
+      </span>
     </a>
   </div>
 

@@ -15,7 +15,7 @@ logger = get_logger("frontend")
 WORKSPACE = "/workspace"
 # GitHub API returns the file directly with proper cache headers — more reliable than raw CDN
 GITHUB_API_VERSION = "https://api.github.com/repos/BioIT-CEITEC/omicz-gateway-component/contents/VERSION"
-_VERSION_CACHE_TTL = 300  # cache GitHub result server-side for 5 min to avoid rate limits
+_VERSION_CACHE_TTL = 60  # cache GitHub result server-side for 60 seconds
 
 _RESTART_ORDER = [
     "fastapi_gateway_watcher",

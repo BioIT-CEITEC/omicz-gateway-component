@@ -203,13 +203,13 @@
     });
   });
 
-  function checkVersion() {
-    const latestEl      = document.getElementById('latest-version');
-    const updateBanner  = document.getElementById('update-banner');
-    const uptodateBanner= document.getElementById('uptodate-banner');
-    const errorBanner   = document.getElementById('check-error');
-    const errorMsg      = document.getElementById('check-error-msg');
-    latestEl.textContent = 'checking…';
+  function checkVersion(silent) {
+    const latestEl       = document.getElementById('latest-version');
+    const updateBanner   = document.getElementById('update-banner');
+    const uptodateBanner = document.getElementById('uptodate-banner');
+    const errorBanner    = document.getElementById('check-error');
+    const errorMsg       = document.getElementById('check-error-msg');
+    if (!silent) latestEl.textContent = 'checking…';
     updateBanner.classList.add('hidden');
     uptodateBanner.classList.add('hidden');
     errorBanner.classList.add('hidden');
@@ -221,20 +221,43 @@
           errorMsg.textContent = "Workspace not mounted — add '- .:/workspace' to frontend volumes in docker-compose.yml.";
           errorBanner.classList.remove('hidden');
         } else if (data.update_available) {
+          localStorage.setItem('update_available', 'true');
+          localStorage.setItem('latest_version', data.latest);
+          document.getElementById('update-dot')?.classList.remove('hidden');
           updateBanner.classList.remove('hidden');
         } else if (data.latest) {
+          localStorage.removeItem('update_available');
+          localStorage.removeItem('latest_version');
+          document.getElementById('update-dot')?.classList.add('hidden');
           uptodateBanner.classList.remove('hidden');
         } else {
-          errorMsg.textContent = 'Could not reach GitHub to check for updates.';
-          errorBanner.classList.remove('hidden');
+          if (!silent) {
+            errorMsg.textContent = 'Could not reach GitHub to check for updates.';
+            errorBanner.classList.remove('hidden');
+          }
         }
       })
       .catch(() => {
-        latestEl.textContent = 'error';
-        errorMsg.textContent = 'Version check failed — check your internet connection.';
-        errorBanner.classList.remove('hidden');
+        if (!silent) {
+          latestEl.textContent = 'error';
+          errorMsg.textContent = 'Version check failed — check your internet connection.';
+          errorBanner.classList.remove('hidden');
+        }
       });
   }
+
+  // Auto-check on page load; restore cached result instantly, then re-verify in background
+  (function() {
+    const cached = localStorage.getItem('latest_version');
+    if (cached) {
+      document.getElementById('latest-version').textContent = 'v' + cached;
+      if (localStorage.getItem('update_available') === 'true')
+        document.getElementById('update-banner').classList.remove('hidden');
+      else
+        document.getElementById('uptodate-banner').classList.remove('hidden');
+    }
+    checkVersion(true);
+  })();
 
   function runUpdate() {
     const btn       = document.getElementById('update-btn');
@@ -261,6 +284,9 @@
         if (data.needs_migration)
           log.textContent += '\n⚠ New database migration detected — run: docker exec fastapi_gateway_backend alembic upgrade head\n';
         log.textContent += '\nDone. Please refresh this page.';
+        localStorage.removeItem('update_available');
+        localStorage.removeItem('latest_version');
+        document.getElementById('update-dot')?.classList.add('hidden');
         btn.textContent = 'Done ✓';
         btn.disabled = false;
         log.scrollTop = log.scrollHeight;

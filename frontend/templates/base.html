@@ -16,5 +16,13 @@
     </main>
 
     {% block scripts %}{% endblock %}
+
+    <script>
+      // Show update dot in sidebar on every page if a pending update was detected
+      if (localStorage.getItem('update_available') === 'true') {
+        var dot = document.getElementById('update-dot');
+        if (dot) dot.classList.remove('hidden');
+      }
+    </script>
   </body>
 </html>

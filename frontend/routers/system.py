@@ -32,7 +32,10 @@ def read_current_version() -> str:
 
 def fetch_latest_version() -> str | None:
     try:
-        r = httpx.get(GITHUB_RAW_VERSION, timeout=5)
+        import time
+        # Timestamp param busts CDN/proxy cache so we always get the latest file
+        url = f"{GITHUB_RAW_VERSION}?t={int(time.time())}"
+        r = httpx.get(url, headers={"Cache-Control": "no-cache"}, timeout=5)
         if r.status_code == 200:
             return r.text.strip()
     except Exception:

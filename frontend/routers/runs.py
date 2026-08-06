@@ -136,25 +136,25 @@ def queue_view(request: Request, skip: int = 0, limit: int | None = None):
 @router.post("/{uuid}/start-upload")
 def start_upload(request: Request, uuid: str):
     httpx.post(f"{BACKEND_URL}/runs/{uuid}/start-upload")
-    return RedirectResponse(url=f"/runs/{uuid}", status_code=303)
+    return RedirectResponse(url=f"/acquisition-runs/{uuid}", status_code=303)
 
 
 # ── CANCEL UPLOAD (force moving → move_failed)
 @router.post("/{uuid}/cancel-upload")
 def cancel_upload(request: Request, uuid: str):
     httpx.post(f"{BACKEND_URL}/runs/{uuid}/cancel-upload")
-    return RedirectResponse(url=f"/runs/{uuid}", status_code=303)
+    return RedirectResponse(url=f"/acquisition-runs/{uuid}", status_code=303)
 
 
 # ── RECHECK (delete checksum + re-checksum + re-upload + re-verify)
 @router.post("/{uuid}/recheck")
 def recheck_run(request: Request, uuid: str):
     httpx.post(f"{BACKEND_URL}/runs/{uuid}/recheck")
-    return RedirectResponse(url=f"/runs/{uuid}", status_code=303)
+    return RedirectResponse(url=f"/acquisition-runs/{uuid}", status_code=303)
 
 
 # ── DELETE
 @router.post("/{uuid}/delete")
-def delete_run(request: Request, uuid: str, next: str = "/runs/"):
+def delete_run(request: Request, uuid: str, next: str = "/acquisition-runs/"):
     httpx.delete(f"{BACKEND_URL}/runs/{uuid}")
     return RedirectResponse(url=next, status_code=303)

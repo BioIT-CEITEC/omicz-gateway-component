@@ -1,17 +1,17 @@
 {% extends "base.html" %}
-{% block title %}Runs{% endblock %}
+{% block title %}{{ lang.acquisition_runs }}{% endblock %}
 
 {% block content %}
 
 {# ── Filter groups ── #}
 {% set groups = [
-  ("all",          "All",          []),
-  ("sequencing",   "Sequencing",   ["running"]),
-  ("queued",       "Queued",       ["queued"]),
-  ("checksumming", "Checksumming", ["checksumming"]),
-  ("completed",    "Completed",    ["completed"]),
-  ("move_failed",  "Upload Failed",  ["move_failed"]),
-  ("verify_failed","Verify Failed",  ["verify_failed"]),
+  ("all",          "All",                        []),
+  ("sequencing",   lang.status_running,          ["running"]),
+  ("queued",       lang.status_queued,           ["queued"]),
+  ("checksumming", lang.status_checksumming,     ["checksumming"]),
+  ("completed",    lang.status_completed,        ["completed"]),
+  ("move_failed",  lang.status_move_failed,      ["move_failed"]),
+  ("verify_failed",lang.status_verify_failed,    ["verify_failed"]),
 ] %}
 
 {% set ns = namespace(active_group="all") %}
@@ -41,9 +41,9 @@
 {# ── Page header ── #}
 <div class="flex items-center justify-between mb-4">
   <div>
-    <h1 class="text-2xl font-bold text-gray-900">Runs</h1>
+    <h1 class="text-2xl font-bold text-gray-900">{{ lang.acquisition_runs }}</h1>
     <p class="text-sm text-gray-400 mt-0.5">
-      {{ data.total }} run{{ 's' if data.total != 1 }}{% if search_query %} matching <em class="not-italic font-medium text-gray-600">"{{ search_query }}"</em>{% endif %}
+      {{ data.total }} {{ lang.acquisition_run.lower() }}{{ 's' if data.total != 1 }}{% if search_query %} matching <em class="not-italic font-medium text-gray-600">"{{ search_query }}"</em>{% endif %}
     </p>
   </div>
 </div>
@@ -55,9 +55,9 @@
     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
       <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 0 0 2.25-2.25V6.75a2.25 2.25 0 0 0-2.25-2.25H6.75A2.25 2.25 0 0 0 4.5 6.75v10.5a2.25 2.25 0 0 0 2.25 2.25Zm.75-12h9v9h-9v-9Z"/>
     </svg>
-    Filtered by sequencer: <span class="font-semibold">{{ sequencer_name }}</span>
+    Filtered by {{ lang.instrument.lower() }}: <span class="font-semibold">{{ sequencer_name }}</span>
   </span>
-  <a href="/runs/" class="text-xs text-gray-400 hover:text-[#0C2461] transition flex items-center gap-1">
+  <a href="/acquisition-runs/" class="text-xs text-gray-400 hover:text-[#0C2461] transition flex items-center gap-1">
     <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
     Clear
   </a>
@@ -65,7 +65,7 @@
 {% endif %}
 
 {# ── Single toolbar row: search → filters → sort ── #}
-<form method="GET" action="/runs/" id="filter-form" class="flex items-center gap-2 mb-5 flex-wrap"
+<form method="GET" action="/acquisition-runs/" id="filter-form" class="flex items-center gap-2 mb-5 flex-wrap"
       onsubmit="injectStatusInputs(this)">
   {# Search input + icon button — leftmost #}
   <div class="flex items-center border border-gray-200 rounded-lg bg-white overflow-hidden focus-within:ring-2 focus-within:ring-[#0C2461]">
@@ -87,7 +87,7 @@
     <select name="sequencer_uuid" onchange="injectStatusInputs(this.form); this.form.submit()"
             class="appearance-none pl-7 pr-6 py-1.5 text-xs border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#0C2461] transition cursor-pointer
               {% if sequencer_uuid %}border-[#0C2461] text-[#0C2461] bg-[#0C2461]/5{% else %}border-gray-200 text-gray-500{% endif %}">
-      <option value="">All machines</option>
+      <option value="">All {{ lang.instruments.lower() }}</option>
       {% for s in sequencers %}
       <option value="{{ s.uuid }}" {% if sequencer_uuid == (s.uuid | string) %}selected{% endif %}>{{ s.name }}</option>
       {% endfor %}
@@ -132,7 +132,7 @@
 
   {# Sort toggle #}
   {% set toggle_order = "asc" if order == "desc" else "desc" %}
-  <a href="/runs/?{{ filter_qs }}{{ search_qs }}{{ seq_qs }}order={{ toggle_order }}"
+  <a href="/acquisition-runs/?{{ filter_qs }}{{ search_qs }}{{ seq_qs }}order={{ toggle_order }}"
      class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition
        {% if order == 'asc' %}bg-[#0C2461]/5 text-[#0C2461] border-[#0C2461]/20{% else %}bg-white text-gray-500 border-gray-200 hover:border-[#0C2461] hover:text-[#0C2461]{% endif %}"
      title="{{ 'Switch to newest first' if order == 'asc' else 'Switch to oldest first' }}">
@@ -144,7 +144,7 @@
 
   {# Clear all — only when filter or search is active #}
   {% if status_filter or search_query or sequencer_uuid %}
-  <a href="/runs/"
+  <a href="/acquisition-runs/"
      class="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-400 bg-gray-100 hover:bg-red-50 hover:text-red-500 border border-transparent hover:border-red-100 transition">
     <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
       <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
@@ -158,34 +158,34 @@
 {% macro status_badge(s) %}
   {% if s == "running" %}
     <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-blue-50 text-blue-600 border-blue-100">
-      <span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse inline-block"></span>Sequencing</span>
+      <span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse inline-block"></span>{{ lang.status_running }}</span>
   {% elif s == "running_finished" %}
     <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-purple-50 text-purple-600 border-purple-100">
-      <span class="w-1.5 h-1.5 rounded-full bg-purple-500 inline-block"></span>Sequencing Done</span>
+      <span class="w-1.5 h-1.5 rounded-full bg-purple-500 inline-block"></span>{{ lang.status_running_finished }}</span>
   {% elif s == "queued" %}
     <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-gray-100 text-gray-500 border-gray-200">
-      <span class="w-1.5 h-1.5 rounded-full bg-gray-400 inline-block"></span>Queued</span>
+      <span class="w-1.5 h-1.5 rounded-full bg-gray-400 inline-block"></span>{{ lang.status_queued }}</span>
   {% elif s == "checksumming" %}
     <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-yellow-50 text-yellow-600 border-yellow-100">
-      <span class="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse inline-block"></span>Checksumming</span>
+      <span class="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse inline-block"></span>{{ lang.status_checksumming }}</span>
   {% elif s == "moving" %}
     <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-indigo-50 text-indigo-600 border-indigo-100">
-      <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse inline-block"></span>Uploading</span>
+      <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse inline-block"></span>{{ lang.status_moving }}</span>
   {% elif s == "verifying" %}
     <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-teal-50 text-teal-600 border-teal-100">
-      <span class="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse inline-block"></span>Verifying</span>
+      <span class="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse inline-block"></span>{{ lang.status_verifying }}</span>
   {% elif s == "completed" %}
     <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-green-50 text-green-600 border-green-100">
-      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>Completed</span>
+      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>{{ lang.status_completed }}</span>
   {% elif s == "move_failed" %}
     <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-red-50 text-red-600 border-red-100">
-      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>Upload Failed</span>
+      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>{{ lang.status_move_failed }}</span>
   {% elif s == "verify_failed" %}
     <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-orange-50 text-orange-600 border-orange-100">
-      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>Verify Failed</span>
+      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>{{ lang.status_verify_failed }}</span>
   {% elif s == "failed" %}
     <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-red-50 text-red-600 border-red-100">
-      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>Failed</span>
+      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>{{ lang.status_failed }}</span>
   {% else %}
     <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold border bg-gray-100 text-gray-500 border-gray-200">{{ s }}</span>
   {% endif %}
@@ -225,7 +225,7 @@
       <tr class="border-b border-gray-50 last:border-0 hover:bg-[#F0F4FA] transition">
 
         <td class="py-3.5 px-5">
-          <a href="/runs/{{ run.uuid }}" class="text-sm font-semibold text-gray-900 leading-tight hover:text-[#0C2461] transition">{{ run.name }}</a>
+          <a href="/acquisition-runs/{{ run.uuid }}" class="text-sm font-semibold text-gray-900 leading-tight hover:text-[#0C2461] transition">{{ run.name }}</a>
           <p class="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
             <svg class="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 0 0 2.25-2.25V6.75a2.25 2.25 0 0 0-2.25-2.25H6.75A2.25 2.25 0 0 0 4.5 6.75v10.5a2.25 2.25 0 0 0 2.25 2.25Zm.75-12h9v9h-9v-9Z"/></svg>
             {{ run.sequencer_name or (run.sequencer_uuid | string)[:8] ~ '…' }}
@@ -269,7 +269,7 @@
         </td>
 
         <td class="py-3.5 px-5 text-right">
-          <a href="/runs/{{ run.uuid }}"
+          <a href="/acquisition-runs/{{ run.uuid }}"
              class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 text-gray-500 hover:bg-[#0C2461] hover:text-white transition"
              title="Open run">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -293,7 +293,7 @@
   </p>
   <div class="flex gap-2">
     {% if data.skip > 0 %}
-    <a href="/runs/?{{ filter_qs }}{{ search_qs }}{{ order_qs }}{{ seq_qs }}skip={{ prev_skip }}&limit={{ data.limit }}"
+    <a href="/acquisition-runs/?{{ filter_qs }}{{ search_qs }}{{ order_qs }}{{ seq_qs }}skip={{ prev_skip }}&limit={{ data.limit }}"
        class="flex items-center gap-1 px-4 py-2 text-sm rounded-lg border border-gray-200 bg-white hover:bg-gray-50 transition">
       <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"/></svg>
       Prev
@@ -305,7 +305,7 @@
     </span>
     {% endif %}
     {% if next_skip < data.total %}
-    <a href="/runs/?{{ filter_qs }}{{ search_qs }}{{ order_qs }}{{ seq_qs }}skip={{ next_skip }}&limit={{ data.limit }}"
+    <a href="/acquisition-runs/?{{ filter_qs }}{{ search_qs }}{{ order_qs }}{{ seq_qs }}skip={{ next_skip }}&limit={{ data.limit }}"
        class="flex items-center gap-1 px-4 py-2 text-sm rounded-lg border border-gray-200 bg-white hover:bg-gray-50 transition">
       Next
       <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/></svg>
@@ -324,10 +324,10 @@
   {% if search_query %}
   <svg class="w-8 h-8 text-gray-300 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/></svg>
   <p class="text-gray-400">No runs match <em class="not-italic font-medium">"{{ search_query }}"</em>.</p>
-  <a href="/runs/?{{ filter_qs }}" class="text-xs text-[#0C2461] hover:underline mt-2 inline-block">Clear search</a>
+  <a href="/acquisition-runs/?{{ filter_qs }}" class="text-xs text-[#0C2461] hover:underline mt-2 inline-block">Clear search</a>
   {% else %}
   <p class="text-gray-400">No runs found for this filter.</p>
-  <a href="/runs/" class="text-xs text-[#0C2461] hover:underline mt-2 inline-block">Clear filter</a>
+  <a href="/acquisition-runs/" class="text-xs text-[#0C2461] hover:underline mt-2 inline-block">Clear filter</a>
   {% endif %}
 </div>
 {% endif %}
@@ -355,7 +355,7 @@
       params.delete('status');
       params.delete('skip');
       statuses.forEach(s => params.append('status', s));
-      window.location.href = '/runs/?' + params.toString();
+      window.location.href = '/acquisition-runs/?' + params.toString();
     });
   });
 

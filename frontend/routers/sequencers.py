@@ -66,7 +66,7 @@ def create_sequencer(
 
     if response.status_code == 201:
         sequencer = safe_json(response, fallback={})
-        return RedirectResponse(url=f"/sequencers/{sequencer['uuid']}", status_code=303)
+        return RedirectResponse(url=f"/instruments/{sequencer['uuid']}", status_code=303)
 
     error = safe_json(response, fallback={}).get("detail", "Something went wrong")
     return templates.TemplateResponse(request, "sequencers/create.html", {"error": error, "types": fetch_types()})
@@ -115,7 +115,7 @@ def edit_sequencer(
     response = httpx.patch(f"{BACKEND_URL}/sequencers/{uuid}", json=payload)
 
     if response.status_code == 200:
-        return RedirectResponse(url=f"/sequencers/{uuid}", status_code=303)
+        return RedirectResponse(url=f"/instruments/{uuid}", status_code=303)
 
     error = safe_json(response, fallback={}).get("detail", "Something went wrong")
     sequencer = {"uuid": uuid, "name": name, "location": location, "status": status,
@@ -127,11 +127,11 @@ def edit_sequencer(
 @router.post("/{uuid}/toggle-status")
 def toggle_sequencer_status(request: Request, uuid: str):
     httpx.post(f"{BACKEND_URL}/sequencers/{uuid}/toggle-status")
-    return RedirectResponse(url="/sequencers/", status_code=303)
+    return RedirectResponse(url="/instruments/", status_code=303)
 
 
 # ── DELETE
 @router.post("/{uuid}/delete")
 def delete_sequencer(request: Request, uuid: str):
     httpx.delete(f"{BACKEND_URL}/sequencers/{uuid}")
-    return RedirectResponse(url="/sequencers/", status_code=303)
+    return RedirectResponse(url="/instruments/", status_code=303)

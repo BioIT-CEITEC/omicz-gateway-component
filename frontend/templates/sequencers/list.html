@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Sequencers{% endblock %}
+{% block title %}{{ lang.instruments }}{% endblock %}
 
 {% block content %}
 
@@ -12,7 +12,7 @@
     </svg>
     <div class="flex-1 min-w-0">
       <p class="text-sm font-semibold text-amber-800">
-        {{ mount_warnings | length }} sequencer location{{ 's are' if mount_warnings | length != 1 else ' is' }} inaccessible
+        {{ mount_warnings | length }} {{ lang.instrument.lower() }} location{{ 's are' if mount_warnings | length != 1 else ' is' }} inaccessible
       </p>
       <p class="text-xs text-amber-700 mt-0.5">
         The watcher cannot monitor these paths. After remounting the storage, restart the watcher to resume monitoring.
@@ -23,7 +23,7 @@
       {% endfor %}
       </ul>
     </div>
-    <form method="POST" action="/containers/fastapi_gateway_watcher/restart?next=/sequencers/" class="shrink-0">
+    <form method="POST" action="/containers/fastapi_gateway_watcher/restart?next=/instruments/" class="shrink-0">
       <button type="submit"
         class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-600 text-white hover:bg-amber-700 transition whitespace-nowrap">
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -39,15 +39,15 @@
 {# ── Header ── #}
 <div class="flex items-center justify-between mb-6">
   <div>
-    <h1 class="text-2xl font-bold text-gray-900">Sequencers</h1>
+    <h1 class="text-2xl font-bold text-gray-900">{{ lang.instruments }}</h1>
     <p class="text-sm text-gray-400 mt-0.5">{{ data.total }} machine{{ 's' if data.total != 1 }} registered</p>
   </div>
-  <a href="/sequencers/create"
+  <a href="/instruments/create"
      class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-[#0C2461] text-[#0C2461] bg-white hover:bg-[#0C2461] hover:text-white transition">
     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
       <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
     </svg>
-    New Sequencer
+    New {{ lang.instrument }}
   </a>
 </div>
 
@@ -58,7 +58,7 @@
     {% if s.status != 'active' %}opacity-60{% endif %}">
 
     {# Toggle button — top-right corner, outside the nav link #}
-    <form method="POST" action="/sequencers/{{ s.uuid }}/toggle-status" class="absolute top-3 right-3 z-10">
+    <form method="POST" action="/instruments/{{ s.uuid }}/toggle-status" class="absolute top-3 right-3 z-10">
       <button type="submit"
         title="{{ 'Deactivate' if s.status == 'active' else 'Activate' }} sequencer"
         class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border transition cursor-pointer
@@ -78,7 +78,7 @@
     </form>
 
     {# Card link #}
-    <a href="/sequencers/{{ s.uuid }}" class="flex items-center gap-5 p-5 pr-24">
+    <a href="/instruments/{{ s.uuid }}" class="flex items-center gap-5 p-5 pr-24">
 
       {# Machine image #}
       <div class="w-20 h-20 shrink-0 flex items-center justify-center rounded-xl bg-gray-50 overflow-hidden p-2">
@@ -148,7 +148,7 @@
   {% endfor %}
 </div>
 
-{% set base_url = "/sequencers/" %}
+{% set base_url = "/instruments/" %}
 {% include "partials/pagination.html" %}
 
 {% else %}
@@ -158,10 +158,10 @@
       <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 0 0 2.25-2.25V6.75a2.25 2.25 0 0 0-2.25-2.25H6.75A2.25 2.25 0 0 0 4.5 6.75v10.5a2.25 2.25 0 0 0 2.25 2.25Zm.75-12h9v9h-9v-9Z"/>
     </svg>
   </div>
-  <p class="text-sm text-gray-400 mb-3">No sequencers registered yet.</p>
-  <a href="/sequencers/create"
+  <p class="text-sm text-gray-400 mb-3">No {{ lang.instruments.lower() }} registered yet.</p>
+  <a href="/instruments/create"
      class="inline-flex items-center gap-1.5 text-sm text-[#0C2461] hover:underline font-medium">
-    Register your first sequencer
+    Register your first {{ lang.instrument.lower() }}
     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/></svg>
   </a>
 </div>

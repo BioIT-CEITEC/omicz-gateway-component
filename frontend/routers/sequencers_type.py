@@ -57,7 +57,7 @@ def create_sequencer_type(
 
     if response.status_code == 201:
         st = safe_json(response, fallback={})
-        return RedirectResponse(url=f"/sequencers-types/{st['uuid']}", status_code=303)
+        return RedirectResponse(url=f"/instrument-models/{st['uuid']}", status_code=303)
 
     error = safe_json(response, fallback={}).get("detail", "Something went wrong")
     return templates.TemplateResponse(request, "sequencers-types/create.html", {"error": error})
@@ -107,7 +107,7 @@ def edit_sequencer_type(
     response = httpx.patch(f"{BACKEND_URL}/sequencers-types/{uuid}", json=payload)
 
     if response.status_code == 200:
-        return RedirectResponse(url=f"/sequencers-types/{uuid}", status_code=303)
+        return RedirectResponse(url=f"/instrument-models/{uuid}", status_code=303)
 
     error = safe_json(response, fallback={}).get("detail", "Something went wrong")
     st = {
@@ -122,4 +122,4 @@ def edit_sequencer_type(
 @router.post("/{uuid}/delete")
 def delete_sequencer_type(request: Request, uuid: str):
     httpx.delete(f"{BACKEND_URL}/sequencers-types/{uuid}")
-    return RedirectResponse(url="/sequencers-types/", status_code=303)
+    return RedirectResponse(url="/instrument-models/", status_code=303)

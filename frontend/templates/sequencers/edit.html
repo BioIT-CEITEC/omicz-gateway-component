@@ -4,7 +4,7 @@
 {% block content %}
 
 <div class="mb-5">
-  <a href="/sequencers/{{ sequencer.uuid }}" class="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-[#0C2461] transition">
+  <a href="/instruments/{{ sequencer.uuid }}" class="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-[#0C2461] transition">
     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
       <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"/>
     </svg>
@@ -20,7 +20,7 @@
   </div>
   <div>
     <h1 class="text-xl font-bold text-gray-900">Edit {{ sequencer.name }}</h1>
-    <p class="text-sm text-gray-400 mt-0.5">Update sequencer settings</p>
+    <p class="text-sm text-gray-400 mt-0.5">Update {{ lang.instrument.lower() }} settings</p>
   </div>
 </div>
 
@@ -31,7 +31,7 @@
 </div>
 {% endif %}
 
-<form method="POST" action="/sequencers/{{ sequencer.uuid }}/edit" class="space-y-5 max-w-xl">
+<form method="POST" action="/instruments/{{ sequencer.uuid }}/edit" class="space-y-5 max-w-xl">
 
   {# Name #}
   <div class="bg-white rounded-xl border border-gray-100 px-5 py-4">
@@ -56,7 +56,7 @@
 
   {# Sequencer Type #}
   <div class="bg-white rounded-xl border border-gray-100 px-5 py-4">
-    <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Sequencer Type</label>
+    <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">{{ lang.instrument_model }}</label>
     <select name="type_uuid" required
             class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0C2461] bg-white">
       {% for t in types %}
@@ -80,7 +80,7 @@
           <span class="w-2 h-2 rounded-full {% if sequencer.status == 'active' %}bg-green-500{% else %}bg-gray-300{% endif %}" id="dot-active"></span>
           <span class="text-sm font-semibold text-gray-800">Active</span>
         </div>
-        <p class="text-xs text-gray-400 leading-relaxed mt-1.5">Sequencer is monitored for new runs</p>
+        <p class="text-xs text-gray-400 leading-relaxed mt-1.5">{{ lang.instrument }} is monitored for new runs</p>
       </button>
 
       <button type="button" id="btn-inactive" onclick="selectStatus('inactive')"
@@ -90,7 +90,7 @@
           <span class="w-2 h-2 rounded-full {% if sequencer.status == 'inactive' %}bg-gray-500{% else %}bg-gray-300{% endif %}" id="dot-inactive"></span>
           <span class="text-sm font-semibold text-gray-800">Inactive</span>
         </div>
-        <p class="text-xs text-gray-400 leading-relaxed mt-1.5">Sequencer is paused and ignored</p>
+        <p class="text-xs text-gray-400 leading-relaxed mt-1.5">{{ lang.instrument }} is paused and ignored</p>
       </button>
 
     </div>
@@ -98,7 +98,7 @@
 
   {# TRE Upload toggle cards #}
   <div class="bg-white rounded-xl border border-gray-100 px-5 py-4">
-    <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-3">TRE Upload</label>
+    <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-3">{{ lang.transfer_to_tre }}</label>
     <input type="hidden" name="sent_to_tre" id="tre_value" value="{{ sequencer.sent_to_tre }}" />
     <div class="grid grid-cols-2 gap-3">
 
@@ -154,7 +154,7 @@
       </svg>
       Save Changes
     </button>
-    <a href="/sequencers/{{ sequencer.uuid }}" class="text-xs text-gray-400 hover:text-gray-600 transition">Cancel</a>
+    <a href="/instruments/{{ sequencer.uuid }}" class="text-xs text-gray-400 hover:text-gray-600 transition">Cancel</a>
   </div>
 
 </form>

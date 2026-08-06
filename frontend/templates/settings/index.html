@@ -77,18 +77,18 @@
 
   {# ── Metadata: labels, units, min/max for each key ── #}
   {% set meta = {
-    "active_refresh_interval":     {"label": "Active status refresh",        "unit": "seconds", "min": 1,  "max": 300,  "hint": "Run detail page while checksumming / moving / verifying"},
-    "idle_refresh_interval":       {"label": "Idle (sequencing) refresh",    "unit": "seconds", "min": 10, "max": 3600, "hint": "Run detail page while the sequencer is still running"},
+    "active_refresh_interval":     {"label": lang.setting_active_refresh,  "unit": "seconds", "min": 1,  "max": 300,  "hint": "Run detail page while checksumming / moving / verifying"},
+    "idle_refresh_interval":       {"label": lang.setting_idle_refresh,    "unit": "seconds", "min": 10, "max": 3600, "hint": "Run detail page while the " ~ lang.instrument.lower() ~ " is still running"},
     "containers_refresh_interval": {"label": "Containers page refresh",      "unit": "seconds", "min": 1,  "max": 300,  "hint": "Docker container list auto-refresh"},
 "upload_max_attempts":         {"label": "Upload retry attempts",         "unit": "attempts","min": 1,  "max": 20,   "hint": "How many times to retry a failed S3 file upload"},
     "upload_retry_backoff_max":    {"label": "Upload retry wait cap",         "unit": "seconds", "min": 5,  "max": 300,  "hint": "Maximum pause between retry attempts (exponential backoff)"},
     "verify_retries":              {"label": "Verification poll attempts",    "unit": "attempts","min": 1,  "max": 100,  "hint": "How many times to check S3 for TRE's checksum confirmation"},
     "verify_interval":             {"label": "Verification poll interval",    "unit": "seconds", "min": 5,  "max": 3600, "hint": "Wait time between each S3 verification poll"},
-    "run_detection_delay":         {"label": "Run detection delay",           "unit": "seconds", "min": 0,  "max": 120,  "hint": "Pause after a new folder appears before registering it as a run"},
-    "sequencer_check_interval":    {"label": "Sequencer check interval",      "unit": "seconds", "min": 10, "max": 3600, "hint": "How often the watcher polls the DB for newly added sequencers"},
+    "run_detection_delay":         {"label": lang.setting_run_detection,   "unit": "seconds", "min": 0,  "max": 120,  "hint": "Pause after a new folder appears before registering it as a run"},
+    "sequencer_check_interval":    {"label": lang.setting_sequencer_check, "unit": "seconds", "min": 10, "max": 3600, "hint": "How often the watcher polls the DB for newly added " ~ lang.instruments.lower()},
     "log_lines_count":             {"label": "Log lines to show",             "unit": "lines",   "min": 50, "max": 5000, "hint": "Number of log lines displayed per service in the Logs viewer"},
     "log_viewer_refresh_interval": {"label": "Log viewer refresh interval",   "unit": "seconds", "min": 1,  "max": 300,  "hint": "How often the Logs viewer auto-refreshes"},
-    "pagination_page_size":        {"label": "Items per page",                "unit": "items",   "min": 5,  "max": 200,  "hint": "Number of rows shown per page on Runs, Sequencers, and Sequencer Types list pages"},
+    "pagination_page_size":        {"label": "Items per page",                "unit": "items",   "min": 5,  "max": 200,  "hint": "Number of rows shown per page on Runs, " ~ lang.instruments ~ ", and " ~ lang.instrument_models ~ " list pages"},
     "checksum_chunk_size_mb":      {"label": "Checksum read chunk size",      "unit": "MB",      "min": 1,  "max": 4096, "hint": "Chunk size for reading files during SHA256 checksumming. Larger values (e.g. 32–64) are faster over network shares. Max 4096 MB (4 GB)."},
   } %}
 

@@ -1,15 +1,15 @@
 {% extends "base.html" %}
-{% block title %}Sequencer Types{% endblock %}
+{% block title %}{{ lang.instrument_models }}{% endblock %}
 
 {% block content %}
 
 {# ── Header ── #}
 <div class="flex items-center justify-between mb-6">
   <div>
-    <h1 class="text-2xl font-bold text-gray-900">Sequencer Types</h1>
+    <h1 class="text-2xl font-bold text-gray-900">{{ lang.instrument_models }}</h1>
     <p class="text-sm text-gray-400 mt-0.5">Define how each machine signals run completion</p>
   </div>
-  <a href="/sequencers-types/create"
+  <a href="/instrument-models/create"
      class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-[#0C2461] text-[#0C2461] bg-white hover:bg-[#0C2461] hover:text-white transition">
     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
       <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
@@ -24,7 +24,7 @@
 
   {% set is_signal = st.completion_method == 'signal' %}
 
-  <a href="/sequencers-types/{{ st.uuid }}"
+  <a href="/instrument-models/{{ st.uuid }}"
      class="group bg-white rounded-xl border border-gray-100 p-5 hover:border-[#0C2461]/20 hover:shadow-sm transition block">
 
     {# ── Card header ── #}
@@ -135,7 +135,7 @@
   {% endfor %}
 </div>
 
-{% set base_url = "/sequencers-types/" %}
+{% set base_url = "/instrument-models/" %}
 {% include "partials/pagination.html" %}
 
 {% else %}
@@ -146,10 +146,10 @@
       <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z"/>
     </svg>
   </div>
-  <p class="text-sm text-gray-400 mb-3">No sequencer types defined yet.</p>
-  <a href="/sequencers-types/create"
+  <p class="text-sm text-gray-400 mb-3">No {{ lang.instrument_models.lower() }} defined yet.</p>
+  <a href="/instrument-models/create"
      class="inline-flex items-center gap-1.5 text-sm text-[#0C2461] hover:underline font-medium">
-    Create your first sequencer type
+    Create your first {{ lang.instrument_model.lower() }}
     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/></svg>
   </a>
 </div>

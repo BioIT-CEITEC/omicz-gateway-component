@@ -22,9 +22,9 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # Routers
 app.include_router(home.router)
 
-app.include_router(sequencers.router, prefix="/sequencers")
-app.include_router(sequencers_type.router, prefix="/sequencers-types")
-app.include_router(runs.router, prefix="/runs")
+app.include_router(sequencers.router, prefix="/instruments")
+app.include_router(sequencers_type.router, prefix="/instrument-models")
+app.include_router(runs.router, prefix="/acquisition-runs")
 app.include_router(containers.router, prefix="/containers")
 app.include_router(settings.router, prefix="/settings")
 app.include_router(logs.router, prefix="/logs")

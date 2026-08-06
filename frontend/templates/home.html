@@ -26,10 +26,10 @@
     </svg>
     <div class="flex-1 min-w-0">
       <p class="text-sm font-semibold text-amber-800">
-        {{ mount_warnings | length }} sequencer storage location{{ 's are' if mount_warnings | length != 1 else ' is' }} inaccessible
+        {{ mount_warnings | length }} {{ lang.instrument.lower() }} storage location{{ 's are' if mount_warnings | length != 1 else ' is' }} inaccessible
       </p>
       <p class="text-xs text-amber-700 mt-0.5 mb-1.5">
-        Sequencing runs on these paths will not be detected. Remount the storage, then click Reconnect Storage.
+        {{ lang.acquisition_runs }} on these paths will not be detected. Remount the storage, then click Reconnect Storage.
       </p>
       <div class="flex flex-wrap gap-2">
         {% for w in mount_warnings %}
@@ -38,8 +38,8 @@
       </div>
     </div>
     <div class="flex items-center gap-2 shrink-0">
-      <a href="/sequencers/" class="inline-flex items-center gap-1 text-xs text-amber-700 hover:text-amber-900 underline underline-offset-2">
-        View Sequencers
+      <a href="/instruments/" class="inline-flex items-center gap-1 text-xs text-amber-700 hover:text-amber-900 underline underline-offset-2">
+        View {{ lang.instruments }}
       </a>
       <form method="POST" action="/containers/remount-restart?next=/">
         <button type="submit"
@@ -59,7 +59,7 @@
 <div class="flex items-center justify-between mb-8">
   <div>
     <h1 class="text-2xl font-bold text-gray-900">Dashboard</h1>
-    <p class="text-sm text-gray-400 mt-0.5">Gateway for pushing sequencer data to S3</p>
+    <p class="text-sm text-gray-400 mt-0.5">Gateway for pushing {{ lang.instrument.lower() }} data to S3</p>
   </div>
 </div>
 
@@ -67,9 +67,9 @@
 <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
 
   {# Sequencing #}
-  <a href="/runs/?status=running" class="bg-white rounded-xl border border-gray-100 px-4 py-4 hover:border-blue-200 hover:shadow-sm transition group">
+  <a href="/acquisition-runs/?status=running" class="bg-white rounded-xl border border-gray-100 px-4 py-4 hover:border-blue-200 hover:shadow-sm transition group">
     <div class="flex items-center justify-between mb-2">
-      <span class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Sequencing</span>
+      <span class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">{{ lang.status_running }}</span>
       <span class="w-2 h-2 rounded-full {% if stats.sequencing > 0 %}bg-blue-400 animate-pulse{% else %}bg-gray-200{% endif %}"></span>
     </div>
     <p class="text-2xl font-bold {% if stats.sequencing > 0 %}text-blue-600{% else %}text-gray-300{% endif %}">{{ stats.sequencing }}</p>
@@ -77,9 +77,9 @@
   </a>
 
   {# Ready to Upload #}
-  <a href="/runs/?status=running_finished" class="bg-white rounded-xl border border-gray-100 px-4 py-4 hover:border-indigo-200 hover:shadow-sm transition group">
+  <a href="/acquisition-runs/?status=running_finished" class="bg-white rounded-xl border border-gray-100 px-4 py-4 hover:border-indigo-200 hover:shadow-sm transition group">
     <div class="flex items-center justify-between mb-2">
-      <span class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Ready</span>
+      <span class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">{{ lang.status_running_finished }}</span>
       <span class="w-2 h-2 rounded-full {% if stats.ready_to_upload > 0 %}bg-indigo-400{% else %}bg-gray-200{% endif %}"></span>
     </div>
     <p class="text-2xl font-bold {% if stats.ready_to_upload > 0 %}text-indigo-600{% else %}text-gray-300{% endif %}">{{ stats.ready_to_upload }}</p>
@@ -87,19 +87,19 @@
   </a>
 
   {# In Pipeline #}
-  <a href="/runs/queue/view" class="bg-white rounded-xl border border-gray-100 px-4 py-4 hover:border-amber-200 hover:shadow-sm transition group">
+  <a href="/acquisition-runs/queue/view" class="bg-white rounded-xl border border-gray-100 px-4 py-4 hover:border-amber-200 hover:shadow-sm transition group">
     <div class="flex items-center justify-between mb-2">
-      <span class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Pipeline</span>
+      <span class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">{{ lang.transfer_workflow }}</span>
       <span class="w-2 h-2 rounded-full {% if stats.in_pipeline > 0 %}bg-amber-400 animate-pulse{% else %}bg-gray-200{% endif %}"></span>
     </div>
     <p class="text-2xl font-bold {% if stats.in_pipeline > 0 %}text-amber-600{% else %}text-gray-300{% endif %}">{{ stats.in_pipeline }}</p>
-    <p class="text-[10px] text-gray-400 mt-0.5">uploading / verifying</p>
+    <p class="text-[10px] text-gray-400 mt-0.5">transferring / validating</p>
   </a>
 
   {# Failed #}
-  <a href="/runs/?status=move_failed&status=verify_failed&status=failed" class="bg-white rounded-xl border border-gray-100 px-4 py-4 hover:border-red-200 hover:shadow-sm transition group">
+  <a href="/acquisition-runs/?status=move_failed&status=verify_failed&status=failed" class="bg-white rounded-xl border border-gray-100 px-4 py-4 hover:border-red-200 hover:shadow-sm transition group">
     <div class="flex items-center justify-between mb-2">
-      <span class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Failed</span>
+      <span class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">{{ lang.status_failed }}</span>
       <span class="w-2 h-2 rounded-full {% if stats.failed > 0 %}bg-red-400{% else %}bg-gray-200{% endif %}"></span>
     </div>
     <p class="text-2xl font-bold {% if stats.failed > 0 %}text-red-500{% else %}text-gray-300{% endif %}">{{ stats.failed }}</p>
@@ -107,19 +107,19 @@
   </a>
 
   {# Completed #}
-  <a href="/runs/?status=completed" class="bg-white rounded-xl border border-gray-100 px-4 py-4 hover:border-green-200 hover:shadow-sm transition group">
+  <a href="/acquisition-runs/?status=completed" class="bg-white rounded-xl border border-gray-100 px-4 py-4 hover:border-green-200 hover:shadow-sm transition group">
     <div class="flex items-center justify-between mb-2">
-      <span class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Completed</span>
+      <span class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">{{ lang.status_completed }}</span>
       <span class="w-2 h-2 rounded-full {% if stats.completed > 0 %}bg-green-400{% else %}bg-gray-200{% endif %}"></span>
     </div>
     <p class="text-2xl font-bold {% if stats.completed > 0 %}text-green-600{% else %}text-gray-300{% endif %}">{{ stats.completed }}</p>
-    <p class="text-[10px] text-gray-400 mt-0.5">sent to TRE</p>
+    <p class="text-[10px] text-gray-400 mt-0.5">{{ lang.transfer_to_tre.lower() }}</p>
   </a>
 
   {# Sequencers #}
-  <a href="/sequencers/" class="bg-white rounded-xl border border-gray-100 px-4 py-4 hover:border-[#0C2461]/20 hover:shadow-sm transition group">
+  <a href="/instruments/" class="bg-white rounded-xl border border-gray-100 px-4 py-4 hover:border-[#0C2461]/20 hover:shadow-sm transition group">
     <div class="flex items-center justify-between mb-2">
-      <span class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Sequencers</span>
+      <span class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">{{ lang.instruments }}</span>
       <span class="w-2 h-2 rounded-full {% if stats.seq_active > 0 %}bg-green-400{% else %}bg-gray-200{% endif %}"></span>
     </div>
     <p class="text-2xl font-bold text-gray-700">{{ stats.seq_active }}<span class="text-sm font-normal text-gray-300">/{{ stats.seq_total }}</span></p>
@@ -133,7 +133,7 @@
 
   {# Status Donut #}
   <div class="bg-white rounded-xl border border-gray-100 px-5 py-4">
-    <h2 class="text-sm font-semibold text-gray-700 mb-1">Run Status</h2>
+    <h2 class="text-sm font-semibold text-gray-700 mb-1">{{ lang.acquisition_runs }} Status</h2>
     <p class="text-[10px] text-gray-400 mb-3">Distribution across all runs</p>
     <div class="flex items-center gap-4">
       <div class="relative w-28 h-28 shrink-0">
@@ -145,19 +145,19 @@
       </div>
       <div class="flex flex-col gap-1.5 text-[10px] min-w-0">
         {% if stats.completed > 0 %}
-        <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-green-400 shrink-0"></span><span class="text-gray-500 truncate">Completed</span><span class="ml-auto font-semibold text-gray-700 pl-2">{{ stats.completed }}</span></div>
+        <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-green-400 shrink-0"></span><span class="text-gray-500 truncate">{{ lang.status_completed }}</span><span class="ml-auto font-semibold text-gray-700 pl-2">{{ stats.completed }}</span></div>
         {% endif %}
         {% if stats.sequencing > 0 %}
-        <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-blue-400 shrink-0"></span><span class="text-gray-500 truncate">Sequencing</span><span class="ml-auto font-semibold text-gray-700 pl-2">{{ stats.sequencing }}</span></div>
+        <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-blue-400 shrink-0"></span><span class="text-gray-500 truncate">{{ lang.status_running }}</span><span class="ml-auto font-semibold text-gray-700 pl-2">{{ stats.sequencing }}</span></div>
         {% endif %}
         {% if stats.ready_to_upload > 0 %}
-        <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-indigo-400 shrink-0"></span><span class="text-gray-500 truncate">Ready</span><span class="ml-auto font-semibold text-gray-700 pl-2">{{ stats.ready_to_upload }}</span></div>
+        <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-indigo-400 shrink-0"></span><span class="text-gray-500 truncate">{{ lang.status_running_finished }}</span><span class="ml-auto font-semibold text-gray-700 pl-2">{{ stats.ready_to_upload }}</span></div>
         {% endif %}
         {% if stats.in_pipeline > 0 %}
-        <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-400 shrink-0"></span><span class="text-gray-500 truncate">Pipeline</span><span class="ml-auto font-semibold text-gray-700 pl-2">{{ stats.in_pipeline }}</span></div>
+        <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-400 shrink-0"></span><span class="text-gray-500 truncate">{{ lang.transfer_workflow }}</span><span class="ml-auto font-semibold text-gray-700 pl-2">{{ stats.in_pipeline }}</span></div>
         {% endif %}
         {% if stats.failed > 0 %}
-        <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-red-400 shrink-0"></span><span class="text-gray-500 truncate">Failed</span><span class="ml-auto font-semibold text-red-500 pl-2">{{ stats.failed }}</span></div>
+        <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-red-400 shrink-0"></span><span class="text-gray-500 truncate">{{ lang.status_failed }}</span><span class="ml-auto font-semibold text-red-500 pl-2">{{ stats.failed }}</span></div>
         {% endif %}
         {% if stats.total == 0 %}
         <p class="text-gray-300">No runs yet</p>
@@ -175,8 +175,8 @@
 
   {# Per-sequencer Bar #}
   <div class="bg-white rounded-xl border border-gray-100 px-5 py-4">
-    <h2 class="text-sm font-semibold text-gray-700 mb-1">By Sequencer</h2>
-    <p class="text-[10px] text-gray-400 mb-3">Recent runs per machine (last 50)</p>
+    <h2 class="text-sm font-semibold text-gray-700 mb-1">By {{ lang.instrument }}</h2>
+    <p class="text-[10px] text-gray-400 mb-3">Recent runs per {{ lang.instrument.lower() }} (last 50)</p>
     <canvas id="seqBar" height="90"></canvas>
   </div>
 
@@ -188,15 +188,15 @@
   {# Recent Runs #}
   <div class="lg:col-span-2 bg-white rounded-xl border border-gray-100 overflow-hidden">
     <div class="flex items-center justify-between px-5 py-4 border-b border-gray-50">
-      <h2 class="text-sm font-semibold text-gray-700">Recent Runs</h2>
-      <a href="/runs/" class="text-[11px] text-[#0C2461] hover:underline">View all</a>
+      <h2 class="text-sm font-semibold text-gray-700">Recent {{ lang.acquisition_runs }}</h2>
+      <a href="/acquisition-runs/" class="text-[11px] text-[#0C2461] hover:underline">View all</a>
     </div>
     {% if recent_runs %}
     <ul class="divide-y divide-gray-50">
       {% for run in recent_runs %}
       {% set s = run.status %}
       <li>
-        <a href="/runs/{{ run.uuid }}" class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition">
+        <a href="/acquisition-runs/{{ run.uuid }}" class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition">
           <span class="w-2 h-2 shrink-0 rounded-full
             {% if s == 'completed' %}bg-green-400
             {% elif s in ('move_failed','verify_failed','failed') %}bg-red-400
@@ -215,7 +215,16 @@
             {% elif s == 'running_finished' %}bg-indigo-50 text-indigo-500 border-indigo-100
             {% elif s == 'running' %}bg-blue-50 text-blue-500 border-blue-100
             {% else %}bg-gray-50 text-gray-400 border-gray-200{% endif %}">
-            {{ s | replace('_', ' ') | title }}
+            {% if s == 'completed' %}{{ lang.status_completed }}
+            {% elif s == 'running' %}{{ lang.status_running }}
+            {% elif s == 'running_finished' %}{{ lang.status_running_finished }}
+            {% elif s == 'checksumming' %}{{ lang.status_checksumming }}
+            {% elif s == 'moving' %}{{ lang.status_moving }}
+            {% elif s == 'verifying' %}{{ lang.status_verifying }}
+            {% elif s == 'move_failed' %}{{ lang.status_move_failed }}
+            {% elif s == 'verify_failed' %}{{ lang.status_verify_failed }}
+            {% elif s == 'failed' %}{{ lang.status_failed }}
+            {% else %}{{ s | replace('_', ' ') | title }}{% endif %}
           </span>
         </a>
       </li>
@@ -234,9 +243,9 @@
       </div>
       <div class="divide-y divide-gray-50">
         {% set links = [
-          ('/runs/', 'All Runs', 'Pipeline'),
-          ('/runs/queue/view', 'Upload Queue', 'Pipeline'),
-          ('/sequencers/', 'Sequencers', 'Config'),
+          ('/acquisition-runs/', 'All ' ~ lang.acquisition_runs, lang.transfer_workflow),
+          ('/acquisition-runs/queue/view', lang.transfer_queue, lang.transfer_workflow),
+          ('/instruments/', lang.instruments, 'Config'),
           ('/settings/', 'Settings', 'System'),
           ('/logs/', 'Logs', 'System'),
         ] %}
@@ -255,7 +264,7 @@
     </div>
 
     {% if stats.failed > 0 %}
-    <a href="/runs/?status=move_failed&status=verify_failed&status=failed"
+    <a href="/acquisition-runs/?status=move_failed&status=verify_failed&status=failed"
        class="bg-red-50 border border-red-100 rounded-xl px-5 py-4 flex items-start gap-3 hover:bg-red-100 transition">
       <svg class="w-4 h-4 text-red-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/>
@@ -295,7 +304,7 @@ Chart.defaults.color = '#9ca3af';
   new Chart(ctx, {
     type: 'doughnut',
     data: {
-      labels: ['Completed','Sequencing','Ready','Pipeline','Failed'],
+      labels: ['{{ lang.status_completed }}','{{ lang.status_running }}','{{ lang.status_running_finished }}','{{ lang.transfer_workflow }}','{{ lang.status_failed }}'],
       datasets: [{
         data,
         backgroundColor: ['#4ade80','#60a5fa','#818cf8','#fbbf24','#f87171'],

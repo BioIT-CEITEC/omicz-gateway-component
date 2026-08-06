@@ -1,14 +1,14 @@
 {% extends "base.html" %}
-{% block title %}New Sequencer Type{% endblock %}
+{% block title %}New {{ lang.instrument_model }}{% endblock %}
 
 {% block content %}
 
 <div class="mb-5">
-  <a href="/sequencers-types/" class="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-[#0C2461] transition">
+  <a href="/instrument-models/" class="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-[#0C2461] transition">
     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
       <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"/>
     </svg>
-    Sequencer Types
+    {{ lang.instrument_models }}
   </a>
 </div>
 
@@ -19,7 +19,7 @@
     </svg>
   </div>
   <div>
-    <h1 class="text-xl font-bold text-gray-900">New Sequencer Type</h1>
+    <h1 class="text-xl font-bold text-gray-900">New {{ lang.instrument_model }}</h1>
     <p class="text-sm text-gray-400 mt-0.5">Define how this machine signals run completion</p>
   </div>
 </div>
@@ -31,7 +31,7 @@
 </div>
 {% endif %}
 
-<form method="POST" action="/sequencers-types/create" class="space-y-5 max-w-xl">
+<form method="POST" action="/instrument-models/create" class="space-y-5 max-w-xl">
 
   {# Name #}
   <div class="bg-white rounded-xl border border-gray-100 px-5 py-4">
@@ -136,9 +136,9 @@
       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
       </svg>
-      Create Sequencer Type
+      Create {{ lang.instrument_model }}
     </button>
-    <a href="/sequencers-types/" class="text-xs text-gray-400 hover:text-gray-600 transition">Cancel</a>
+    <a href="/instrument-models/" class="text-xs text-gray-400 hover:text-gray-600 transition">Cancel</a>
   </div>
 
 </form>

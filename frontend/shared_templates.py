@@ -2,6 +2,8 @@ import os
 
 from fastapi.templating import Jinja2Templates
 
+from lang import LANG
+
 _WORKSPACE_VERSION = "/workspace/VERSION"
 
 
@@ -14,14 +16,16 @@ def _read_version() -> str:
 
 
 class _DynamicTemplates(Jinja2Templates):
-    """Jinja2Templates that injects a fresh APP_VERSION on every render."""
+    """Jinja2Templates that injects APP_VERSION and lang on every render."""
 
     def TemplateResponse(self, *args, **kwargs):
-        # Inject current version into context on every request
+        # Inject current version and UI language dict into context on every request
         if args and isinstance(args[-1], dict):
             args[-1].setdefault("APP_VERSION", _read_version())
+            args[-1].setdefault("lang", LANG)
         elif "context" in kwargs:
             kwargs["context"].setdefault("APP_VERSION", _read_version())
+            kwargs["context"].setdefault("lang", LANG)
         return super().TemplateResponse(*args, **kwargs)
 
 

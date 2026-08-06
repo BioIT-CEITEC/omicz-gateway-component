@@ -106,6 +106,20 @@ def do_update():
         git_output = (result.stdout + result.stderr).strip()
         if result.returncode != 0:
             return JSONResponse({"success": False, "error": git_output}, status_code=500)
+    except FileNotFoundError:
+        return JSONResponse(
+            {
+                "success": False,
+                "error": (
+                    "git is not installed in this container.\n"
+                    "The frontend image needs to be rebuilt with the latest Dockerfile.\n\n"
+                    "On the server, run:\n"
+                    "  docker compose build frontend\n"
+                    "  docker compose up -d frontend"
+                ),
+            },
+            status_code=500,
+        )
     except Exception as e:
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 

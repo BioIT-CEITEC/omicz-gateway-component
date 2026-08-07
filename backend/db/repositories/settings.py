@@ -89,6 +89,19 @@ DEFAULTS = [
         "category": "watcher",
         "description": "Seconds between database polls for newly added sequencers (no watcher restart needed after adding a sequencer)",
     },
+    # ── Backup ────────────────────────────────────────────────────────────────
+    {
+        "key": "backup_interval_days",
+        "value": "2",
+        "category": "backup",
+        "description": "Days between automatic database backups",
+    },
+    {
+        "key": "backup_retention_count",
+        "value": "10",
+        "category": "backup",
+        "description": "Number of most recent database backups to keep; older ones are deleted automatically",
+    },
 ]
 
 

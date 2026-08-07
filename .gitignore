@@ -3,6 +3,7 @@ __pycache__/
 .env
 env/
 run_outputs/
+backups/
 **/logs/
 REPORT/
 *.log

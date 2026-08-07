@@ -90,6 +90,8 @@
     "log_viewer_refresh_interval": {"label": "Log viewer refresh interval",   "unit": "seconds", "min": 1,  "max": 300,  "hint": "How often the Logs viewer auto-refreshes"},
     "pagination_page_size":        {"label": "Items per page",                "unit": "items",   "min": 5,  "max": 200,  "hint": "Number of rows shown per page on Runs, " ~ lang.instruments ~ ", and " ~ lang.instrument_models ~ " list pages"},
     "checksum_chunk_size_mb":      {"label": "Checksum read chunk size",      "unit": "MB",      "min": 1,  "max": 4096, "hint": "Chunk size for reading files during SHA256 checksumming. Larger values (e.g. 32–64) are faster over network shares. Max 4096 MB (4 GB)."},
+    "backup_interval_days":        {"label": "Backup interval",               "unit": "days",    "min": 1,  "max": 365,  "hint": "How often an automatic database backup is taken and saved to the backups/ folder"},
+    "backup_retention_count":      {"label": "Backups to keep",               "unit": "backups", "min": 1,  "max": 1000, "hint": "Number of most recent database backups to keep; older ones are deleted automatically"},
   } %}
 
   {% set categories = [
@@ -100,6 +102,7 @@
     ("pagination",   "Pagination",    "Controls how many items appear per page on list views. Changes apply on the next page navigation.", false),
     ("logs",         "Logs",          "Controls the Logs viewer. Changes apply on the next page load.", false),
     ("checksum",     "Checksum",      "Controls checksumming behaviour. Changes apply on the next run that starts checksumming.", false),
+    ("backup",       "Backup",        "Controls automatic database backups, stored in the backups/ folder. Changes apply within a minute, no restart needed.", false),
   ] %}
 
   {% for cat_key, cat_label, cat_desc, needs_restart in categories %}

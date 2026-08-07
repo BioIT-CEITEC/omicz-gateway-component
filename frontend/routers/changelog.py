@@ -5,10 +5,28 @@ from shared_templates import templates
 
 CHANGELOG = [
     {
+        "version": "1.1.15",
+        "date": "2026-08-07",
+        "sections": {
+            "Bug Fixes": [
+                "Fixed Alembic migration crash when seeding the checksum_chunk_size_mb setting (bound parameters were passed directly to op.execute(), which doesn't accept them)",
+                "Fixed 500 error opening the New Instrument Type page, caused by missing UI language context",
+                "Fixed unmatched routes and 404s returning raw JSON instead of a proper not-found page",
+                "Removed an orphaned /test route referencing a nonexistent template",
+                "Fixed the Logs viewer hiding service tabs (checksum, publisher, tre) that hadn't logged anything yet",
+                "Fixed run, sequencer, and settings timestamps displaying in UTC instead of local time — including the live run-duration timer, which was silently off by the UTC offset",
+                "Fixed the Changelog page showing a stale current-version badge and 'Latest' tag instead of the real running version",
+            ],
+            "Improvements": [
+                "Changelog 'Latest' tag is now computed from the actual running version instead of hardcoded per entry",
+                "Added a large 404 numeral to the not-found page so it reads clearly as a not-found page",
+                "Updated default settings for fresh installs: checksum read chunk size 256 MB, 8 items per page, 60s upload retry wait cap",
+            ],
+        },
+    },
+    {
         "version": "1.1.7",
         "date": "2026-08-05",
-        "tag": "Latest",
-        "tag_color": "indigo",
         "sections": {
             "New Features": [
                 "One-click in-app update: Settings page shows current and latest version, fetches from GitHub automatically, and updates all services with a single button click",
@@ -27,8 +45,6 @@ CHANGELOG = [
     {
         "version": "1.1.0",
         "date": "2026-08-05",
-        "tag": None,
-        "tag_color": None,
         "sections": {
             "Bug Fixes": [
                 "Fixed auto-upload runs getting stuck in 'Sequencing Done' after worker restart — worker now re-queues them automatically on startup",
@@ -40,8 +56,6 @@ CHANGELOG = [
     {
         "version": "1.0.0",
         "date": "2026-07-27",
-        "tag": None,
-        "tag_color": None,
         "sections": {
             "New Features": [
                 "Dashboard with live stat widgets: Sequencing, Ready to Upload, Pipeline, Failed, Completed, Sequencers",
@@ -70,8 +84,6 @@ CHANGELOG = [
     {
         "version": "0.9.0",
         "date": "2026-07-24",
-        "tag": None,
-        "tag_color": None,
         "sections": {
             "New Features": [
                 "Settings page: all pipeline and UI timings configurable from the browser (pagination size, refresh intervals, log line count, run scan interval)",
@@ -90,8 +102,6 @@ CHANGELOG = [
     {
         "version": "0.8.0",
         "date": "2026-07-23",
-        "tag": None,
-        "tag_color": None,
         "sections": {
             "New Features": [
                 "Exclusions field on sequencer: list of folder/file patterns to skip during checksumming and upload",
@@ -111,8 +121,6 @@ CHANGELOG = [
     {
         "version": "0.7.0",
         "date": "2026-07-21",
-        "tag": None,
-        "tag_color": None,
         "sections": {
             "New Features": [
                 "Duplicate upload guard: detects a run already queued with a valid checksum and discards the redundant message",
@@ -137,8 +145,6 @@ CHANGELOG = [
     {
         "version": "0.5.0",
         "date": "2026-05-19",
-        "tag": None,
-        "tag_color": None,
         "sections": {
             "New Features": [
                 "Initial public release of OmiCZ GateWay",

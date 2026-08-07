@@ -153,6 +153,12 @@ def do_update():
     # ── Step 3: restart services via Docker SDK ───────────────────────────────
     # Frontend is restarted last in a background thread with a delay so the
     # response reaches the browser before the container shuts down.
+    #
+    # NOTE: this only restarts containers that already exist, on their current
+    # (already-built) image. It does NOT rebuild images or create containers
+    # for services newly added to docker-compose.yml. When a change touches
+    # a Dockerfile/requirements.txt or adds a new service, an admin must also
+    # run `docker compose up -d --build` from the host once, manually.
     restart_log = []
     frontend_name = "fastapi_gateway_frontend"
     try:

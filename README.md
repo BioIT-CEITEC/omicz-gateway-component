@@ -79,8 +79,7 @@ The `docker-compose.yml` already has volume lines that reference `${MACHINE_7_PA
 volumes:
   - ./backend:/app
   - ${MACHINE_7_PATH}:/runs/machine-7          # already there
-  - ${MACHINE_1_PATH_SHARED}:/runs/machine-1-path-shared   # already there
-  - ${MACHINE_2_PATH}:/runs/machine-2          # add this for a new machine
+  - ${MACHINE_1_PATH_SHARED}:/runs/machine-1-shared   # already there
 ```
 
 The right side (`/runs/machine-2`) is the path **inside the container** — this is what you will enter in the **Location** field when creating the sequencer in the UI.

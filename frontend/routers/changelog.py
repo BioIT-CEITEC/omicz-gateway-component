@@ -5,6 +5,15 @@ from shared_templates import templates
 
 CHANGELOG = [
     {
+        "version": "1.1.16",
+        "date": "2026-08-07",
+        "sections": {
+            "New Features": [
+                "Automatic database backups: a dedicated backup service periodically dumps and gzips the database into a backups/ folder, with the interval and how many backups to keep configurable from Settings",
+            ],
+        },
+    },
+    {
         "version": "1.1.15",
         "date": "2026-08-07",
         "sections": {

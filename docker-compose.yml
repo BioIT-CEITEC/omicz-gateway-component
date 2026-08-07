@@ -143,5 +143,25 @@ services:
       - ${MACHINE_7_PATH}:/runs/machine-7
       - ${MACHINE_1_PATH_SHARED}:/runs/machine-1-path-shared
 
+  backup:
+    build:
+      context: ./backend
+    container_name: fastapi_gateway_backup
+    restart: always
+    command: python services/backup.py
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_USERNAME: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: fastapi_gateway_db
+      LOG_LEVEL: DEBUG
+    depends_on:
+      db:
+        condition: service_started
+    volumes:
+      - ./backend:/app
+      - ./backups:/app/backups
+
 volumes:
   postgres_data:

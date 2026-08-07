@@ -80,7 +80,7 @@
     </div>
     <div class="px-6 py-4">
       <p class="text-[11px] text-gray-400 font-semibold uppercase tracking-wide mb-1.5">Registered</p>
-      <p class="text-sm text-gray-700 tabular-nums">{{ (sequencer.created_at | string)[:16] | replace('T', ' ') }}</p>
+      <p class="text-sm text-gray-700 tabular-nums">{{ sequencer.created_at | local_dt }}</p>
     </div>
   </div>
 

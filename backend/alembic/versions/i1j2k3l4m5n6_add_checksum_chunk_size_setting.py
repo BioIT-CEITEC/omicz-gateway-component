@@ -20,13 +20,12 @@ def upgrade() -> None:
             "INSERT INTO settings (key, value, category, description, updated_at) "
             "VALUES (:key, :value, :category, :description, NOW()) "
             "ON CONFLICT DO NOTHING"
-        ),
-        {
-            "key": "checksum_chunk_size_mb",
-            "value": "5",
-            "category": "checksum",
-            "description": "Read chunk size in MB used when computing SHA256 checksums. Larger values (e.g. 32-64) speed up checksumming of large files over network shares. Avoid going above 256.",
-        },
+        ).bindparams(
+            key="checksum_chunk_size_mb",
+            value="256",
+            category="checksum",
+            description="Read chunk size in MB used when computing SHA256 checksums. Larger values (e.g. 32-64) speed up checksumming of large files over network shares. Avoid going above 256.",
+        )
     )
 
 

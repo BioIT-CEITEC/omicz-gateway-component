@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Request
 
 router = APIRouter()
-from shared_templates import templates
+from shared_templates import templates, local_dt, _DISPLAY_TZ
 
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 
@@ -49,10 +49,10 @@ def home(request: Request):
     chart_raw = _get("/runs/", {"limit": 50, "order": "desc"}) or {}
     chart_runs = chart_raw.get("results", [])
 
-    # daily activity — last 14 days
-    today = datetime.now().date()
+    # daily activity — last 14 days (bucketed by the deployment's local calendar day)
+    today = datetime.now(_DISPLAY_TZ).date()
     days_14 = [(today - timedelta(days=i)).isoformat() for i in range(13, -1, -1)]
-    daily_counts = Counter(r["created_at"][:10] for r in chart_runs)
+    daily_counts = Counter(local_dt(r["created_at"], "%Y-%m-%d") for r in chart_runs)
     daily_labels = [d[5:].replace("-", "/") for d in days_14]  # MM/DD
     daily_values = [daily_counts.get(d, 0) for d in days_14]
 

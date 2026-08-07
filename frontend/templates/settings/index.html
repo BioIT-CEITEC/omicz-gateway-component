@@ -144,7 +144,7 @@
           </div>
         </div>
         {% if s.updated_at %}
-        <p class="text-xs text-gray-300 mt-1.5">Last changed: {{ s.updated_at }}</p>
+        <p class="text-xs text-gray-300 mt-1.5">Last changed: {{ s.updated_at | local_dt }}</p>
         {% endif %}
       </div>
       {% endfor %}

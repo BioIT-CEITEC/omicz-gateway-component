@@ -26,7 +26,7 @@ DEFAULTS = [
     # ── Checksum ──────────────────────────────────────────────────────────────
     {
         "key": "checksum_chunk_size_mb",
-        "value": "5",
+        "value": "256",
         "category": "checksum",
         "description": "Read chunk size in MB used when computing SHA256 checksums. Larger values (e.g. 32–64) speed up checksumming of large files over network shares. Maximum 4096 MB (4 GB).",
     },
@@ -39,7 +39,7 @@ DEFAULTS = [
     },
     {
         "key": "upload_retry_backoff_max",
-        "value": "30",
+        "value": "60",
         "category": "upload",
         "description": "Maximum wait time (seconds) between consecutive upload retry attempts (exponential backoff capped here)",
     },
@@ -72,7 +72,7 @@ DEFAULTS = [
     # ── Pagination ────────────────────────────────────────────────────────────
     {
         "key": "pagination_page_size",
-        "value": "20",
+        "value": "8",
         "category": "pagination",
         "description": "Number of items shown per page on all list pages (Runs, Sequencers, Users, Sequencer Types)",
     },

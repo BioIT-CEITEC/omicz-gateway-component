@@ -30,7 +30,7 @@ def list_sequencer_types(request: Request, skip: int = 0, limit: int | None = No
 # ── CREATE — show form 
 @router.get("/create")
 def create_sequencer_type_form(request: Request):
-    return templates.TemplateResponse(request, "sequencers-types/create.html")
+    return templates.TemplateResponse(request, "sequencers-types/create.html", {})
 
 
 # ── CREATE — handle form submission

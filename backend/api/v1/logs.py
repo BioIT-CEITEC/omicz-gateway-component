@@ -55,7 +55,7 @@ def list_log_services():
         if not os.path.isdir(service_dir):
             continue
         log_file = os.path.join(service_dir, f"{d}.log")
-        if os.path.isfile(log_file) and os.path.getsize(log_file) > 0:
+        if os.path.isfile(log_file):
             services.append(d)
     return {"services": services}
 

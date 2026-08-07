@@ -255,12 +255,12 @@
         </td>
 
         <td class="py-3.5 px-5 hidden md:table-cell text-xs text-gray-500 tabular-nums">
-          {{ (run.created_at | string)[:16] | replace('T', ' ') }}
+          {{ run.created_at | local_dt }}
         </td>
 
         <td class="py-3.5 px-5 hidden md:table-cell text-xs tabular-nums">
-          {% set updated = (run.updated_at | string)[:16] | replace('T', ' ') %}
-          {% set created = (run.created_at | string)[:16] | replace('T', ' ') %}
+          {% set updated = run.updated_at | local_dt %}
+          {% set created = run.created_at | local_dt %}
           {% if updated != created %}
           <span class="text-gray-500">{{ updated }}</span>
           {% else %}

@@ -103,7 +103,7 @@ cp backend/.env.example backend/.env
 ```
 Windows (Command Prompt):
 ```cmd
-copy backend/.env.example backend.env
+copy backend/.env.example backend/.env
 ```
 
 Open `backend/.env` and fill in your S3 credentials:
@@ -122,7 +122,7 @@ The database settings in this file can be left as-is — they match the database
 
 ### Step 4 — Build and start the containers
 
-This downloads the required images (PostgreSQL, RabbitMQ) and builds the application containers. It takes a few minutes the first time.
+This downloads the required images (PostgreSQL, RabbitMQ) and builds the application containers. It takes a few minutes the first time. Run below command in root of the project.
 
 ```bash
 docker compose up -d --build

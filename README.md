@@ -79,7 +79,7 @@ The `docker-compose.yml` already has volume lines that reference `${MACHINE_7_PA
 volumes:
   - ./backend:/app
   - ${MACHINE_7_PATH}:/runs/machine-7          # already there
-  - ${MACHINE_1_PATH_SHARED}:/runs/machine-1-shared   # already there
+  - ${MACHINE_1_PATH_SHARED}:/runs/machine-1-path-shared   # already there
   - ${MACHINE_2_PATH}:/runs/machine-2          # add this for a new machine
 ```
 

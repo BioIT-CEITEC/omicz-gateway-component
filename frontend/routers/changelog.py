@@ -5,6 +5,15 @@ from shared_templates import templates
 
 CHANGELOG = [
     {
+        "version": "1.1.17",
+        "date": "2026-08-10",
+        "sections": {
+            "Bug Fixes": [
+                "Fixed Containers page showing a Docker connection error after docker compose rebuild — accessing the image of a container running on a deleted image now falls back gracefully instead of crashing the entire listing",
+            ],
+        },
+    },
+    {
         "version": "1.1.16",
         "date": "2026-08-07",
         "sections": {

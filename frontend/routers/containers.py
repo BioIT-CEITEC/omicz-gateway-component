@@ -32,11 +32,15 @@ def _fetch_containers():
         for c in containers:
             if not c.name.startswith("fastapi_gateway_"):
                 continue
+            try:
+                image = c.image.tags[0] if c.image.tags else c.image.short_id
+            except docker.errors.ImageNotFound:
+                image = c.attrs["Config"]["Image"]
             result.append({
                 "id":     c.short_id,
                 "name":   c.name,
                 "status": c.status,
-                "image":  c.image.tags[0] if c.image.tags else c.image.short_id,
+                "image":  image,
             })
         result.sort(key=lambda x: x["name"])
         return result

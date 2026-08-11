@@ -2,6 +2,8 @@
 
 A web application for managing DNA sequencer runs. It monitors sequencer output folders on your computer, detects when runs complete, generates checksums, and uploads run data to S3 storage automatically.
 
+![OmiCZ Gateway dashboard](readme-images/omicz-gateway-app.png)
+
 ---
 
 ## What it does

@@ -53,7 +53,7 @@ cd omicz-gateway-component
 
 The `.env` file tells Docker where your sequencer output folders are on **your** computer.
 
-Linux / macOS:
+Linux / MacOS:
 ```bash
 cp .env.example .env
 ```
@@ -64,10 +64,18 @@ copy .env.example .env
 
 Open `.env` and replace the example paths with real paths on your machine:
 
+
+**Linux / MacOS paths:**
 ```env
 # The real path to your sequencer output folder on this computer:
 MACHINE_1_PATH=/data/sequencers/machine-1
 MACHINE_1_PATH_SHARED=/data/sequencers/machine-1-shared
+```
+
+**Windows paths:**
+```env
+MACHINE_1_PATH=C:\Sequencer\Machine1
+MACHINE_1_PATH_SHARED=C:\Sequencer\Machine1Shared
 ```
 
 **Why these variable names?**
@@ -84,11 +92,6 @@ volumes:
 
 The right side (`/runs/machine-2`) is the path **inside the container** — this is what you will enter in the **Location** field when creating the sequencer in the UI.
 
-**Windows paths:**
-```env
-MACHINE_1_PATH=C:\Sequencer\Machine1
-MACHINE_1_PATH_SHARED=C:\Sequencer\Machine1Shared
-```
 
 ---
 
@@ -96,7 +99,7 @@ MACHINE_1_PATH_SHARED=C:\Sequencer\Machine1Shared
 
 The backend needs its own configuration file for S3 credentials and database settings.
 
-Linux / macOS:
+Linux / MacOS:
 ```bash
 cp backend/.env.example backend/.env
 ```
@@ -141,6 +144,9 @@ What this starts:
 | `fastapi_gateway_frontend` | Web UI — what you see in the browser |
 | `fastapi_gateway_worker` | Processes run events — does checksumming and S3 upload |
 | `fastapi_gateway_watcher` | Watches the sequencer folders for new runs |
+| `fastapi_gateway_backup` | Backup service for the application |
+| `fastapi_gateway_adminer` | GUI for PostgreSQL |
+
 
 To check that all containers are running:
 
@@ -148,7 +154,7 @@ To check that all containers are running:
 docker ps
 ```
 
-All 6 containers should show `Up`. You can also check in Docker Desktop:
+All 8 containers should show `Up`. You can also check in Docker Desktop:
 
 ![Docker Desktop containers](readme-images/ducker-desktop.png)
 
@@ -225,8 +231,8 @@ Go to **Sequencers → Create** in the top navigation.
 
 | Field | What to enter | Example |
 |-------|--------------|---------|
-| **Name** | A label for this specific machine | `Machine 7 - Illumina` |
-| **Location** | The path **inside the container** where this machine's folder is mounted | `/runs/machine-7` |
+| **Name** | A label for this specific machine | `Machine 2 - Illumina` |
+| **Location** | The path **inside the container** where this machine's folder is mounted | `/runs/machine-2` |
 | **Type** | Select the sequencer type you created in Step A | |
 | **Send to TRE** | When to upload to S3 | see below |
 | **Exclusions** | Files or patterns to skip during upload *(optional)* | `*.png`, `Thumbnail_Images` |
@@ -235,7 +241,7 @@ Go to **Sequencers → Create** in the top navigation.
 This is not a path on your computer — it is the path *inside the Docker container*. It always starts with `/runs/`. The mapping between your computer's folder and this path is defined in `docker-compose.yml`:
 
 ```yaml
-- ${MACHINE_7_PATH}:/runs/machine-7
+- ${MACHINE_2_PATH}:/runs/machine-2
 #   ^ your computer       ^ container path (put this in Location field)
 ```
 
@@ -253,21 +259,21 @@ This is not a path on your computer — it is the path *inside the Docker contai
 Once a sequencer is configured, the app detects new runs automatically. You can monitor them under **Runs** in the navigation.
 
 ```
-running → running_finished → checksumming → moving → verifying → completed
-                                          ↘ move_failed        ↘ verify_failed
+Data Acquisition → Acquisition Complete → Integrity Check → Data Transfer → Transfer Validation → Transfer Complete
+                                                            ↘ Data Transfer Failed              ↘ Transfer Validation Failed
 ```
 
 | Status | What it means | What to do |
 |--------|--------------|------------|
-| `Sequencing` | New run folder detected, sequencing in progress | Wait |
-| `Sequencing Done` | Machine finished; waiting to start upload | Click **Send to TRE** (if manual mode) |
-| `Checksumming` | Generating SHA256 checksum file for the run | Wait |
+| `Data Acquisition` | New run folder detected, data acquisition in progress | Wait |
+| `Acquisition Complete` | Machine finished; waiting to start upload | Click **Send to TRE** (if manual mode) |
+| `Integrity Check` | Generating SHA256 checksum file for the run | Wait |
 | `Queued` | Waiting after previous upload is finished | Wait |
-| `Uploading` | Uploading the run folder to S3 | Wait |
-| `Verifying` | Waiting for the TRE system to confirm receipt | Wait |
-| `Completed` | Run fully uploaded and confirmed | Done |
-| `Upload Failed` | Upload failed | Click **Retry Upload** |
-| `Verifying Failed` | TRE verification failed | Click **Retry Verification** |
+| `Data Transfer` | Uploading the run folder to S3 | Wait |
+| `Transfer Validation` | Waiting for the TRE system to confirm receipt | Wait |
+| `Transfer Complete` | Run fully uploaded and confirmed | Done |
+| `Data Transfer Failed` | Upload failed | Click **Retry Upload** |
+| `Transfer Validation Failed` | TRE verification failed | Click **Retry Verification** |
 
 ---
 

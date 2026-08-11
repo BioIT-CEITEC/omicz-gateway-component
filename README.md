@@ -66,19 +66,19 @@ Open `.env` and replace the example paths with real paths on your machine:
 
 ```env
 # The real path to your sequencer output folder on this computer:
-MACHINE_7_PATH=/data/sequencers/machine-7
+MACHINE_1_PATH=/data/sequencers/machine-1
 MACHINE_1_PATH_SHARED=/data/sequencers/machine-1-shared
 ```
 
 **Why these variable names?**
-The `docker-compose.yml` already has volume lines that reference `${MACHINE_7_PATH}` and `${MACHINE_1_PATH_SHARED}`. Docker reads your `.env` file and substitutes those values automatically. The names must match exactly.
+The `docker-compose.yml` already has volume lines that reference `${MACHINE_1_PATH}` and `${MACHINE_1_PATH_SHARED}`. Docker reads your `.env` file and substitutes those values automatically. The names must match exactly.
 
 **If you are adding a new machine** that is not already in `docker-compose.yml`, you also need to add a volume line for it in the `backend`, `worker`, and `watcher` services. Open `docker-compose.yml` and add one line per machine under the volumes section of each of those three services:
 
 ```yaml
 volumes:
   - ./backend:/app
-  - ${MACHINE_7_PATH}:/runs/machine-7          # already there
+  - ${MACHINE_1_PATH}:/runs/machine-1          # already there
   - ${MACHINE_1_PATH_SHARED}:/runs/machine-1-shared   # already there
 ```
 
@@ -86,7 +86,7 @@ The right side (`/runs/machine-2`) is the path **inside the container** — this
 
 **Windows paths:**
 ```env
-MACHINE_7_PATH=C:\Sequencer\Machine7
+MACHINE_1_PATH=C:\Sequencer\Machine1
 MACHINE_1_PATH_SHARED=C:\Sequencer\Machine1Shared
 ```
 
@@ -127,6 +127,10 @@ This downloads the required images (PostgreSQL, RabbitMQ) and builds the applica
 docker compose up -d --build
 ```
 
+You should see output like this once it finishes:
+
+![Docker build output](readme-images/docker-build.png)
+
 What this starts:
 
 | Container | Purpose |
@@ -144,7 +148,9 @@ To check that all containers are running:
 docker ps
 ```
 
-All 6 containers should show `Up`.
+All 6 containers should show `Up`. You can also check in Docker Desktop:
+
+![Docker Desktop containers](readme-images/ducker-desktop.png)
 
 ---
 
@@ -160,6 +166,8 @@ You should see output like:
 ```
 INFO  [alembic.runtime.migration] Running upgrade ...
 ```
+
+![Alembic migration output](readme-images/alembic-result.jpg)
 
 ---
 

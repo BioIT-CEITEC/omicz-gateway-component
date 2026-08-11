@@ -28,7 +28,7 @@ A web application for managing DNA sequencer runs. It monitors sequencer output 
 The app runs as a set of Docker containers on your computer. It needs to know where your sequencer machine saves its output folders. You tell it this by setting a path in a `.env` file. Docker then makes that folder visible to the app containers, and the app watches it for new runs.
 
 ```
-Your computer's folder  →  Docker volume mount  →  App sees it as /runs/machine-7
+Your computer's folder  →  Docker volume mount  →  App sees it as /runs/machine-1
 e.g. /data/illumina          (docker-compose.yml)
 ```
 

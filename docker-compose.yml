@@ -64,8 +64,8 @@ services:
       #                           right side = path inside container (always /runs/...)
       # Linux/Mac example:  - /data/illumina/outputs:/runs/machine-1
       # Windows example:    - C:\Sequencer\Illumina:/runs/machine-1
-      - ${MACHINE_7_PATH}:/runs/machine-7
-      - ${MACHINE_1_PATH_SHARED}:/runs/machine-1-shared
+      - ${MACHINE_1_PATH}:/runs/machine-1
+      # - ${MACHINE_1_PATH_SHARED}:/runs/machine-1-shared
       # ── Docker socket (required for container management API) ──────────────────
       # Linux / macOS:
       - /var/run/docker.sock:/var/run/docker.sock
@@ -116,8 +116,8 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app
-      - ${MACHINE_7_PATH}:/runs/machine-7
-      - ${MACHINE_1_PATH_SHARED}:/runs/machine-1-shared
+      - ${MACHINE_1_PATH}:/runs/machine-1
+      # - ${MACHINE_1_PATH_SHARED}:/runs/machine-1-shared
 
   watcher:
     build:
@@ -140,8 +140,8 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app
-      - ${MACHINE_7_PATH}:/runs/machine-7
-      - ${MACHINE_1_PATH_SHARED}:/runs/machine-1-shared
+      - ${MACHINE_1_PATH}:/runs/machine-1
+      # - ${MACHINE_1_PATH_SHARED}:/runs/machine-1-shared
 
   backup:
     build:

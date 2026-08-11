@@ -1,4 +1,4 @@
-# Sequencer Gateway
+# OmiCZ Gateway
 
 A web application for managing DNA sequencer runs. It monitors sequencer output folders on your computer, detects when runs complete, generates checksums, and uploads run data to S3 storage automatically.
 

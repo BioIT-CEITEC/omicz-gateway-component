@@ -1,7 +1,7 @@
 name: omicz-gateway-component
 service_address: null
 secure_cloud: false
-status: in-development
+status: active
 repository_url: https://github.com/BioIT-CEITEC/omicz-gateway-component
 
 version: 1.0.0

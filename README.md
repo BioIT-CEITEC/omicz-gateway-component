@@ -203,11 +203,11 @@ After the app is running, you need to configure it through the web interface bef
 
 ---
 
-### Step A — Create a Sequencer Type
+### Step A — Create a Inst. Models
 
-A **Sequencer Type** defines the model/brand of machine and how it signals that a run is complete. You create one type per machine model (not per machine).
+An **Instrument Models** defines the model/brand of machine and how it signals that a run is complete. You create one type per machine model (not per machine).
 
-Go to **Sequencer Types → Create** in the top navigation.
+Go to **Inst. Models → Create** in the top navigation.
 
 | Field | What to enter | Example |
 |-------|--------------|---------|
@@ -225,11 +225,11 @@ Go to **Sequencer Types → Create** in the top navigation.
 
 ---
 
-### Step B — Create a Sequencer
+### Step B — Create an Instrument
 
-A **Sequencer** represents a specific physical machine connected to this computer. You create one entry per machine.
+An **Instrument** represents a specific physical machine connected to this computer. You create one entry per machine.
 
-Go to **Sequencers → Create** in the top navigation.
+Go to **Instruments → Create** in the top navigation.
 
 | Field | What to enter | Example |
 |-------|--------------|---------|
@@ -258,7 +258,7 @@ This is not a path on your computer — it is the path *inside the Docker contai
 
 ## Run status reference
 
-Once a sequencer is configured, the app detects new runs automatically. You can monitor them under **Runs** in the navigation.
+Once an instrument is configured, the app detects new runs automatically. You can monitor them under **Acquisition Runs** in the navigation.
 
 ```
 Data Acquisition → Acquisition Complete → Integrity Check → Data Transfer → Transfer Validation → Transfer Complete

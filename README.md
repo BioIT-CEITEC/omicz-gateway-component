@@ -203,7 +203,7 @@ After the app is running, you need to configure it through the web interface bef
 
 ---
 
-### Step A — Create a Inst. Models
+### Step A — Create an Inst. Models
 
 An **Instrument Models** defines the model/brand of machine and how it signals that a run is complete. You create one type per machine model (not per machine).
 

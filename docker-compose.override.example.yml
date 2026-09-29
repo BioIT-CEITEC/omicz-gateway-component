@@ -1,0 +1,24 @@
+# Site-specific settings — copy this file to docker-compose.override.yml and edit it.
+#
+#   cp docker-compose.override.example.yml docker-compose.override.yml
+#
+# Docker Compose loads docker-compose.override.yml automatically on top of
+# docker-compose.yml. It is git-ignored, so the one-click update (Settings → Update)
+# never conflicts with it. Put everything that is specific to this computer here —
+# in particular the folders of additional instruments — instead of editing
+# docker-compose.yml.
+#
+# Each instrument folder must be mounted into backend, worker AND watcher.
+# The right side (/runs/machine-2) is what you enter as Location in the UI.
+# Set MACHINE_2_PATH in .env to the real folder on this computer.
+
+services:
+  backend:
+    volumes:
+      - ${MACHINE_2_PATH}:/runs/machine-2
+  worker:
+    volumes:
+      - ${MACHINE_2_PATH}:/runs/machine-2
+  watcher:
+    volumes:
+      - ${MACHINE_2_PATH}:/runs/machine-2

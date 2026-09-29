@@ -7,6 +7,7 @@ from schemas.runs import ShowRun
 from schemas.runs_status_history import ShowRunsStatusHistory
 from schemas.run_directories import ShowRunDirectory
 from db.models.run_directories import RunDirectories
+from db.models.runs import Runs
 from schemas.pagination import PaginatedResponse
 from db.session import get_db
 from db.repositories.runs import get_all_runs, count_runs, get_run_by_uuid, get_runs_by_sequencer, delete_run, get_queued_runs, count_queued_runs, get_failed_pipeline_runs
@@ -47,6 +48,31 @@ def get_queue(skip: int = Query(default=0, ge=0), limit: int = Query(default=20,
         limit=limit,
         results=get_queued_runs(db=db, skip=skip, limit=limit),
     )
+
+
+@router.get("/active-transfers")
+def active_transfers(db: Session = Depends(get_db)):
+    """
+    Work a worker restart would interrupt: runs being checksummed or uploaded, and
+    directory uploads in progress. Used by the one-click update to warn first.
+    (Queued runs and runs waiting for TRE confirmation survive a restart.)
+    """
+    runs = (
+        db.query(Runs.name, Runs.status)
+        .filter(Runs.status.in_(["checksumming", "moving"]), Runs.is_deleted == False)
+        .all()
+    )
+    dirs = (
+        db.query(Runs.name, RunDirectories.name)
+        .join(Runs, Runs.uuid == RunDirectories.run_uuid)
+        .filter(RunDirectories.state == "uploading")
+        .all()
+    )
+    return {
+        "count": len(runs) + len(dirs),
+        "runs": [{"name": n, "status": s} for n, s in runs],
+        "directories": [f"{run}/{d}" for run, d in dirs],
+    }
 
 
 @router.get("/failed", response_model=list[ShowRun])

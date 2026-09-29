@@ -5,18 +5,22 @@ import time
 
 import docker
 import httpx
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 
+import updater
 from logger import get_logger
 
 router = APIRouter()
 logger = get_logger("frontend")
 
-WORKSPACE = "/workspace"
+WORKSPACE   = "/workspace"
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 # GitHub API returns the file directly with proper cache headers — more reliable than raw CDN
 GITHUB_API_VERSION = "https://api.github.com/repos/BioIT-CEITEC/omicz-gateway-component/contents/VERSION"
-_VERSION_CACHE_TTL = 10  # cache GitHub result server-side for 10 seconds
+# Every page load asks for the latest version. Unauthenticated GitHub API calls are
+# limited to 60/hour per IP, so cache for 15 min; the Settings "Check" button forces a refresh.
+_VERSION_CACHE_TTL = 15 * 60
 
 _RESTART_ORDER = [
     "fastapi_gateway_watcher",
@@ -63,7 +67,9 @@ def _invalidate_version_cache() -> None:
 
 
 @router.get("/version")
-def get_version():
+def get_version(refresh: bool = Query(False)):
+    if refresh:
+        _invalidate_version_cache()
     current = read_current_version()
     latest = fetch_latest_version()
     return {
@@ -74,8 +80,28 @@ def get_version():
     }
 
 
+def _active_transfers() -> dict | None:
+    """Transfers a worker restart would interrupt, from the backend. None if the backend can't be asked."""
+    try:
+        r = httpx.get(f"{BACKEND_URL}/runs/active-transfers", timeout=5)
+        return r.json() if r.status_code == 200 else None
+    except Exception:
+        return None
+
+
+def _run_migrations() -> tuple[bool, str]:
+    """Always run `alembic upgrade head` — it is a no-op when the database is already current."""
+    try:
+        backend = docker.from_env().containers.get("fastapi_gateway_backend")
+        exit_code, output = backend.exec_run(["alembic", "upgrade", "head"], workdir="/app")
+        text = output.decode("utf-8", errors="replace").strip()
+        return exit_code == 0, text
+    except Exception as e:
+        return False, str(e)
+
+
 @router.post("/update")
-def do_update():
+def do_update(force: bool = Query(False)):
     if not os.path.isdir(WORKSPACE):
         return JSONResponse(
             {
@@ -88,7 +114,27 @@ def do_update():
             status_code=400,
         )
 
-    # ── Step 1: git pull ──────────────────────────────────────────────────────
+    # ── Step 0: don't interrupt transfers without asking ─────────────────────
+    # Restarting the worker marks a running checksum/upload as failed (Retry resumes it).
+    if not force:
+        active = _active_transfers()
+        if active and active.get("count"):
+            names = [f"{r['name']} ({r['status']})" for r in active.get("runs", [])] + active.get("directories", [])
+            return JSONResponse(
+                {
+                    "success": False,
+                    "busy": True,
+                    "error": (
+                        f"{active['count']} transfer(s) in progress: " + ", ".join(names[:10])
+                        + ("…" if len(names) > 10 else "")
+                        + ".\nUpdating restarts the worker and interrupts them (they can be resumed with Retry). "
+                        "Wait until they finish, or update anyway."
+                    ),
+                },
+                status_code=409,
+            )
+
+    # ── Step 1: git pull, keeping local edits ─────────────────────────────────
     try:
         subprocess.run(
             ["git", "config", "--global", "--add", "safe.directory", WORKSPACE],
@@ -98,14 +144,7 @@ def do_update():
             ["git", "config", "--global", "url.https://github.com/.insteadOf", "git@github.com:"],
             capture_output=True, timeout=10,
         )
-        result = subprocess.run(
-            ["git", "-C", WORKSPACE, "pull", "--ff-only"],
-            capture_output=True, text=True, timeout=60,
-            env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
-        )
-        git_output = (result.stdout + result.stderr).strip()
-        if result.returncode != 0:
-            return JSONResponse({"success": False, "error": git_output}, status_code=500)
+        pull = updater.pull_keeping_local_changes(WORKSPACE)
     except FileNotFoundError:
         return JSONResponse(
             {
@@ -123,49 +162,56 @@ def do_update():
     except Exception as e:
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
+    if not pull["ok"]:
+        logger.warning(f"update aborted: {pull['error']}")
+        return JSONResponse({"success": False, "error": pull["error"], "local_changes_log": pull.get("log", [])},
+                            status_code=500)
+
+    git_output = pull["output"]
+    changed    = pull["changed_files"]
     logger.info(f"git pull completed: {git_output}")
     _invalidate_version_cache()
 
-    needs_rebuild   = any(k in result.stdout for k in ["requirements.txt", "Dockerfile"])
-    needs_migration = "alembic/versions" in result.stdout
+    if not changed:
+        return JSONResponse({
+            "success": True, "git_output": git_output or "Already up to date.",
+            "local_changes_log": pull["log"], "migration_log": [], "restart_log": [], "warnings": [],
+            "needs_rebuild": False, "needs_compose_up": False,
+        })
 
-    # ── Step 2: run migrations if needed ─────────────────────────────────────
-    migration_log = []
-    if needs_migration:
-        try:
-            client = docker.from_env()
-            backend = client.containers.get("fastapi_gateway_backend")
-            exit_code, output = backend.exec_run(
-                ["alembic", "upgrade", "head"],
-                workdir="/app",
-            )
-            migration_output = output.decode("utf-8", errors="replace").strip()
-            if exit_code == 0:
-                migration_log.append("migrations applied successfully")
-                logger.info(f"alembic upgrade head: {migration_output}")
-            else:
-                migration_log.append(f"migration failed (exit {exit_code}): {migration_output}")
-                logger.error(f"alembic upgrade head failed: {migration_output}")
-        except Exception as e:
-            migration_log.append(f"could not run migrations: {e}")
-            logger.error(f"migration error: {e}")
+    needs_rebuild    = any(f.endswith(("requirements.txt", "Dockerfile")) for f in changed)
+    needs_compose_up = any(os.path.basename(f) == "docker-compose.yml" for f in changed)
+
+    # ── Step 2: migrations — always, right after the pull, before any restart ──
+    # The backend reloads on the new files by itself, so run this as early as possible.
+    migrated, migration_output = _run_migrations()
+    migration_log = [migration_output or "database already up to date"]
+    warnings = []
+    if migrated:
+        logger.info(f"alembic upgrade head: {migration_output}")
+    else:
+        logger.error(f"alembic upgrade head failed: {migration_output}")
+        warnings.append(
+            "Database migration FAILED — the worker and watcher were NOT restarted and keep running the previous "
+            "version. Check the backend logs, then run on the server: "
+            "docker exec fastapi_gateway_backend alembic upgrade head"
+        )
 
     # ── Step 3: restart services via Docker SDK ───────────────────────────────
     # Frontend is restarted last in a background thread with a delay so the
     # response reaches the browser before the container shuts down.
     #
     # NOTE: this only restarts containers that already exist, on their current
-    # (already-built) image. It does NOT rebuild images or create containers
-    # for services newly added to docker-compose.yml. When a change touches
-    # a Dockerfile/requirements.txt or adds a new service, an admin must also
-    # run `docker compose up -d --build` from the host once, manually.
+    # (already-built) image. It does NOT rebuild images or apply docker-compose.yml
+    # changes; those need `docker compose up -d --build` on the host (reported below).
     restart_log = []
     frontend_name = "fastapi_gateway_frontend"
+    restart = [n for n in _RESTART_ORDER if n != frontend_name]
+    if not migrated:
+        restart = []  # new code on an old schema would fail — keep the previous version running
     try:
         client = docker.from_env()
-        for name in _RESTART_ORDER:
-            if name == frontend_name:
-                continue  # handled below
+        for name in restart:
             try:
                 client.containers.get(name).restart()
                 restart_log.append(f"restarted {name}")
@@ -189,11 +235,17 @@ def do_update():
     threading.Thread(target=_restart_frontend, daemon=True).start()
     restart_log.append(f"restarting {frontend_name} in 3 s…")
 
+    if needs_compose_up:
+        warnings.append("docker-compose.yml changed — to apply it, run on the server: docker compose up -d")
+
     return JSONResponse({
         "success": True,
         "git_output": git_output,
+        "local_changes_log": pull["log"],
         "migration_log": migration_log,
         "restart_log": restart_log,
+        "warnings": warnings,
         "needs_rebuild": needs_rebuild,
-        "needs_migration": needs_migration,
+        "needs_compose_up": needs_compose_up,
+        "needs_migration": True,
     })

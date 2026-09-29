@@ -5,6 +5,24 @@ from shared_templates import templates
 
 CHANGELOG = [
     {
+        "version": "1.2.1",
+        "date": "2026-09-30",
+        "sections": {
+            "Bug Fixes": [
+                "Fixed Settings → Update failing at sites that had edited docker-compose.yml (e.g. to add an instrument) — local edits are now set aside during the update and put back afterwards; if they overlap with the new version, the update is rolled back cleanly and the site stays on its current version with its changes intact",
+                "The database update (alembic upgrade head) now always runs during Update instead of only when migration files were detected in git's output",
+                "A failed database update is now reported as a warning, and the worker and watcher keep running the previous version instead of being restarted on code that needs the new schema",
+                "Reverted the DB_HOST_PORT change to docker-compose.yml from 1.2.0 so sites on 1.1.x with an edited docker-compose.yml can update with their current Update button; set a different host port in docker-compose.override.yml instead",
+            ],
+            "Improvements": [
+                "Update asks for confirmation when transfers are running, because restarting the worker interrupts them",
+                "Update does nothing and restarts nothing when the site is already up to date, and reports when docker-compose.yml, a Dockerfile or requirements.txt changed and a manual 'docker compose up -d --build' is needed",
+                "The latest-version check is cached for 15 minutes (it ran on every page load and could hit GitHub's rate limit); the Check button on the Settings page always asks GitHub directly",
+                "Site-specific settings such as additional instrument folders go into the git-ignored docker-compose.override.yml (see docker-compose.override.example.yml and the README), so updates never conflict with them",
+            ],
+        },
+    },
+    {
         "version": "1.2.0",
         "date": "2026-09-29",
         "sections": {

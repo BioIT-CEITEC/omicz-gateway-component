@@ -28,3 +28,6 @@ backend/alembic/versions/__pycache__/
 manuscript/
 
 backend/k8s_proxy_config/kubeconfig.yaml
+
+# site-specific compose settings (see docker-compose.override.example.yml)
+docker-compose.override.yml

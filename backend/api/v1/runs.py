@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 
 from schemas.runs import ShowRun
 from schemas.runs_status_history import ShowRunsStatusHistory
+from schemas.run_directories import ShowRunDirectory
+from db.models.run_directories import RunDirectories
 from schemas.pagination import PaginatedResponse
 from db.session import get_db
 from db.repositories.runs import get_all_runs, count_runs, get_run_by_uuid, get_runs_by_sequencer, delete_run, get_queued_runs, count_queued_runs, get_failed_pipeline_runs
@@ -64,6 +66,32 @@ def get_history(uuid: UUID, db: Session = Depends(get_db)):
     return get_run_history(run_uuid=uuid, db=db)
 
 
+@router.get("/{uuid}/directories", response_model=list[ShowRunDirectory])
+def list_directories(uuid: UUID, db: Session = Depends(get_db)):
+    """Top-level directories tracked by directory stability (empty for other completion methods)."""
+    get_run_by_uuid(uuid=uuid, db=db)
+    return db.query(RunDirectories).filter(RunDirectories.run_uuid == uuid).order_by(RunDirectories.name).all()
+
+
+@router.post("/directories/{dir_uuid}/retry", status_code=status.HTTP_202_ACCEPTED)
+def retry_directory(dir_uuid: UUID, db: Session = Depends(get_db)):
+    """Re-queue a directory whose early upload failed. Only while the run is still running."""
+    row = db.query(RunDirectories).filter(RunDirectories.uuid == dir_uuid).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Directory not found")
+    run = get_run_by_uuid(uuid=row.run_uuid, db=db)
+    if row.state != "failed" or run.status != "running":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Cannot retry: directory is '{row.state}', run is '{run.status}'"
+        )
+    row.state  = "queued"
+    row.detail = None
+    db.commit()
+    publish("run_directory_upload_requested", run.name, run.sequencer_uuid, directory=row.name)
+    return {"detail": "Queued"}
+
+
 @router.get("/{uuid}/verify-check")
 def verify_check(uuid: UUID, db: Session = Depends(get_db)):
     """
@@ -103,7 +131,9 @@ def start_upload(uuid: UUID, db: Session = Depends(get_db)):
     Sets status to 'queued' immediately so the UI reflects the pending state.
     """
     run = get_run_by_uuid(uuid=uuid, db=db)
-    if run.status not in ("running_finished", "move_failed", "verify_failed", "failed"):
+    # transfer_conflict: a person has checked the changed directory and chooses to finalize anyway —
+    # changed files are re-hashed, so the manifest matches the disk; the TRE check decides the outcome
+    if run.status not in ("running_finished", "move_failed", "verify_failed", "failed", "transfer_conflict"):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Cannot start upload: run is '{run.status}'"
@@ -112,11 +142,12 @@ def start_upload(uuid: UUID, db: Session = Depends(get_db)):
     if prev_status == "verify_failed":
         # Skip queued — go straight to verifying so any stale run_upload_requested
         # events in the queue are discarded by the upload handler guard.
+        # The worker's verifier thread polls every 'verifying' run; the new history
+        # entry restarts its wait. No queue message needed.
         run.status = "verifying"
         db.commit()
         db.refresh(run)
         add_run_status_history(run_uuid=run.uuid, status="verifying", db=db)
-        publish("run_verify_requested", run.name, run.sequencer_uuid)
     else:
         run.status = "queued"
         run.checksum_file = None  # clear stale checksum so worker re-checksums from scratch

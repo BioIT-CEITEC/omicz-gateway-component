@@ -23,6 +23,7 @@
   {% for st in data.results %}
 
   {% set is_signal = st.completion_method == 'signal' %}
+  {% set is_directory = st.completion_method == 'directory_stability' %}
 
   <a href="/instrument-models/{{ st.uuid }}"
      class="group bg-white rounded-xl border border-gray-100 p-5 hover:border-[#0C2461]/20 hover:shadow-sm transition block">
@@ -32,7 +33,7 @@
       <div class="flex items-center gap-3 min-w-0">
         {# Icon block #}
         <div class="flex items-center justify-center w-9 h-9 rounded-lg shrink-0
-          {% if is_signal %}bg-blue-50 text-blue-500{% else %}bg-amber-50 text-amber-500{% endif %}">
+          {% if is_signal %}bg-blue-50 text-blue-500{% elif is_directory %}bg-emerald-50 text-emerald-600{% else %}bg-amber-50 text-amber-500{% endif %}">
           {% if is_signal %}
           {# Signal / file icon #}
           <svg class="w-4.5 h-4.5 w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
@@ -49,7 +50,7 @@
         <div class="min-w-0">
           <h2 class="text-sm font-semibold text-gray-900 group-hover:text-[#0C2461] transition leading-tight truncate">{{ st.name }}</h2>
           <p class="text-[11px] text-gray-400 mt-0.5">
-            {% if is_signal %}Signal detection{% else %}File stability{% endif %}
+            {% if is_signal %}Signal detection{% elif is_directory %}Directory stability{% else %}File stability{% endif %}
           </p>
         </div>
       </div>
@@ -59,6 +60,11 @@
       <span class="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-blue-500 border border-blue-100">
         <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/></svg>
         Signal
+      </span>
+      {% elif is_directory %}
+      <span class="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-600 border border-emerald-100">
+        <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/></svg>
+        Directory
       </span>
       {% else %}
       <span class="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-500 border border-amber-100">
@@ -92,6 +98,15 @@
         </span>
       </div>
 
+      {% elif is_directory %}
+      <div>
+        <p class="text-[10px] text-gray-400 uppercase tracking-wide font-medium mb-0.5">Send folder after</p>
+        <p class="text-gray-700 font-medium">{% if st.dir_stability_minutes %}{{ st.dir_stability_minutes }} min{% else %}—{% endif %}</p>
+      </div>
+      <div>
+        <p class="text-[10px] text-gray-400 uppercase tracking-wide font-medium mb-0.5">Run complete after</p>
+        <p class="text-gray-700 font-medium">{% if st.run_stability_minutes %}{{ st.run_stability_minutes }} min{% else %}—{% endif %}</p>
+      </div>
       {% else %}
       {# Watched files #}
       <div class="col-span-2">

@@ -25,6 +25,10 @@ class SequencerTypes(Base):
     stability_files             = Column(JSON, nullable=True)     # list of exact filenames to monitor
     stability_threshold_minutes = Column(Integer, nullable=True, default=10, server_default="10")
 
+    # --- directory_stability method fields (used when completion_method = "directory_stability") ---
+    dir_stability_minutes = Column(Integer, nullable=True, default=10, server_default="10")  # quiet time before a top-level directory is sent
+    run_stability_minutes = Column(Integer, nullable=True, default=60, server_default="60")  # quiet time before the whole run is finalized
+
     is_deleted        = Column(Boolean, nullable=False, default=False, server_default="false")
 
     # reverse relationship: one type → many sequencers

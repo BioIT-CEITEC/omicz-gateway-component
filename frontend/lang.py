@@ -42,6 +42,7 @@ LANG: dict[str, str] = {
     "status_move_failed":      "Data Transfer Failed",
     "status_verify_failed":    "Transfer Validation Failed",
     "status_failed":           "Failed",
+    "status_transfer_conflict": "Transfer Conflict",
 
     # ── Pipeline stepper stage labels ─────────────────────────────────────────
     "stepper_sequencing":      "Data Acquisition",

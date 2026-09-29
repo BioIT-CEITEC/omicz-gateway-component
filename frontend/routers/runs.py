@@ -6,7 +6,7 @@ from fastapi.responses import RedirectResponse
 from routers.settings import get_setting_value
 
 
-_TERMINAL = {"completed", "failed", "move_failed", "verify_failed", "running_finished"}
+_TERMINAL = {"completed", "failed", "move_failed", "verify_failed", "running_finished", "transfer_conflict"}
 
 
 def _fmt_seconds(delta: int) -> str:
@@ -102,9 +102,11 @@ def detail_run(request: Request, uuid: str):
     run = safe_json(response, fallback={})
     history_response = httpx.get(f"{BACKEND_URL}/runs/{uuid}/history")
     history = safe_json(history_response, fallback=[])
+    directories = safe_json(httpx.get(f"{BACKEND_URL}/runs/{uuid}/directories"), fallback=[])
     return templates.TemplateResponse(request, "runs/detail.html", {
         "run": run,
         "history": history,
+        "directories": directories,
         "duration": _fmt_duration(run),
         "sequencing_duration": _fmt_sequencing_duration(run, history),
         "active_refresh": get_setting_value("active_refresh_interval", 5),
@@ -119,7 +121,8 @@ def history_data(uuid: str):
     history_res = httpx.get(f"{BACKEND_URL}/runs/{uuid}/history")
     run     = safe_json(run_res,     fallback={})
     history = safe_json(history_res, fallback=[])
-    return {"status": run.get("status"), "progress": run.get("progress"), "progress_updated_at": run.get("updated_at"), "history": history}
+    directories = safe_json(httpx.get(f"{BACKEND_URL}/runs/{uuid}/directories"), fallback=[])
+    return {"status": run.get("status"), "progress": run.get("progress"), "progress_updated_at": run.get("updated_at"), "history": history, "directories": directories}
 
 
 # ── QUEUE
@@ -150,6 +153,13 @@ def cancel_upload(request: Request, uuid: str):
 @router.post("/{uuid}/recheck")
 def recheck_run(request: Request, uuid: str):
     httpx.post(f"{BACKEND_URL}/runs/{uuid}/recheck")
+    return RedirectResponse(url=f"/acquisition-runs/{uuid}", status_code=303)
+
+
+# ── RETRY A FAILED DIRECTORY UPLOAD (directory stability)
+@router.post("/{uuid}/directories/{dir_uuid}/retry")
+def retry_directory(request: Request, uuid: str, dir_uuid: str):
+    httpx.post(f"{BACKEND_URL}/runs/directories/{dir_uuid}/retry")
     return RedirectResponse(url=f"/acquisition-runs/{uuid}", status_code=303)
 
 

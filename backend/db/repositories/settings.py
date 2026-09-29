@@ -46,9 +46,15 @@ DEFAULTS = [
     # ── Verification ──────────────────────────────────────────────────────────
     {
         "key": "verify_retries",
-        "value": "10",
+        "value": "60",
         "category": "verification",
-        "description": "How many times to poll S3 waiting for TRE to place the checksum confirmation file",
+        "description": "How many times to poll S3 waiting for TRE to place the checksum confirmation file. Maximum wait = this × verify_interval (default 60 × 60 s = 1 hour)",
+    },
+    {
+        "key": "verify_minutes_per_100gb",
+        "value": "24",
+        "category": "verification",
+        "description": "Extra minutes of TRE wait per 100 GB of run data, on top of verify_retries × verify_interval (the TRE re-hashes all data before confirming). Default 24: 250 GB → 2 h, 1 TB → 5 h in total",
     },
     {
         "key": "verify_interval",
@@ -88,6 +94,12 @@ DEFAULTS = [
         "value": "60",
         "category": "watcher",
         "description": "Seconds between database polls for newly added sequencers (no watcher restart needed after adding a sequencer)",
+    },
+    {
+        "key": "dir_stability_poll_interval",
+        "value": "60",
+        "category": "watcher",
+        "description": "Seconds between directory stability checks. Each check walks every running run folder of instruments using the Directory Stability method",
     },
     # ── Backup ────────────────────────────────────────────────────────────────
     {

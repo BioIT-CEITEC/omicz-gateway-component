@@ -15,6 +15,9 @@ class Runs(Base):
     status       = Column(String, nullable=False, default="running", server_default="running")
     progress      = Column(Text, nullable=True)
     checksum_file = Column(String, nullable=True)  # e.g. "abc123.CHECKSUM", stored after checksumming
+    # directory_stability only: fingerprint of the whole run folder and when it last changed
+    activity_fingerprint = Column(String, nullable=True)
+    last_change_at       = Column(DateTime, nullable=True)
     is_deleted   = Column(Boolean, nullable=False, default=False, server_default="false")
     created_at   = Column(DateTime, default=datetime.now)
     updated_at   = Column(DateTime, default=datetime.now, onupdate=datetime.now)
@@ -24,3 +27,6 @@ class Runs(Base):
 
     # relationship: a run has many status history entries
     history = relationship("RunsStatusHistory", back_populates="run")
+
+    # relationship: a run has many top-level directories (directory_stability only)
+    directories = relationship("RunDirectories", back_populates="run")

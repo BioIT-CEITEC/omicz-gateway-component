@@ -5,6 +5,31 @@ from shared_templates import templates
 
 CHANGELOG = [
     {
+        "version": "1.2.0",
+        "date": "2026-09-29",
+        "sections": {
+            "New Features": [
+                "Directory stability completion method: each top-level folder of a run is sent to the TRE as soon as it has not changed for a set time, and the run is finalized once the whole run folder is quiet — checksums of folders already sent are reused",
+                "New Transfer Conflict status: a folder that changes after it was sent (file modified or deleted) puts the run on hold and lists the changed files, since uploaded files cannot be overwritten in the TRE",
+                "Directories panel on the run detail page with the state of every folder and a Retry button for failed folder uploads",
+                "Interrupted transfers resume: every file's checksum and upload is recorded, so Retry sends only the files that are missing and does not re-hash unchanged data",
+                "Dark mode, following the system setting by default, with a toggle in the sidebar",
+            ],
+            "Improvements": [
+                "TRE verification runs outside the transfer queue — the next run uploads while earlier runs wait for TRE confirmation (a burst of 5 runs finished in about 2 minutes instead of about 20)",
+                "TRE confirmation wait raised from 10 minutes to 1 hour, plus extra time for large runs (setting verify_minutes_per_100gb, default 24: 1 TB → 5 hours)",
+                "Runs waiting for TRE confirmation are resumed after a worker restart instead of being marked as failed",
+                "Upload progress is written to the database at most every 2 seconds instead of several times per MB",
+                "Database host port is configurable (DB_HOST_PORT, default 5432)",
+            ],
+            "Bug Fixes": [
+                "Fixed finished runs found at installation (backfill) never being transferred — they stayed at Acquisition Complete until the worker restarted",
+                "Fixed the worker losing its RabbitMQ connection during uploads or verifications longer than about 3 minutes (missed heartbeats), which restarted the worker and processed the task twice",
+                "Fixed runs being shown as Transfer Validation while only waiting in the queue after Retry Verification",
+            ],
+        },
+    },
+    {
         "version": "1.1.17",
         "date": "2026-08-10",
         "sections": {

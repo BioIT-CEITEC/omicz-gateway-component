@@ -16,6 +16,7 @@ from db.models.sequencers import Sequencers
 from db.models.runs import Runs
 from db.models.runs_status_history import RunsStatusHistory
 from services.publisher import publish
+from services import dir_stability
 from core.logger import get_logger
 from db.repositories.settings import get_setting_int
 
@@ -199,6 +200,7 @@ def scan_existing_runs(sequencer):
     try:
         added = 0
         skipped = 0
+        to_complete = []
 
         for entry in os.scandir(location):
             # only interested in subdirectories (run folders)
@@ -225,25 +227,30 @@ def scan_existing_runs(sequencer):
                 skipped += 1
                 continue
 
-            # infer status from whether the completion signal file exists
-            # for file_stability sequencers, we can't tell on startup — mark as running
+            # Every backfilled run is inserted as "running". Runs that already have their
+            # completion signal get run_completed AFTER the commit below, so the worker's
+            # normal handler moves them to running_finished and applies sent_to_tre.
+            # (Inserting them as running_finished and publishing before the commit made
+            # the worker either miss the row or ignore the event — backlog never sent.)
+            # For file/directory stability we can't tell on startup — the timers decide.
             run_folder  = os.path.join(location, run_name)
             completed   = is_completed(run_folder, sequencer)
-            status      = "running_finished" if completed else "running"
 
-            run = Runs(name=run_name, sequencer_uuid=sequencer.uuid, status=status)
+            run = Runs(name=run_name, sequencer_uuid=sequencer.uuid, status="running")
             db.add(run)
             db.flush()  # assigns run.uuid before we reference it below
-            db.add(RunsStatusHistory(run_uuid=run.uuid, status=status))
+            db.add(RunsStatusHistory(run_uuid=run.uuid, status="running"))
             added += 1
-            logger.info(f"backfill → {run_name} (status={status})")
-
-            # if completed, queue upload via RabbitMQ — the worker handles S3 upload
+            logger.info(f"backfill → {run_name} (completion signal present: {completed})")
             if completed:
-                publish("run_completed", run_name, sequencer.uuid)
+                to_complete.append(run_name)
 
         db.commit()
         logger.info(f"scan done for '{sequencer.name}': {added} added, {skipped} skipped")
+
+        # queue completion only now that the rows are committed and visible to the worker
+        for run_name in to_complete:
+            publish("run_completed", run_name, sequencer.uuid)
 
     finally:
         db.close()
@@ -344,6 +351,43 @@ def check_file_stability(sequencers: list, stability_tracker: dict):
                     del tracker[run_name]
 
 
+def check_directory_stability(sequencers: list):
+    """
+    For sequencers using the 'directory_stability' completion method:
+    fingerprints each top-level directory of every 'running' run, sends quiet
+    directories early and finalizes runs that stopped changing.
+    State lives in run_directories / runs, so a watcher restart does not reset timers.
+    See services/dir_stability.py.
+    """
+    for sequencer in sequencers:
+        if not sequencer.type or sequencer.type.completion_method != "directory_stability":
+            continue
+        if not os.path.isdir(sequencer.location):
+            continue
+
+        db = SESSION_LOCAL()
+        try:
+            runs = (
+                db.query(Runs)
+                .filter(
+                    Runs.sequencer_uuid == sequencer.uuid,
+                    Runs.status == "running",
+                    Runs.is_deleted == False,
+                )
+                .all()
+            )
+            for run in runs:
+                try:
+                    dir_stability.process_run(run, sequencer, db, publish)
+                except Exception as e:
+                    db.rollback()
+                    logger.error(f"directory stability: error checking '{run.name}': {e}", exc_info=True)
+        except Exception as e:
+            logger.error(f"directory stability: failed to query runs for '{sequencer.name}': {e}")
+        finally:
+            db.close()
+
+
 _signal_published: set = set()  # run UUIDs already published this process lifetime
 
 
@@ -404,6 +448,7 @@ def check_signal_files(sequencers: list):
 _SEQUENCER_CHECK_INTERVAL_DEFAULT = 60
 _RUN_DETECTION_DELAY_DEFAULT      = 15
 _RUN_SCAN_INTERVAL_DEFAULT        = 120  # re-scan run folders every 2 min to catch PollingObserver misses
+_DIR_STABILITY_POLL_DEFAULT       = 60   # full walk of running runs — heavier than the 10s checks
 
 
 def watch_sequencer(sequencer, observer, watched_uuids: set, stability_tracker: dict):
@@ -455,6 +500,7 @@ def start():
     seq_elapsed         = 0
     stability_elapsed   = 0
     run_scan_elapsed    = 0
+    dir_stability_elapsed = 0
     _STABILITY_POLL_INTERVAL = 10  # check stability every 10s (independent of sequencer poll)
 
     try:
@@ -463,12 +509,18 @@ def start():
             seq_elapsed       += 1
             stability_elapsed += 1
             run_scan_elapsed  += 1
+            dir_stability_elapsed += 1
 
             # ── stability + signal check (every 10s) ──────────────────────────
             if stability_elapsed >= _STABILITY_POLL_INTERVAL:
                 stability_elapsed = 0
                 check_file_stability(current_sequencers, stability_tracker)
                 check_signal_files(current_sequencers)
+
+            # ── directory stability (every 60s by default) ────────────────────
+            if dir_stability_elapsed >= get_setting_int("dir_stability_poll_interval", _DIR_STABILITY_POLL_DEFAULT):
+                dir_stability_elapsed = 0
+                check_directory_stability(current_sequencers)
 
             # ── periodic run scan (every 2 min) — catch folders missed by PollingObserver ──
             # The PollingObserver can miss on_created when a folder is renamed on an SMB/NFS

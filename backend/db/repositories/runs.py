@@ -85,7 +85,7 @@ def count_queued_runs(db: Session) -> int:
     )
 
 
-FAILED_PIPELINE_STATUSES = ["move_failed", "verify_failed", "failed"]
+FAILED_PIPELINE_STATUSES = ["move_failed", "verify_failed", "failed", "transfer_conflict"]
 
 
 def get_failed_pipeline_runs(db: Session) -> list:

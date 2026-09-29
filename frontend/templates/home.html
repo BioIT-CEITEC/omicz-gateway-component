@@ -97,7 +97,7 @@
   </a>
 
   {# Failed #}
-  <a href="/acquisition-runs/?status=move_failed&status=verify_failed&status=failed" class="bg-white rounded-xl border border-gray-100 px-4 py-4 hover:border-red-200 hover:shadow-sm transition group">
+  <a href="/acquisition-runs/?status=move_failed&status=verify_failed&status=failed&status=transfer_conflict" class="bg-white rounded-xl border border-gray-100 px-4 py-4 hover:border-red-200 hover:shadow-sm transition group">
     <div class="flex items-center justify-between mb-2">
       <span class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">{{ lang.status_failed }}</span>
       <span class="w-2 h-2 rounded-full {% if stats.failed > 0 %}bg-red-400{% else %}bg-gray-200{% endif %}"></span>
@@ -199,7 +199,7 @@
         <a href="/acquisition-runs/{{ run.uuid }}" class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition">
           <span class="w-2 h-2 shrink-0 rounded-full
             {% if s == 'completed' %}bg-green-400
-            {% elif s in ('move_failed','verify_failed','failed') %}bg-red-400
+            {% elif s in ('move_failed','verify_failed','failed','transfer_conflict') %}bg-red-400
             {% elif s in ('queued','checksumming','moving','verifying') %}bg-amber-400
             {% elif s == 'running_finished' %}bg-indigo-400
             {% elif s == 'running' %}bg-blue-400
@@ -210,7 +210,7 @@
           </div>
           <span class="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border
             {% if s == 'completed' %}bg-green-50 text-green-600 border-green-100
-            {% elif s in ('move_failed','verify_failed','failed') %}bg-red-50 text-red-500 border-red-100
+            {% elif s in ('move_failed','verify_failed','failed','transfer_conflict') %}bg-red-50 text-red-500 border-red-100
             {% elif s in ('queued','checksumming','moving','verifying') %}bg-amber-50 text-amber-600 border-amber-100
             {% elif s == 'running_finished' %}bg-indigo-50 text-indigo-500 border-indigo-100
             {% elif s == 'running' %}bg-blue-50 text-blue-500 border-blue-100
@@ -224,6 +224,7 @@
             {% elif s == 'move_failed' %}{{ lang.status_move_failed }}
             {% elif s == 'verify_failed' %}{{ lang.status_verify_failed }}
             {% elif s == 'failed' %}{{ lang.status_failed }}
+            {% elif s == 'transfer_conflict' %}{{ lang.status_transfer_conflict }}
             {% else %}{{ s | replace('_', ' ') | title }}{% endif %}
           </span>
         </a>
@@ -264,7 +265,7 @@
     </div>
 
     {% if stats.failed > 0 %}
-    <a href="/acquisition-runs/?status=move_failed&status=verify_failed&status=failed"
+    <a href="/acquisition-runs/?status=move_failed&status=verify_failed&status=failed&status=transfer_conflict"
        class="bg-red-50 border border-red-100 rounded-xl px-5 py-4 flex items-start gap-3 hover:bg-red-100 transition">
       <svg class="w-4 h-4 text-red-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/>
@@ -287,6 +288,9 @@
 Chart.defaults.font.family = 'ui-sans-serif, system-ui, sans-serif';
 Chart.defaults.font.size = 10;
 Chart.defaults.color = '#9ca3af';
+const DARK = document.documentElement.classList.contains('dark');
+const GRID_COLOR  = DARK ? '#1f2a3e' : '#f3f4f6';
+const EMPTY_COLOR = DARK ? '#283548' : '#e5e7eb';
 
 // ── Status Donut ──
 (function() {
@@ -334,7 +338,7 @@ Chart.defaults.color = '#9ca3af';
       labels,
       datasets: [{
         data: values,
-        backgroundColor: values.map(v => v > 0 ? '#6366f1' : '#e5e7eb'),
+        backgroundColor: values.map(v => v > 0 ? '#6366f1' : EMPTY_COLOR),
         borderRadius: 3,
         borderSkipped: false,
       }]
@@ -345,7 +349,7 @@ Chart.defaults.color = '#9ca3af';
       }},
       scales: {
         x: { grid: { display: false }, ticks: { maxRotation: 0, maxTicksLimit: 7 } },
-        y: { grid: { color: '#f3f4f6' }, ticks: { stepSize: 1, precision: 0 }, beginAtZero: true },
+        y: { grid: { color: GRID_COLOR }, ticks: { stepSize: 1, precision: 0 }, beginAtZero: true },
       },
       animation: { duration: 600 },
     }
@@ -377,7 +381,7 @@ Chart.defaults.color = '#9ca3af';
         callbacks: { label: t => ` ${t.raw} run${t.raw !== 1 ? 's' : ''}` }
       }},
       scales: {
-        x: { grid: { color: '#f3f4f6' }, ticks: { stepSize: 1, precision: 0 }, beginAtZero: true },
+        x: { grid: { color: GRID_COLOR }, ticks: { stepSize: 1, precision: 0 }, beginAtZero: true },
         y: { grid: { display: false }, ticks: {
           callback: function(val) {
             const lbl = this.getLabelForValue(val);

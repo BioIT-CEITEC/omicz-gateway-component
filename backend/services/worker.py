@@ -17,8 +17,14 @@ from db.repositories.runs import create_run, update_run_status
 from db.repositories.runs_status_history import add_run_status_history
 import glob
 
-from services.checksum import create_checksum_file, find_file_by_hash, _fmt_bytes
-from services.tre import send_to_tre, verify_checksum_on_s3, find_checksum_filename_in_s3
+from services.checksum import create_checksum_file, find_file_by_hash, _fmt_bytes, _sha256
+from services.tre import send_to_tre, check_verify_status, find_checksum_filename_in_s3, upload_file_list
+from db.models.runs_status_history import RunsStatusHistory
+from sqlalchemy import func
+from services import dir_stability
+from db.models.run_directories import RunDirectories
+from db.models.run_files import RunFiles
+from datetime import datetime
 from db.repositories.settings import get_setting_int
 from core.logger import get_logger
 
@@ -55,8 +61,31 @@ def resolve_verify_detail(tre_error: str | None, run_folder: str, retries: int) 
     return tre_error
 
 
+PROGRESS_MIN_INTERVAL = 2.0  # seconds between progress writes to the DB
+
+
+def _throttled(write, min_interval: float = PROGRESS_MIN_INTERVAL):
+    """
+    Wrap a progress writer so it hits the DB at most once per min_interval.
+    boto3 reports upload progress about 4× per MB (~4 million times per TB); writing
+    each one to the DB under the upload lock slowed large transfers. The first and
+    the final update (done == total) are always written.
+    """
+    last = [0.0]
+
+    def callback(done: int, total: int, bytes_done: int, total_bytes: int):
+        now = time.monotonic()
+        final = total_bytes and bytes_done >= total_bytes or (total and done >= total)
+        if not final and last[0] and now - last[0] < min_interval:
+            return
+        last[0] = now
+        write(done, total, bytes_done, total_bytes)
+    return callback
+
+
 def _make_progress_callback(run_uuid):
-    """Returns a callback that writes checksumming progress to the run's progress column."""
+    """Returns a (throttled) callback that writes checksum / upload progress to the run's progress column."""
+    @_throttled
     def callback(done: int, total: int, bytes_done: int, total_bytes: int):
         text = f"{_fmt_bytes(bytes_done)} / {_fmt_bytes(total_bytes)}"
         db = SESSION_LOCAL()
@@ -93,7 +122,152 @@ def get_sequencer(sequencer_uuid) -> Sequencers | None:
     """
     db = SESSION_LOCAL()
     try:
-        return db.query(Sequencers).filter(Sequencers.uuid == sequencer_uuid).first()
+        sequencer = db.query(Sequencers).filter(Sequencers.uuid == sequencer_uuid).first()
+        if sequencer:
+            _ = sequencer.type  # load relationship while session is open
+        return sequencer
+    finally:
+        db.close()
+
+
+def _uses_directory_stability(sequencer) -> bool:
+    return bool(sequencer.type and sequencer.type.completion_method == "directory_stability")
+
+
+def record_digests(run_uuid, digests: dict[str, tuple[int, int, str]], db):
+    """
+    Store {rel_path: (size, mtime_ns, sha256)} from the checksum step in run_files.
+    A file that is unchanged (same size, mtime and digest) keeps its 'uploaded' flag, so a
+    retry does not send it again; anything else is recorded as not uploaded.
+    """
+    existing = {f.rel_path: f for f in db.query(RunFiles).filter(RunFiles.run_uuid == run_uuid).all()}
+    for rel, (size, mtime_ns, sha) in digests.items():
+        f = existing.get(rel)
+        if f is None:
+            db.add(RunFiles(run_uuid=run_uuid, rel_path=rel, size=size, mtime_ns=mtime_ns, sha256=sha, uploaded=False))
+        elif (f.size, f.mtime_ns, f.sha256) != (size, mtime_ns, sha):
+            f.size, f.mtime_ns, f.sha256, f.uploaded = size, mtime_ns, sha, False
+    db.commit()
+
+
+def mark_uploaded(run_uuid, rel_path: str, db):
+    """Flag one file as uploaded (it was hashed in the checksum step). Unknown paths (the .CHECKSUM) are ignored."""
+    f = db.query(RunFiles).filter(RunFiles.run_uuid == run_uuid, RunFiles.rel_path == rel_path).first()
+    if f is not None and not f.uploaded:
+        f.uploaded = True
+        db.commit()
+
+
+class DirectoryConflict(Exception):
+    pass
+
+
+def _dir_progress_callback(dir_uuid):
+    """Returns a (throttled) callback that writes upload progress to the directory's progress column."""
+    @_throttled
+    def callback(done: int, total: int, bytes_done: int, total_bytes: int):
+        db = SESSION_LOCAL()
+        try:
+            row = db.query(RunDirectories).filter(RunDirectories.uuid == dir_uuid).first()
+            if row:
+                row.progress = f"{done} / {total} files · {_fmt_bytes(bytes_done)} / {_fmt_bytes(total_bytes)}"
+                db.commit()
+        except Exception as e:
+            logger.warning(f"failed to update progress for directory {dir_uuid}: {e}")
+        finally:
+            db.close()
+    return callback
+
+
+def handle_run_directory_upload_requested(name: str, sequencer_uuid, directory: str):
+    """
+    Directory stability: one top-level directory of a still-running run has been quiet
+    for dir_stability_minutes. Hash and upload the files in it that were not sent yet.
+    No .CHECKSUM is uploaded here — the TRE trigger is only sent at finalization.
+      queued → uploading → sent
+                         → failed    (upload error — Retry, or finalization picks the files up)
+                         → conflict  (an already-sent file changed — run goes to transfer_conflict)
+    """
+    logger.info(f"run_directory_upload_requested → name={name} directory={directory} sequencer_uuid={sequencer_uuid}")
+    db = SESSION_LOCAL()
+    try:
+        sequencer = get_sequencer(sequencer_uuid)
+        run = db.query(Runs).filter(Runs.name == name, Runs.sequencer_uuid == sequencer_uuid).first()
+        row = run and db.query(RunDirectories).filter(RunDirectories.run_uuid == run.uuid, RunDirectories.name == directory).first()
+        if not sequencer or not run or not row or run.is_deleted or run.status != "running" or row.state != dir_stability.QUEUED:
+            logger.warning(f"run_directory_upload_requested ignored for '{name}/{directory}' — "
+                           f"run_status={run.status if run else None} dir_state={row.state if row else None}")
+            return
+
+        row.state    = dir_stability.UPLOADING
+        row.detail   = None
+        row.progress = "scanning files…"
+        db.commit()
+
+        run_folder = os.path.join(sequencer.location, name)
+        dir_path   = os.path.join(run_folder, directory)
+        current    = dir_stability.scan_tree(dir_path, sequencer.exclusions or [], prefix=directory)
+        uploaded   = dir_stability.uploaded_files(run.uuid, db, directory)
+
+        modified, deleted = dir_stability.diff_uploaded(current, uploaded)
+        if modified or deleted:
+            raise DirectoryConflict(dir_stability.conflict_detail(directory, modified, deleted))
+
+        pending = sorted(rel for rel in current if rel not in uploaded)
+        logger.info(f"[dir upload] {name}/{directory}: {len(pending)} file(s) to send, {len(uploaded)} already sent")
+
+        # hash first; the digest is only trusted if the file is unchanged after the upload
+        hashed: dict[str, tuple[int, int, str]] = {}
+        for i, rel in enumerate(pending, 1):
+            size, mtime_ns = current[rel]
+            hashed[rel] = (size, mtime_ns, _sha256(os.path.join(run_folder, rel)))
+            if i % 100 == 0 or i == len(pending):
+                row.progress = f"hashing {i} / {len(pending)} files"
+                db.commit()
+
+        def _record(local_path, relative_path):
+            rel = os.path.relpath(local_path, run_folder).replace(os.sep, "/")
+            size, mtime_ns, digest = hashed[rel]
+            st = os.stat(local_path)
+            if (st.st_size, st.st_mtime_ns) != (size, mtime_ns):
+                raise DirectoryConflict(dir_stability.conflict_detail(directory, [rel], []))
+            f = db.query(RunFiles).filter(RunFiles.run_uuid == run.uuid, RunFiles.rel_path == rel).first()
+            if f is None:
+                f = RunFiles(run_uuid=run.uuid, rel_path=rel)
+                db.add(f)
+            f.size, f.mtime_ns, f.sha256, f.uploaded = size, mtime_ns, digest, True
+            db.commit()
+
+        if pending:
+            upload_file_list(
+                [(os.path.join(run_folder, rel), os.path.join(name, rel)) for rel in pending],
+                sequencer.slug,
+                on_progress=_dir_progress_callback(row.uuid),
+                on_file_done=_record,
+            )
+
+        db.refresh(row)
+        row.state    = dir_stability.SENT
+        row.sent_at  = datetime.now()
+        row.progress = None
+        db.commit()
+        logger.info(f"[dir upload] {name}/{directory} sent")
+
+    except DirectoryConflict as e:
+        logger.warning(f"[dir upload] conflict in '{name}/{directory}': {e}")
+        db.rollback()
+        row.state, row.detail, row.progress = dir_stability.CONFLICT, str(e), None
+        db.commit()
+        if run.status == "running":
+            dir_stability.mark_run_conflict(run, db, str(e))
+    except Exception as e:
+        logger.error(f"[dir upload] FAILED for '{name}/{directory}': {e}", exc_info=True)
+        try:
+            db.rollback()
+            row.state, row.detail, row.progress = dir_stability.FAILED, str(e), None
+            db.commit()
+        except Exception:
+            pass
     finally:
         db.close()
 
@@ -205,7 +379,13 @@ def handle_run_checksum_requested(name: str, sequencer_uuid):
         add_run_status_history(run_uuid=run.uuid, status="checksumming", db=db)
         logger.info(f"status updated to 'checksumming' for run '{name}'")
 
-        checksum_path = create_checksum_file(run_name=name, sequencer_location=sequencer.location, exclusions=sequencer.exclusions or [], on_progress=_make_progress_callback(run.uuid))
+        # reuse digests of files hashed before (sent early by directory stability, or an earlier
+        # attempt of this run) when size and mtime are unchanged — no re-hashing of terabytes on retry
+        known   = dir_stability.known_digests(run.uuid, db)
+        digests = {}
+        checksum_path = create_checksum_file(run_name=name, sequencer_location=sequencer.location, exclusions=sequencer.exclusions or [], on_progress=_make_progress_callback(run.uuid), known_digests=known,
+                                             on_digest=lambda rel, size, mtime_ns, sha: digests.__setitem__(rel, (size, mtime_ns, sha)))
+        record_digests(run.uuid, digests, db)
 
         # checksumming done — store filename in DB, set queued, clear progress
         run_obj = db.query(Runs).filter(Runs.uuid == run.uuid).first()
@@ -264,7 +444,13 @@ def handle_run_upload_requested(name: str, sequencer_uuid):
         add_run_status_history(run_uuid=run.uuid, status="moving", db=db)
         logger.info(f"status updated to 'moving' for run '{name}'")
 
-        send_to_tre(run_name=name, sequencer_location=sequencer.location, sequencer_slug=sequencer.slug, exclusions=sequencer.exclusions or [], on_progress=_make_progress_callback(run.uuid))
+        # resume: files already sent (earlier attempt, or directory stability) are skipped when unchanged
+        already    = dir_stability.uploaded_files(run.uuid, db)
+        run_folder = os.path.join(sequencer.location, name)
+        if already:
+            logger.info(f"[upload] '{name}': {len(already)} file(s) already sent — skipped if unchanged")
+        send_to_tre(run_name=name, sequencer_location=sequencer.location, sequencer_slug=sequencer.slug, exclusions=sequencer.exclusions or [], on_progress=_make_progress_callback(run.uuid), already_uploaded=already,
+                    on_file_done=lambda local_path, _rel: mark_uploaded(run.uuid, os.path.relpath(local_path, run_folder).replace(os.sep, "/"), db))
         logger.info(f"run folder uploaded to S3 for run '{name}'")
 
     except Exception as e:
@@ -283,40 +469,17 @@ def handle_run_upload_requested(name: str, sequencer_uuid):
         db.close()
         return
 
-    # ── step 2: verify ────────────────────────────────────────────────────────
+    # ── step 2: hand over to the verifier ─────────────────────────────────────
+    # The TRE takes minutes to confirm. Waiting here would hold the single pipeline
+    # slot, so the next run could not upload. The verifier thread picks the run up.
     try:
         run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="verifying", db=db)
         run.progress = None
         db.commit()
         add_run_status_history(run_uuid=run.uuid, status="verifying", db=db)
-        logger.info(f"status updated to 'verifying' for run '{name}'")
-
-        run_folder = os.path.join(sequencer.location, name)
-        checksum_filename = resolve_checksum_filename(name, sequencer_uuid, db)
-        if not checksum_filename:
-            raise Exception("checksum filename not found in DB — re-upload required")
-
-        verified, tre_error = verify_checksum_on_s3(checksum_filename)
-        if not verified:
-            raise Exception(resolve_verify_detail(tre_error, run_folder, get_setting_int("verify_retries", 10)))
-
+        logger.info(f"status updated to 'verifying' for run '{name}' — verifier will poll the TRE")
     except Exception as e:
-        logger.error(f"[verify] FAILED for run '{name}': {e}", exc_info=True)
-        try:
-            run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="verify_failed", db=db)
-            add_run_status_history(run_uuid=run.uuid, status="verify_failed", db=db, detail=str(e))
-        except Exception:
-            pass
-        db.close()
-        return
-
-    # ── step 3: done ──────────────────────────────────────────────────────────
-    try:
-        run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="completed", db=db)
-        add_run_status_history(run_uuid=run.uuid, status="completed", db=db)
-        logger.info(f"status updated to 'completed' for run '{name}'")
-    except Exception as e:
-        logger.error(f"failed to mark run '{name}' as completed: {e}", exc_info=True)
+        logger.error(f"failed to set '{name}' to verifying: {e}", exc_info=True)
     finally:
         db.close()
 
@@ -350,7 +513,11 @@ def handle_run_rechecksum_requested(name: str, sequencer_uuid):
         add_run_status_history(run_uuid=run.uuid, status="checksumming", db=db)
         logger.info(f"status updated to 'checksumming' for run '{name}'")
 
-        checksum_path = create_checksum_file(run_name=name, sequencer_location=sequencer.location, exclusions=sequencer.exclusions or [], on_progress=_make_progress_callback(run.uuid))
+        # forced fresh checksum: hash everything again, but record the result so the upload can resume
+        digests = {}
+        checksum_path = create_checksum_file(run_name=name, sequencer_location=sequencer.location, exclusions=sequencer.exclusions or [], on_progress=_make_progress_callback(run.uuid),
+                                             on_digest=lambda rel, size, mtime_ns, sha: digests.__setitem__(rel, (size, mtime_ns, sha)))
+        record_digests(run.uuid, digests, db)
 
         # checksumming done — store filename in DB, set queued, clear progress
         run_obj = db.query(Runs).filter(Runs.uuid == run.uuid).first()
@@ -379,69 +546,119 @@ def handle_run_rechecksum_requested(name: str, sequencer_uuid):
 
 def handle_run_verify_requested(name: str, sequencer_uuid):
     """
-    Triggered when retrying from verify_failed.
-    Skips checksum and upload — goes straight to verification only.
+    Retry verification only. Verification itself runs in the verifier thread,
+    so this just (re)starts the wait by setting the run to 'verifying'.
+    Kept for messages published before the verifier existed.
     """
     logger.info(f"run_verify_requested → name={name} sequencer_uuid={sequencer_uuid}")
     db = SESSION_LOCAL()
-
-    sequencer = get_sequencer(sequencer_uuid)
-    if not sequencer:
-        logger.error(f"sequencer {sequencer_uuid} not found — cannot verify run '{name}'")
-        db.close()
-        return
-
     try:
-        existing_for_verify = db.query(Runs).filter(Runs.name == name, Runs.sequencer_uuid == sequencer_uuid).first()
-        if existing_for_verify and existing_for_verify.is_deleted:
-            logger.warning(f"run_verify_requested ignored for '{name}' — run is deleted")
-            db.close()
+        run = db.query(Runs).filter(Runs.name == name, Runs.sequencer_uuid == sequencer_uuid).first()
+        if not run or run.is_deleted or run.status in ("verifying", "completed"):
+            logger.info(f"run_verify_requested: nothing to do for '{name}' (status={run.status if run else None})")
             return
-        if existing_for_verify and existing_for_verify.status == "verifying":
-            # API already set status to verifying (verify-only retry path) — skip duplicate
-            run = existing_for_verify
-            logger.info(f"run '{name}' already 'verifying' — skipping status update")
-        else:
-            run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="verifying", db=db)
-            add_run_status_history(run_uuid=run.uuid, status="verifying", db=db)
-            logger.info(f"status updated to 'verifying' for run '{name}'")
+        run.status   = "verifying"
         run.progress = None
         db.commit()
-
-        run_folder = os.path.join(sequencer.location, name)
-        checksum_filename = resolve_checksum_filename(name, sequencer_uuid, db)
-        if not checksum_filename:
-            raise Exception("checksum filename not found in DB — re-upload required")
-
-        verified, tre_error = verify_checksum_on_s3(checksum_filename)
-        if not verified:
-            raise Exception(resolve_verify_detail(tre_error, run_folder, get_setting_int("verify_retries", 10)))
-
-        run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="completed", db=db)
-        add_run_status_history(run_uuid=run.uuid, status="completed", db=db)
-        logger.info(f"status updated to 'completed' for run '{name}'")
-
-    except Exception as e:
-        logger.error(f"[verify] FAILED for run '{name}': {e}", exc_info=True)
-        try:
-            run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="verify_failed", db=db)
-            add_run_status_history(run_uuid=run.uuid, status="verify_failed", db=db, detail=str(e))
-        except Exception:
-            pass
+        add_run_status_history(run_uuid=run.uuid, status="verifying", db=db)
     finally:
         db.close()
 
 
-def on_message(channel, method, properties, body):
-    """
-    Called by pika every time a message arrives from RabbitMQ.
+# ── TRE verifier ──────────────────────────────────────────────────────────────
 
-    Parameters:
-        channel    → the RabbitMQ channel (we use it to ack the message)
-        method     → delivery metadata (we need method.delivery_tag to ack)
-        properties → message properties (unused here)
-        body       → the raw message bytes
+def _verifying_since(run, db) -> datetime:
+    """When the current verification wait started (latest 'verifying' history entry)."""
+    since = (
+        db.query(func.max(RunsStatusHistory.created_at))
+        .filter(RunsStatusHistory.run_uuid == run.uuid, RunsStatusHistory.status == "verifying")
+        .scalar()
+    )
+    return since or run.updated_at or datetime.now()
+
+
+def _finish_verification(run, db, new_status: str, detail: str | None = None):
+    """Set completed / verify_failed — only if the run is still verifying (a retry or cancel may have changed it)."""
+    db.refresh(run)
+    if run.status != "verifying":
+        return
+    run.status = new_status
+    db.commit()
+    add_run_status_history(run_uuid=run.uuid, status=new_status, db=db, detail=detail)
+    log = logger.info if new_status == "completed" else logger.warning
+    log(f"[verifier] '{run.name}' → {new_status}" + (f": {detail}" if detail else ""))
+
+
+def check_verifying_run(run, db, now: datetime | None = None):
     """
+    One single-shot TRE check for one run in 'verifying':
+      empty file in checksums/  → completed
+      file with content         → verify_failed (TRE reported a problem)
+      not there yet / S3 error  → keep waiting until the deadline:
+                                  verify_retries × verify_interval, plus verify_minutes_per_100gb
+                                  per 100 GB of run data (1 h + 24 min/100 GB by default: 1 TB → 5 h)
+    """
+    now      = now or datetime.now()
+    retries  = get_setting_int("verify_retries", 60)
+    interval = get_setting_int("verify_interval", 60)
+    # the TRE re-hashes every byte before it confirms — large runs get extra time
+    per_100gb = get_setting_int("verify_minutes_per_100gb", 24)
+    run_bytes = db.query(func.coalesce(func.sum(RunFiles.size), 0)).filter(RunFiles.run_uuid == run.uuid).scalar() or 0
+    deadline  = retries * interval + int(run_bytes / 100e9 * per_100gb * 60)   # proportional to size
+
+    if not run.checksum_file:
+        _finish_verification(run, db, "verify_failed", "checksum filename not found in DB — re-upload required")
+        return
+
+    result = check_verify_status(run.checksum_file)
+    status = result.get("status")
+
+    if status == "success":
+        _finish_verification(run, db, "completed")
+    elif status == "failed":
+        sequencer  = get_sequencer(run.sequencer_uuid)
+        run_folder = os.path.join(sequencer.location, run.name) if sequencer else ""
+        _finish_verification(run, db, "verify_failed", resolve_verify_detail(result.get("detail"), run_folder, retries))
+    else:
+        waited = (now - _verifying_since(run, db)).total_seconds()
+        if status == "error":
+            logger.warning(f"[verifier] S3 error for '{run.name}': {result.get('detail')}")
+        if waited >= deadline:
+            minutes = round(deadline / 60)
+            _finish_verification(run, db, "verify_failed",
+                                 f"TRE confirmation not received within {minutes} min ({retries} checks). "
+                                 f"The TRE may still be processing — use Retry Verification later.")
+        else:
+            logger.debug(f"[verifier] '{run.name}' pending ({waited:.0f}s / {deadline}s)")
+
+
+def check_verifying_runs():
+    """One pass over every run waiting for TRE confirmation."""
+    db = SESSION_LOCAL()
+    try:
+        runs = db.query(Runs).filter(Runs.status == "verifying", Runs.is_deleted == False).all()
+        for run in runs:
+            try:
+                check_verifying_run(run, db)
+            except Exception as e:
+                db.rollback()
+                logger.error(f"[verifier] error checking '{run.name}': {e}", exc_info=True)
+    finally:
+        db.close()
+
+
+def _verifier_loop():
+    logger.info("verifier started — polling TRE confirmations for runs in 'verifying'")
+    while True:
+        try:
+            check_verifying_runs()
+        except Exception as e:
+            logger.error(f"[verifier] pass failed: {e}", exc_info=True)
+        time.sleep(get_setting_int("verify_interval", 60))
+
+
+def dispatch(body: bytes):
+    """Parse one message and run its handler. Errors are logged, never raised."""
     try:
         message = json.loads(body)
         event          = message.get("event")
@@ -466,31 +683,76 @@ def on_message(channel, method, properties, body):
         elif event == "run_rechecksum_requested":
             handle_run_rechecksum_requested(name=name, sequencer_uuid=sequencer_uuid)
 
+        elif event == "run_directory_upload_requested":
+            handle_run_directory_upload_requested(name=name, sequencer_uuid=sequencer_uuid, directory=message.get("directory"))
+
         else:
             logger.warning(f"unknown event: {event}")
 
     except Exception as e:
         logger.error(f"failed to process message: {e}", exc_info=True)
 
+
+def on_message(channel, method, properties, body):
+    """
+    Events queue: handlers are fast DB operations, so run them inline and ack.
+    ack tells RabbitMQ "I processed this message, remove it from the queue";
+    without ack, RabbitMQ keeps the message and re-delivers it if the worker restarts.
+    """
+    try:
+        dispatch(body)
     finally:
-        # ack tells RabbitMQ "I processed this message, remove it from the queue"
-        # without ack, RabbitMQ keeps the message and re-delivers it if the worker restarts
         channel.basic_ack(delivery_tag=method.delivery_tag)
+
+
+def on_pipeline_message(channel, method, properties, body):
+    """
+    Pipeline queue: checksum / upload / verify can take hours. Running them inside
+    this callback would block pika's I/O loop, so no heartbeats are sent, RabbitMQ
+    closes the connection after ~3 min ("missed heartbeats from client"), the ack
+    fails, the worker crashes and the message is redelivered.
+
+    Instead the task runs in its own thread while start_consuming() keeps the
+    connection alive. The ack is handed back to the connection thread with
+    add_callback_threadsafe (pika channels are not thread-safe). prefetch_count=1
+    means no new pipeline message is delivered until this ack, so tasks still run
+    one at a time.
+    """
+    connection = channel.connection
+    delivery_tag = method.delivery_tag
+
+    def _ack():
+        if channel.is_open:
+            channel.basic_ack(delivery_tag=delivery_tag)
+        else:
+            logger.warning(f"channel closed before ack (delivery_tag={delivery_tag}) — message will be redelivered")
+
+    def _run():
+        try:
+            dispatch(body)
+        except Exception as e:
+            logger.error(f"pipeline task crashed: {e}", exc_info=True)
+        finally:
+            try:
+                connection.add_callback_threadsafe(_ack)
+            except Exception as e:
+                logger.error(f"could not schedule ack (delivery_tag={delivery_tag}): {e}")
+
+    threading.Thread(target=_run, daemon=True, name="pipeline-task").start()
 
 
 def recover_stuck_runs():
     """
     On worker startup, find any runs stuck in intermediate states
-    (checksumming / moving / verifying) and move them to the appropriate
+    (checksumming / moving) and move them to the appropriate
     failed status so the retry button picks up from the right stage:
       checksumming → failed       (retry re-checksums and re-uploads)
       moving       → move_failed  (retry re-uploads only)
-      verifying    → verify_failed (retry re-verifies only, no re-upload)
+    Runs in 'verifying' are left alone — the verifier thread resumes them.
     """
     RECOVERY_MAP = {
         "checksumming": ("failed",       "Worker restarted during checksumming — use Retry to resume"),
         "moving":       ("move_failed",  "Worker restarted during upload — use Retry Upload to resume"),
-        "verifying":    ("verify_failed","Worker restarted during verification — use Retry Verification to resume"),
     }
     db = SESSION_LOCAL()
     try:
@@ -505,6 +767,15 @@ def recover_stuck_runs():
         db.commit()
         if stuck:
             logger.info(f"recovered {len(stuck)} stuck run(s)")
+
+        # directory stability: a directory upload interrupted by the restart
+        stuck_dirs = db.query(RunDirectories).filter(RunDirectories.state == dir_stability.UPLOADING).all()
+        for row in stuck_dirs:
+            logger.warning(f"recovering stuck directory upload '{row.name}' (run {row.run_uuid}) → failed")
+            row.state    = dir_stability.FAILED
+            row.progress = None
+            row.detail   = "Worker restarted during upload — use Retry to resume"
+        db.commit()
     except Exception as e:
         logger.error(f"failed to recover stuck runs: {e}", exc_info=True)
         db.rollback()
@@ -584,6 +855,10 @@ def start():
     t = threading.Thread(target=_start_events_consumer, daemon=True, name="events-consumer")
     t.start()
 
+    # TRE confirmations are polled here, outside the pipeline queue, so a run
+    # waiting for the TRE does not block the next upload.
+    threading.Thread(target=_verifier_loop, daemon=True, name="verifier").start()
+
     logger.info("connecting to RabbitMQ (pipeline)...")
     connection = _connect_rabbitmq("pipeline")
     channel    = connection.channel()
@@ -592,7 +867,7 @@ def start():
     # prefetch_count=1: process one pipeline task at a time — prevents
     # concurrent uploads which would overwhelm the network and storage.
     channel.basic_qos(prefetch_count=1)
-    channel.basic_consume(queue=QUEUE_PIPELINE, on_message_callback=on_message)
+    channel.basic_consume(queue=QUEUE_PIPELINE, on_message_callback=on_pipeline_message)
 
     logger.info(f"waiting for messages on queues '{QUEUE_EVENTS}' (thread) and '{QUEUE_PIPELINE}' (main). press Ctrl+C to stop.")
     try:

@@ -118,18 +118,8 @@ def _upload_file(s3, local_path: str, bucket: str, s3_key: str,
                 raise
 
 
-def send_to_tre(run_name: str, sequencer_location: str, sequencer_slug: str, exclusions: list[str] | None = None, on_progress=None) -> bool:
-    """
-    Upload the run folder to S3.
-    Raises on failure so the caller can store the real error detail.
-    on_progress(files_done, total_files, bytes_done, total_bytes) called after each file.
-    """
-    max_attempts = get_setting_int("upload_max_attempts", 5)
-    backoff_max  = get_setting_int("upload_retry_backoff_max", 30)
-    local_folder = os.path.join(sequencer_location, run_name)
-    all_exclusions = _BUILTIN_EXCLUSIONS + (exclusions or [])
-
-    s3 = boto3.client(
+def _upload_client():
+    return boto3.client(
         "s3",
         endpoint_url=S3_ENDPOINT,
         aws_access_key_id=S3_ACCESS_KEY,
@@ -143,7 +133,9 @@ def send_to_tre(run_name: str, sequencer_location: str, sequencer_slug: str, exc
         ),
     )
 
-    # test TCP connectivity before walking potentially thousands of files
+
+def _check_endpoint():
+    """Test TCP connectivity before walking potentially thousands of files."""
     import socket
     from urllib.parse import urlparse
     _parsed = urlparse(S3_ENDPOINT)
@@ -155,31 +147,33 @@ def send_to_tre(run_name: str, sequencer_location: str, sequencer_slug: str, exc
     except Exception as e:
         raise RuntimeError(f"Cannot reach S3 endpoint ({S3_ENDPOINT}): {e}") from e
 
-    # pre-scan: collect files to upload and total byte count
-    upload_files = []  # list of (local_path, relative_path, rel_to_run)
-    total_bytes  = 0
-    for root, dirs, files in os.walk(local_folder):
-        for file in files:
-            local_path    = os.path.join(root, file)
-            rel_to_run    = os.path.relpath(local_path, local_folder)
-            if _is_excluded(rel_to_run, all_exclusions):
-                continue
-            relative_path = os.path.relpath(local_path, sequencer_location)
-            try:
-                total_bytes += os.path.getsize(local_path)
-            except OSError:
-                pass
-            upload_files.append((local_path, relative_path, rel_to_run))
 
-    # Sort so that the .CHECKSUM file is uploaded last — it is the S3 trigger
-    upload_files.sort(key=lambda t: t[2].endswith(".CHECKSUM"))
+def upload_file_list(upload_files: list[tuple[str, str]], sequencer_slug: str, on_progress=None, on_file_done=None) -> None:
+    """
+    Upload the given files in order.
+    upload_files: list of (local_path, path relative to the sequencer location) — the S3 key is
+    S3_PREFIX/<slug>/<relative path>, so a directory sent early lands where a full-run upload would put it.
+    on_progress(files_done, total_files, bytes_done, total_bytes) during the upload.
+    on_file_done(local_path, relative_path) after each file is uploaded.
+    Raises on failure.
+    """
+    max_attempts = get_setting_int("upload_max_attempts", 5)
+    backoff_max  = get_setting_int("upload_retry_backoff_max", 30)
+
+    s3 = _upload_client()
+    _check_endpoint()
+
+    total_bytes = 0
+    for local_path, _ in upload_files:
+        try:
+            total_bytes += os.path.getsize(local_path)
+        except OSError:
+            pass
 
     total_files  = len(upload_files)
     files_done   = 0
     bytes_done   = 0
     _lock        = threading.Lock()
-
-    logger.info(f"[TRE upload] starting — endpoint={S3_ENDPOINT} bucket={S3_BUCKET} prefix={S3_PREFIX} folder={local_folder} files={total_files}")
 
     # emit initial progress so UI shows "0 / N files · 0 B / X B" immediately
     if on_progress:
@@ -188,7 +182,7 @@ def send_to_tre(run_name: str, sequencer_location: str, sequencer_slug: str, exc
         except Exception:
             pass
 
-    for local_path, relative_path, rel_to_run in upload_files:
+    for local_path, relative_path in upload_files:
         s3_key = f"{S3_PREFIX}{sequencer_slug}/{relative_path}"
 
         _file_bytes = [0]
@@ -214,11 +208,59 @@ def send_to_tre(run_name: str, sequencer_location: str, sequencer_slug: str, exc
             raise
         files_done += 1
         bytes_done += _file_bytes[0]
+        if on_file_done:
+            on_file_done(local_path, relative_path)
         if on_progress:
             try:
                 on_progress(files_done, total_files, bytes_done, total_bytes)
             except Exception:
                 pass
+
+
+def send_to_tre(run_name: str, sequencer_location: str, sequencer_slug: str, exclusions: list[str] | None = None, on_progress=None,
+                already_uploaded: dict[str, tuple[int, int]] | None = None, on_file_done=None) -> bool:
+    """
+    Upload the run folder to S3.
+    Raises on failure so the caller can store the real error detail.
+    on_progress(files_done, total_files, bytes_done, total_bytes) called after each file.
+    already_uploaded {rel_to_run: (size, mtime_ns)}: files sent earlier (directory stability, or an
+    upload that was interrupted) — skipped when their size and mtime are unchanged.
+    on_file_done(local_path, relative_path) after each file is uploaded, so the caller can record it.
+    """
+    local_folder = os.path.join(sequencer_location, run_name)
+    all_exclusions = _BUILTIN_EXCLUSIONS + (exclusions or [])
+    already_uploaded = already_uploaded or {}
+
+    _check_endpoint()
+
+    # pre-scan: collect files to upload
+    upload_files = []  # list of (local_path, relative_path, rel_to_run)
+    skipped      = 0
+    for root, dirs, files in os.walk(local_folder):
+        for file in files:
+            local_path    = os.path.join(root, file)
+            rel_to_run    = os.path.relpath(local_path, local_folder)
+            if _is_excluded(rel_to_run, all_exclusions):
+                continue
+            sent = already_uploaded.get(rel_to_run.replace(os.sep, "/"))
+            if sent:
+                try:
+                    st = os.stat(local_path)
+                    if (st.st_size, st.st_mtime_ns) == tuple(sent):
+                        skipped += 1
+                        continue
+                except OSError:
+                    pass
+            relative_path = os.path.relpath(local_path, sequencer_location)
+            upload_files.append((local_path, relative_path, rel_to_run))
+
+    # Sort so that the .CHECKSUM file is uploaded last — it is the S3 trigger
+    upload_files.sort(key=lambda t: t[2].endswith(".CHECKSUM"))
+
+    logger.info(f"[TRE upload] starting — endpoint={S3_ENDPOINT} bucket={S3_BUCKET} prefix={S3_PREFIX} folder={local_folder} "
+                f"files={len(upload_files)} already_sent={skipped}")
+
+    upload_file_list([(lp, rp) for lp, rp, _ in upload_files], sequencer_slug, on_progress=on_progress, on_file_done=on_file_done)
 
     logger.info(f"[TRE upload] SUCCESS — all files uploaded for run '{run_name}'")
     return True
@@ -252,60 +294,6 @@ def find_checksum_filename_in_s3(run_name: str, sequencer_slug: str) -> str | No
     except Exception as e:
         logger.warning(f"[verify] failed to list S3 for checksum filename: {e}")
         return None
-
-
-def verify_checksum_on_s3(checksum_filename: str) -> tuple[bool, str | None]:
-    """
-    Poll S3 until TRE places the checksum file in the checksums/ prefix.
-
-    empty file (size 0) = success, TRE confirmed receipt
-    file has content    = TRE wrote an error message → problem
-
-    Returns: (success, error_content)
-        (True,  None)        — file exists and is empty = OK
-        (False, "<message>") — file exists and has content = TRE error
-        (False, None)        — not found after all retries, or unexpected S3 error
-    """
-    VERIFY_RETRIES  = get_setting_int("verify_retries",  10)
-    VERIFY_INTERVAL = get_setting_int("verify_interval", 60)
-
-    s3 = boto3.client(
-        "s3",
-        endpoint_url=S3_ENDPOINT,
-        aws_access_key_id=S3_ACCESS_KEY,
-        aws_secret_access_key=S3_SECRET_KEY,
-        region_name=S3_REGION,
-        config=boto3.session.Config(s3={"addressing_style": "path"}),
-    )
-    s3_key = checksum_filename
-
-    logger.info(f"[TRE verify] starting — endpoint={S3_ENDPOINT} bucket=checksums key={s3_key} retries={VERIFY_RETRIES} interval={VERIFY_INTERVAL}s")
-
-    for attempt in range(1, VERIFY_RETRIES + 1):
-        try:
-            logger.info(f"[TRE verify] attempt {attempt}/{VERIFY_RETRIES} — GET s3://checksums/{s3_key}")
-            obj = s3.get_object(Bucket="checksums", Key=s3_key)
-            content = obj["Body"].read().decode("utf-8")
-            size = len(content)
-            logger.info(f"[TRE verify] file found — size={size} bytes")
-
-            if size == 0:
-                logger.info(f"[TRE verify] SUCCESS — empty file = TRE confirmed receipt")
-                return True, None
-
-            # file has content — TRE reported a problem, no point retrying
-            logger.warning(f"[TRE verify] FAILED — file has content (TRE error):\n{content}")
-            return False, content
-
-        except Exception as e:
-            code = getattr(e, "response", {}).get("Error", {}).get("Code", "unknown") if isinstance(e, ClientError) else type(e).__name__
-            logger.warning(f"[TRE verify] attempt {attempt}/{VERIFY_RETRIES} failed — code={code} error={e}")
-            if attempt < VERIFY_RETRIES:
-                logger.info(f"[TRE verify] waiting {VERIFY_INTERVAL}s before next attempt")
-                time.sleep(VERIFY_INTERVAL)
-
-    logger.warning(f"[TRE verify] FAILED — not found after {VERIFY_RETRIES} attempts: s3://checksums/{s3_key}")
-    return False, None
 
 
 def check_verify_status(checksum_filename: str) -> dict:

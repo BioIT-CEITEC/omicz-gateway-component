@@ -32,7 +32,7 @@ def home(request: Request):
     sequencing       = count("running")
     ready_to_upload  = count("running_finished")
     in_pipeline      = count("queued", "checksumming", "moving", "verifying")
-    failed           = count("move_failed", "verify_failed", "failed")
+    failed           = count("move_failed", "verify_failed", "failed", "transfer_conflict")
     completed        = count("completed")
 
     # sequencer stats

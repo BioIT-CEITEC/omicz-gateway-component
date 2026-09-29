@@ -5,7 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
 
 from db.models.sequencer_types import SequencerTypes
-from schemas.sequencers_types import SequencerTypeCreate, SequencerTypeUpdate
+from schemas.sequencers_types import SequencerTypeCreate, SequencerTypeUpdate, check_directory_timers
 from core.logger import get_logger
 logger = get_logger("backend")
 
@@ -33,6 +33,8 @@ def create_sequencer_type(data: SequencerTypeCreate, db: Session):
         signal_match=data.signal_match,
         stability_files=data.stability_files,
         stability_threshold_minutes=data.stability_threshold_minutes,
+        dir_stability_minutes=data.dir_stability_minutes,
+        run_stability_minutes=data.run_stability_minutes,
     )
     try:
         db.add(st)
@@ -62,6 +64,16 @@ def update_sequencer_type(uuid: UUID, data: SequencerTypeUpdate, db: Session):
         st.stability_files = data.stability_files
     if data.stability_threshold_minutes is not None:
         st.stability_threshold_minutes = data.stability_threshold_minutes
+    if data.dir_stability_minutes is not None:
+        st.dir_stability_minutes = data.dir_stability_minutes
+    if data.run_stability_minutes is not None:
+        st.run_stability_minutes = data.run_stability_minutes
+    if st.completion_method == "directory_stability":
+        try:
+            check_directory_timers(st.dir_stability_minutes, st.run_stability_minutes)
+        except ValueError as e:
+            db.rollback()
+            raise HTTPException(status_code=422, detail=str(e))
     try:
         db.commit()
         db.refresh(st)

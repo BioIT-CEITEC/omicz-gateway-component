@@ -18,6 +18,13 @@ def safe_json(response: httpx.Response, fallback=None):
         return fallback
 
 
+def _error_text(detail) -> str:
+    """FastAPI validation errors come back as a list of dicts — show their messages."""
+    if isinstance(detail, list):
+        return "; ".join(str(e.get("msg", e)).removeprefix("Value error, ") for e in detail if isinstance(e, dict)) or "Invalid input"
+    return str(detail)
+
+
 # ── LIST ──
 @router.get("/")
 def list_sequencer_types(request: Request, skip: int = 0, limit: int | None = None):
@@ -43,6 +50,8 @@ def create_sequencer_type(
     signal_match: str = Form(default="exact"),
     stability_files: Optional[List[str]] = Form(default=None),
     stability_threshold_minutes: Optional[int] = Form(default=None),
+    dir_stability_minutes: Optional[int] = Form(default=None),
+    run_stability_minutes: Optional[int] = Form(default=None),
 ):
     clean_files = [f for f in (stability_files or []) if f.strip()] or None
     payload = {
@@ -52,6 +61,8 @@ def create_sequencer_type(
         "signal_match": signal_match,
         "stability_files": clean_files,
         "stability_threshold_minutes": stability_threshold_minutes,
+        "dir_stability_minutes": dir_stability_minutes,
+        "run_stability_minutes": run_stability_minutes,
     }
     response = httpx.post(f"{BACKEND_URL}/sequencers-types/", json=payload)
 
@@ -59,7 +70,7 @@ def create_sequencer_type(
         st = safe_json(response, fallback={})
         return RedirectResponse(url=f"/instrument-models/{st['uuid']}", status_code=303)
 
-    error = safe_json(response, fallback={}).get("detail", "Something went wrong")
+    error = _error_text(safe_json(response, fallback={}).get("detail", "Something went wrong"))
     return templates.TemplateResponse(request, "sequencers-types/create.html", {"error": error})
 
 
@@ -94,6 +105,8 @@ def edit_sequencer_type(
     signal_match: str = Form(default="exact"),
     stability_files: Optional[List[str]] = Form(default=None),
     stability_threshold_minutes: Optional[int] = Form(default=None),
+    dir_stability_minutes: Optional[int] = Form(default=None),
+    run_stability_minutes: Optional[int] = Form(default=None),
 ):
     clean_files = [f for f in (stability_files or []) if f.strip()] or None
     payload = {
@@ -103,17 +116,20 @@ def edit_sequencer_type(
         "signal_match": signal_match,
         "stability_files": clean_files,
         "stability_threshold_minutes": stability_threshold_minutes,
+        "dir_stability_minutes": dir_stability_minutes,
+        "run_stability_minutes": run_stability_minutes,
     }
     response = httpx.patch(f"{BACKEND_URL}/sequencers-types/{uuid}", json=payload)
 
     if response.status_code == 200:
         return RedirectResponse(url=f"/instrument-models/{uuid}", status_code=303)
 
-    error = safe_json(response, fallback={}).get("detail", "Something went wrong")
+    error = _error_text(safe_json(response, fallback={}).get("detail", "Something went wrong"))
     st = {
         "uuid": uuid, "name": name, "completion_method": completion_method,
         "completion_signal": completion_signal, "signal_match": signal_match,
         "stability_files": clean_files, "stability_threshold_minutes": stability_threshold_minutes,
+        "dir_stability_minutes": dir_stability_minutes, "run_stability_minutes": run_stability_minutes,
     }
     return templates.TemplateResponse(request, "sequencers-types/edit.html", {"st": st, "error": error})
 

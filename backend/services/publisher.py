@@ -21,21 +21,24 @@ _EVENT_QUEUES = {
     "run_upload_requested":     QUEUE_PIPELINE,
     "run_verify_requested":     QUEUE_PIPELINE,
     "run_rechecksum_requested": QUEUE_PIPELINE,
+    "run_directory_upload_requested": QUEUE_PIPELINE,
 }
 
 
-def publish(event: str, name: str, sequencer_uuid: str):
+def publish(event: str, name: str, sequencer_uuid: str, **extra):
     """
     Sends a message to the appropriate RabbitMQ queue based on event type.
     Watcher events (run_created, run_completed) go to runs_events so they
     are processed immediately even while a long upload is in progress.
     Pipeline tasks go to runs_pipeline.
+    extra keyword fields (e.g. directory=...) are added to the message body.
     """
     queue = _EVENT_QUEUES.get(event, QUEUE_PIPELINE)
     message = json.dumps({
         "event":          event,
         "name":           name,
         "sequencer_uuid": str(sequencer_uuid),
+        **extra,
     })
     connection = pika.BlockingConnection(pika.URLParameters(RABBITMQ_URL))
     channel    = connection.channel()

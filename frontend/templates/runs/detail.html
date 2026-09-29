@@ -15,6 +15,7 @@
   {% elif s == "move_failed" %}{{ lang.status_move_failed }}
   {% elif s == "verify_failed" %}{{ lang.status_verify_failed }}
   {% elif s == "failed" %}{{ lang.status_failed }}
+  {% elif s == "transfer_conflict" %}{{ lang.status_transfer_conflict }}
   {% else %}{{ s }}{% endif %}
 {% endmacro %}
 
@@ -50,6 +51,9 @@
   {% elif s == "failed" %}
     <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border bg-red-50 text-red-600 border-red-100">
       <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>{{ lang.status_failed }}</span>
+  {% elif s == "transfer_conflict" %}
+    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border bg-amber-50 text-amber-700 border-amber-200">
+      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"/></svg>{{ lang.status_transfer_conflict }}</span>
   {% else %}
     <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border bg-gray-100 text-gray-500 border-gray-200">{{ s }}</span>
   {% endif %}
@@ -73,7 +77,7 @@
     <div id="status-badge" class="mt-2">{{ status_badge(run.status) }}</div>
   </div>
   <div id="refresh-indicator" class="flex items-center gap-2 mt-1
-    {% if run.status in ['completed', 'failed', 'verify_failed', 'move_failed'] or (run.status == 'running_finished' and run.sequencer_sent_to_tre != 'auto') %}hidden{% endif %}">
+    {% if run.status in ['completed', 'failed', 'verify_failed', 'move_failed', 'transfer_conflict'] or (run.status == 'running_finished' and run.sequencer_sent_to_tre != 'auto') %}hidden{% endif %}">
     <button id="refresh-btn" onclick="manualPoll()" title="Refresh now"
             class="relative w-10 h-10 rounded-full hover:bg-indigo-50 transition flex items-center justify-center group">
       <svg width="40" height="40" viewBox="0 0 40 40" class="absolute inset-0 -rotate-90">
@@ -190,7 +194,7 @@
     {% set s = run.status %}
 
     {% if s == "running" %}{% set st1 = "active" %}
-    {% elif s in ("running_finished","queued","checksumming","moving","move_failed","verifying","verify_failed","completed") %}{% set st1 = "done" %}
+    {% elif s in ("running_finished","queued","checksumming","moving","move_failed","verifying","verify_failed","completed","transfer_conflict") %}{% set st1 = "done" %}
     {% else %}{% set st1 = "waiting" %}{% endif %}
 
     {% if s == "checksumming" %}{% set st2 = "active" %}
@@ -199,7 +203,7 @@
     {% else %}{% set st2 = "waiting" %}{% endif %}
 
     {% if s == "moving" %}{% set st3 = "active" %}
-    {% elif s == "move_failed" %}{% set st3 = "failed" %}
+    {% elif s in ("move_failed","transfer_conflict") %}{% set st3 = "failed" %}
     {% elif s in ("verifying","verify_failed","completed") %}{% set st3 = "done" %}
     {% else %}{% set st3 = "waiting" %}{% endif %}
 
@@ -309,6 +313,34 @@
       </div>
     </div>
 
+    {# ── Directories (directory stability only) ── #}
+    <div id="directories-card" class="bg-white rounded-xl border border-gray-100 {% if not directories %}hidden{% endif %}">
+      <div class="px-5 py-3 border-b border-gray-50 flex items-center justify-between">
+        <p class="text-[11px] text-gray-400 font-semibold uppercase tracking-wide">Directories</p>
+        <span id="directories-summary" class="text-[11px] text-gray-400"></span>
+      </div>
+      <div id="directories-conflict" class="hidden mx-5 mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm">
+        <p class="font-semibold text-amber-800">A directory changed after it was sent to the TRE</p>
+        <p class="text-amber-700 mt-1">Files already in the TRE cannot be overwritten, so this run is on hold. Check the instrument output,
+          then either delete this run or contact the TRE administrator. <span class="font-medium">Finalize anyway</span> re-checksums the run
+          and sends what is left; the TRE check will then report any file that does not match.</p>
+        <pre id="directories-conflict-detail" class="mt-2 text-[11px] text-amber-800 whitespace-pre-wrap break-all"></pre>
+      </div>
+      <table class="w-full text-xs">
+        <thead>
+          <tr class="text-left text-[10px] text-gray-400 uppercase tracking-wide">
+            <th class="px-5 py-2 font-semibold">Directory</th>
+            <th class="px-3 py-2 font-semibold">State</th>
+            <th class="px-3 py-2 font-semibold text-right">Files</th>
+            <th class="px-3 py-2 font-semibold text-right">Size</th>
+            <th class="px-3 py-2 font-semibold">Quiet since / Sent</th>
+            <th class="px-5 py-2"></th>
+          </tr>
+        </thead>
+        <tbody id="directories-body" class="divide-y divide-gray-50"></tbody>
+      </table>
+    </div>
+
     {# ── Actions card ── #}
     <div class="bg-white rounded-xl border border-gray-100 p-5">
       <p class="text-[11px] text-gray-400 font-semibold uppercase tracking-wide mb-4">Actions</p>
@@ -349,8 +381,9 @@
                 {% elif entry.status == 'verifying' %}bg-teal-400
                 {% elif entry.status == 'verify_failed' %}bg-orange-400
                 {% elif entry.status in ('move_failed', 'failed') %}bg-red-400
+                {% elif entry.status == 'transfer_conflict' %}bg-amber-400
                 {% else %}bg-gray-300{% endif %}">
-                {% if loop.last and entry.status not in ('completed', 'failed', 'move_failed', 'verify_failed', 'running_finished') %}
+                {% if loop.last and entry.status not in ('completed', 'failed', 'move_failed', 'verify_failed', 'running_finished', 'transfer_conflict') %}
                 <span class="absolute inset-0 rounded-full animate-ping opacity-60
                   {% if entry.status == 'running' %}bg-blue-400
                   {% elif entry.status == 'checksumming' %}bg-yellow-400
@@ -367,7 +400,7 @@
             {# Content #}
             <div class="pb-0 min-w-0">
               <p class="text-xs font-semibold leading-tight
-                {% if entry.status in ('move_failed','verify_failed','failed') %}text-red-500
+                {% if entry.status in ('move_failed','verify_failed','failed','transfer_conflict') %}text-red-500
                 {% elif entry.status == 'completed' %}text-green-600
                 {% else %}text-gray-700{% endif %}">
                 {% if entry.status == "running" %}{{ lang.status_running }}
@@ -380,6 +413,7 @@
                 {% elif entry.status == "move_failed" %}{{ lang.status_move_failed }}
                 {% elif entry.status == "verify_failed" %}{{ lang.status_verify_failed }}
                 {% elif entry.status == "failed" %}{{ lang.status_failed }}
+                {% elif entry.status == "transfer_conflict" %}{{ lang.status_transfer_conflict }}
                 {% else %}{{ entry.status }}{% endif %}
               </p>
               <p class="text-[11px] text-gray-400 mt-0.5 tabular-nums">{{ entry.created_at | local_dt }}</p>
@@ -406,8 +440,8 @@
 <script>
   const SENT_TO_TRE = {{ run.sequencer_sent_to_tre | tojson }};
   const TERMINAL = SENT_TO_TRE === 'auto'
-    ? ['completed', 'failed', 'verify_failed', 'move_failed']
-    : ['completed', 'failed', 'running_finished', 'verify_failed', 'move_failed'];
+    ? ['completed', 'failed', 'verify_failed', 'move_failed', 'transfer_conflict']
+    : ['completed', 'failed', 'running_finished', 'verify_failed', 'move_failed', 'transfer_conflict'];
   const ACTIVE_STATUSES = SENT_TO_TRE === 'auto'
     ? ['checksumming', 'moving', 'queued', 'verifying', 'running_finished']
     : ['checksumming', 'moving', 'queued', 'verifying'];
@@ -435,11 +469,13 @@
     running: '{{ lang.status_running }}', running_finished: '{{ lang.status_running_finished }}', queued: '{{ lang.status_queued }}',
     checksumming: '{{ lang.status_checksumming }}', moving: '{{ lang.status_moving }}', verifying: '{{ lang.status_verifying }}',
     completed: '{{ lang.status_completed }}', move_failed: '{{ lang.status_move_failed }}', verify_failed: '{{ lang.status_verify_failed }}', failed: '{{ lang.status_failed }}',
+    transfer_conflict: '{{ lang.status_transfer_conflict }}',
   };
   const DOT_COLORS = {
     completed: 'bg-green-400', running: 'bg-blue-400', running_finished: 'bg-purple-400',
     queued: 'bg-gray-300', checksumming: 'bg-yellow-400', moving: 'bg-indigo-400',
     verifying: 'bg-teal-400', verify_failed: 'bg-orange-400', move_failed: 'bg-red-400', failed: 'bg-red-400',
+    transfer_conflict: 'bg-amber-400',
   };
   const BADGE_HTML = {
     running:          `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border bg-blue-50 text-blue-600 border-blue-100"><span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse inline-block"></span>{{ lang.status_running }}</span>`,
@@ -452,19 +488,21 @@
     move_failed:      `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border bg-red-50 text-red-600 border-red-100"><svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>{{ lang.status_move_failed }}</span>`,
     verify_failed:    `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border bg-orange-50 text-orange-600 border-orange-100"><svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>{{ lang.status_verify_failed }}</span>`,
     failed:           `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border bg-red-50 text-red-600 border-red-100"><svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>{{ lang.status_failed }}</span>`,
+    transfer_conflict: `<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border bg-amber-50 text-amber-700 border-amber-200"><svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"/></svg>{{ lang.status_transfer_conflict }}</span>`,
   };
 
-  const TERMINAL_STATUSES_SET = new Set(['completed','failed','move_failed','verify_failed','running_finished']);
+  const TERMINAL_STATUSES_SET = new Set(['completed','failed','move_failed','verify_failed','running_finished','transfer_conflict']);
   const DOT_CLASS = {
     completed: 'bg-green-400', running: 'bg-blue-400', running_finished: 'bg-purple-400',
     queued: 'bg-gray-300', checksumming: 'bg-yellow-400', moving: 'bg-indigo-400',
     verifying: 'bg-teal-400', verify_failed: 'bg-orange-400', move_failed: 'bg-red-400', failed: 'bg-red-400',
+    transfer_conflict: 'bg-amber-400',
   };
   const PING_CLASS = {
     running: 'bg-blue-400', checksumming: 'bg-yellow-400', moving: 'bg-indigo-400', verifying: 'bg-teal-400',
   };
   const LABEL_CLASS = {
-    move_failed: 'text-red-500', verify_failed: 'text-red-500', failed: 'text-red-500', completed: 'text-green-600',
+    move_failed: 'text-red-500', verify_failed: 'text-red-500', failed: 'text-red-500', completed: 'text-green-600', transfer_conflict: 'text-red-500',
   };
 
   function renderHistory(history) {
@@ -610,13 +648,13 @@
 
   // ── Pipeline stepper JS update ──
   function getStepperStates(status) {
-    const st1 = ['running_finished','queued','checksumming','moving','move_failed','verifying','verify_failed','completed'].includes(status) ? 'done'
+    const st1 = ['running_finished','queued','checksumming','moving','move_failed','verifying','verify_failed','completed','transfer_conflict'].includes(status) ? 'done'
                : status === 'running' ? 'active' : 'waiting';
     const st2 = status === 'checksumming' ? 'active'
                : ['moving','move_failed','verifying','verify_failed','completed'].includes(status) ? 'done'
                : ['running_finished','queued'].includes(status) ? 'pending' : 'waiting';
     const st3 = status === 'moving' ? 'active'
-               : status === 'move_failed' ? 'failed'
+               : ['move_failed','transfer_conflict'].includes(status) ? 'failed'
                : ['verifying','verify_failed','completed'].includes(status) ? 'done' : 'waiting';
     const st4 = status === 'verifying' ? 'active'
                : status === 'verify_failed' ? 'failed'
@@ -692,6 +730,9 @@
     if (status === 'verify_failed')
       return makeForm('start-upload', 'Retry TRE verification without re-uploading?',
                `${base} border-orange-300 text-orange-500 bg-white hover:bg-orange-50`, SHIELD_SVG, 'Retry Verification');
+    if (status === 'transfer_conflict')
+      return makeForm('start-upload', 'Finalize this run anyway?\n\nChanged files cannot overwrite what is already in the TRE. The run is re-checksummed and the remaining files are sent; the TRE check will report any mismatch.',
+        `${base} border-amber-300 text-amber-700 bg-white hover:bg-amber-50`, UPLOAD_SVG, 'Finalize anyway');
     if (status === 'failed')
       return makeForm('start-upload', 'Retry the full pipeline (checksum → upload → verify)?',
         `${base} border-red-300 text-red-500 bg-white hover:bg-red-50`, RETRY_SVG, 'Retry');
@@ -723,6 +764,57 @@
     }
   }
 
+  // ── Directories (directory stability) ──
+  const DIR_STATE = {
+    waiting:   ['Waiting',   'bg-gray-100 text-gray-500 border-gray-200'],
+    queued:    ['Queued',    'bg-gray-100 text-gray-600 border-gray-300'],
+    uploading: ['Sending',   'bg-indigo-50 text-indigo-600 border-indigo-100'],
+    sent:      ['Sent',      'bg-green-50 text-green-600 border-green-100'],
+    failed:    ['Failed',    'bg-red-50 text-red-600 border-red-100'],
+    conflict:  ['Changed after send', 'bg-amber-50 text-amber-700 border-amber-200'],
+  };
+  function esc(t) {
+    return String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function fmtBytes(n) {
+    const u = ['B','KB','MB','GB','TB','PB']; let i = 0; n = Number(n) || 0;
+    while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
+    return n.toFixed(1) + ' ' + u[i];
+  }
+  function renderDirectories(dirs, status) {
+    const card = document.getElementById('directories-card');
+    if (!card) return;
+    if (!dirs || !dirs.length) { card.classList.add('hidden'); return; }
+    card.classList.remove('hidden');
+    const counts = {};
+    dirs.forEach(d => counts[d.state] = (counts[d.state] || 0) + 1);
+    document.getElementById('directories-summary').textContent =
+      `${counts.sent || 0} of ${dirs.length} sent` + (counts.conflict ? ` · ${counts.conflict} changed after send` : '');
+    const conflicts = dirs.filter(d => d.state === 'conflict');
+    const banner = document.getElementById('directories-conflict');
+    banner.classList.toggle('hidden', !conflicts.length);
+    document.getElementById('directories-conflict-detail').textContent = conflicts.map(d => d.detail || d.name).join('\n\n');
+    document.getElementById('directories-body').innerHTML = dirs.map(d => {
+      const [label, cls] = DIR_STATE[d.state] || [d.state, 'bg-gray-100 text-gray-500 border-gray-200'];
+      const when = d.state === 'sent' && d.sent_at ? 'sent ' + formatLocalDT(d.sent_at)
+                 : d.stable_since ? formatLocalDT(d.stable_since) : '—';
+      const sub = d.state === 'uploading' && d.progress ? `<p class="text-[10px] text-indigo-500 font-mono mt-0.5">${esc(d.progress)}</p>`
+                : d.state === 'failed' && d.detail ? `<p class="text-[10px] text-red-500 mt-0.5 break-all">${esc(d.detail)}</p>` : '';
+      const retry = d.state === 'failed' && status === 'running'
+        ? `<form method="POST" action="/acquisition-runs/${RUN_UUID}/directories/${d.uuid}/retry">
+             <button type="submit" class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium border border-red-200 text-red-500 hover:bg-red-50 transition">${RETRY_SVG}Retry</button>
+           </form>` : '';
+      return `<tr>
+        <td class="px-5 py-2.5 font-mono text-gray-700">${esc(d.name)}${sub}</td>
+        <td class="px-3 py-2.5"><span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold border ${cls}">${label}</span></td>
+        <td class="px-3 py-2.5 text-right tabular-nums text-gray-600">${d.file_count}</td>
+        <td class="px-3 py-2.5 text-right tabular-nums text-gray-600">${fmtBytes(d.total_bytes)}</td>
+        <td class="px-3 py-2.5 tabular-nums text-gray-400">${when}</td>
+        <td class="px-5 py-2.5 text-right">${retry}</td>
+      </tr>`;
+    }).join('');
+  }
+
   function poll() {
     fetch('/acquisition-runs/{{ run.uuid }}/history-data')
       .then(r => r.json())
@@ -737,6 +829,7 @@
         updateProgress(data.status, data.progress);
         updateStepper(data.status);
         updateActions(data.status, data.history);
+        renderDirectories(data.directories, data.status);
         // track upload stall using server-side updated_at (accurate even on fresh page load)
         const stuckEl = document.getElementById('stuck-warning');
         if (stuckEl) {
@@ -778,6 +871,7 @@
   updateProgress({{ run.status | tojson }}, {{ run.progress | tojson }});
   updateStepper({{ run.status | tojson }});
   updateActions({{ run.status | tojson }}, {{ history | tojson }});
+  renderDirectories({{ directories | tojson }}, {{ run.status | tojson }});
 
   // Scroll history to bottom on load; update fade on scroll
   scrollHistoryToBottom();

@@ -4,4 +4,6 @@ from db.models.sequencers import Sequencers
 from db.models.users import Users
 from db.models.runs import Runs
 from db.models.runs_status_history import RunsStatusHistory
+from db.models.run_directories import RunDirectories
+from db.models.run_files import RunFiles
 from db.models.settings import Settings

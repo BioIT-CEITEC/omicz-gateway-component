@@ -56,16 +56,28 @@ def _sha256(file_path: str, chunk_callback: Callable | None = None) -> str:
     return h.hexdigest()
 
 
-def _checksum_one(file_path: str, run_folder: str, exclusions: list[str], chunk_callback: Callable | None = None):
-    """Checksum a single file. Returns (relative_path, digest, file_size) or None if excluded."""
+def _checksum_one(file_path: str, run_folder: str, exclusions: list[str], chunk_callback: Callable | None = None,
+                  known_digests: dict | None = None):
+    """
+    Checksum a single file. Returns (relative_path, digest, file_size, mtime_ns) or None if excluded.
+    size and mtime are taken before hashing — the state the digest belongs to.
+    known_digests {rel_path: (size, mtime_ns, sha256)}: reuse the digest when size and mtime are unchanged.
+    """
     relative = os.path.relpath(file_path, run_folder)
     if _is_excluded(relative, BUILTIN_EXCLUSIONS + exclusions):
         logger.info(f"excluded (skipped): {relative}")
         return None
-    size   = os.path.getsize(file_path)
+    st   = os.stat(file_path)
+    size = st.st_size
+    known = (known_digests or {}).get(relative.replace(os.sep, "/"))
+    if known and known[0] == size and known[1] == st.st_mtime_ns:
+        if chunk_callback:
+            chunk_callback(size)
+        logger.info(f"checksum reused (unchanged since sent): {relative}")
+        return (relative, known[2], size, st.st_mtime_ns)
     digest = _sha256(file_path, chunk_callback=chunk_callback)
     logger.info(f"checksummed: {relative}")
-    return (relative, digest, size)
+    return (relative, digest, size, st.st_mtime_ns)
 
 
 def create_checksum_file(
@@ -73,11 +85,16 @@ def create_checksum_file(
     sequencer_location: str,
     exclusions: list[str] | None = None,
     on_progress: Callable | None = None,
+    known_digests: dict | None = None,
+    on_digest: Callable | None = None,
 ) -> str:
     """
     Walk every file inside the run folder, compute SHA256 for each in parallel.
     Calls on_progress(done, total, bytes_done, total_bytes) after each file completes,
     and also every PROGRESS_CHUNK_BYTES read within a large file.
+    known_digests: {rel_path: (size, mtime_ns, sha256)} of files hashed before — reused when unchanged.
+    on_digest(rel_path, size, mtime_ns, sha256) is called for every file, so the caller can
+    record digests (resume after a failure, skip re-hashing on retry).
     """
     PROGRESS_CHUNK_BYTES = 500 * 1024 * 1024  # report every 500 MB within a file
 
@@ -140,7 +157,7 @@ def create_checksum_file(
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {
-            executor.submit(_checksum_one, fp, run_folder, exclusions or [], _make_chunk_callback()): fp
+            executor.submit(_checksum_one, fp, run_folder, exclusions or [], _make_chunk_callback(), known_digests): fp
             for fp in file_paths
         }
         for future in as_completed(futures):
@@ -148,8 +165,10 @@ def create_checksum_file(
             with _lock:
                 _done_files[0] += 1
                 if result is not None:
-                    relative, digest, size = result
+                    relative, digest, size, mtime_ns = result
                     entries.append((relative, digest))
+                    if on_digest:
+                        on_digest(relative.replace(os.sep, "/"), size, mtime_ns, digest)
                     _done_bytes[0] += size
                     _partial_bytes[0] = max(0, _partial_bytes[0] - size)
                 df = _done_files[0]

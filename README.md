@@ -222,6 +222,8 @@ Go to **Inst. Models → Create** in the top navigation.
 
 - `signal` — the machine creates a specific file (e.g. `RTAComplete.txt`) when a run is done. The app watches for that file to appear.
 - `file_stability` — the app monitors specific files and waits until they stop growing (no size change for N minutes). Use this for machines that do not create a completion file.
+- `directory_stability` — each top-level folder of a run (e.g. `RUN_009/DIR1`) is sent to S3 on its own once no file in it has changed for **Send a folder after** minutes (default 10). The run is complete when nothing in the whole run folder has changed for **Run complete after** minutes (default 60); files in the run root, the rest of the data and the `.CHECKSUM` are then sent as usual, reusing the checksums of folders already sent. Folders are sent early only when **Send to TRE** is `auto`.
+  Files already in S3 cannot be overwritten. If a folder that was already sent changes later (a file modified or deleted), the run goes to **Transfer Conflict** and the run page lists the changed files. New files added to a sent folder are fine — they are sent once the folder is quiet again. Choose a folder time longer than any pause of the instrument.
 
 ---
 
@@ -276,6 +278,7 @@ Data Acquisition → Acquisition Complete → Integrity Check → Data Transfer 
 | `Transfer Complete` | Run fully uploaded and confirmed | Done |
 | `Data Transfer Failed` | Upload failed | Click **Retry Upload** |
 | `Transfer Validation Failed` | TRE verification failed | Click **Retry Verification** |
+| `Transfer Conflict` | *Directory stability only:* a folder changed after it was sent | Check the instrument output; **Finalize anyway**, or delete the run and contact the TRE administrator |
 
 ---
 

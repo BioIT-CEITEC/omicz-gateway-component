@@ -83,7 +83,7 @@ MACHINE_1_PATH_SHARED=C:\Sequencer\Machine1Shared
 **Why these variable names?**
 The `docker-compose.yml` already has volume lines that reference `${MACHINE_1_PATH}` and `${MACHINE_1_PATH_SHARED}`. Docker reads your `.env` file and substitutes those values automatically. The names must match exactly.
 
-**If you are adding a new machine** that is not already in `docker-compose.yml`, you also need to add a volume line for it in the `backend`, `worker`, and `watcher` services. Open `docker-compose.yml` and add one line per machine under the volumes section of each of those three services:
+**If you are adding a new machine** that is not already in `docker-compose.yml`, add its volume lines to `docker-compose.override.yml` (see [Adding a new machine later](#adding-a-new-machine-later)) rather than to `docker-compose.yml` itself, so updates never conflict with your changes. For reference, the volume lines in `docker-compose.yml` look like this:
 
 ```yaml
 volumes:
@@ -291,17 +291,30 @@ If a new sequencer machine is connected to this computer:
    MACHINE_2_PATH=/data/sequencers/new-machine
    ```
 
-2. **Add a volume line in `docker-compose.yml`** — in the `backend`, `worker`, and `watcher` services:
-   ```yaml
-   - ${MACHINE_2_PATH}:/runs/machine-2
+2. **Add its volume in `docker-compose.override.yml`** — not in `docker-compose.yml`.
+   Docker Compose loads this file automatically, and it is git-ignored, so the in-app update never conflicts with it. Create it once from the example:
+   ```bash
+   cp docker-compose.override.example.yml docker-compose.override.yml
    ```
+   The example already mounts `${MACHINE_2_PATH}` as `/runs/machine-2` in the `backend`, `worker`, and `watcher` services. For more machines, add one line per machine to each of those three services.
 
 3. **Restart the full stack** (needed for Docker to pick up the new volume):
    ```bash
    docker compose down && docker compose up -d
    ```
 
-5. **Create a new Sequencer in the UI** with Location `/runs/machine-2`
+4. **Create a new Instrument in the UI** with Location `/runs/machine-2`
+
+> **Already added machines by editing `docker-compose.yml`?** That still works, and Settings → Update keeps your edits. If an update ever reports that your changes overlap with the new version, move your lines into `docker-compose.override.yml`, run `git checkout docker-compose.yml`, and click Update again.
+
+---
+
+## Updating
+
+**Settings → Update** pulls the latest version from GitHub, updates the database (`alembic upgrade head`), and restarts the services. Local edits to tracked files are kept.
+
+- If transfers are running, you are asked first — the restart interrupts them (Retry resumes them without re-sending finished files).
+- If `requirements.txt`, a `Dockerfile`, or `docker-compose.yml` changed, the update log tells you to run `docker compose up -d --build` on the server once.
 
 ---
 

@@ -216,7 +216,8 @@
     updateBanner.classList.add('hidden');
     uptodateBanner.classList.add('hidden');
     errorBanner.classList.add('hidden');
-    fetch('/system/version')
+    // the server caches GitHub's answer for 15 min; the Check button asks for a fresh one
+    fetch(silent ? '/system/version' : '/system/version?refresh=1')
       .then(r => r.json())
       .then(data => {
         latestEl.textContent = data.latest ? 'v' + data.latest : 'unavailable';
@@ -252,7 +253,7 @@
   // Always fetch fresh version data on page load
   checkVersion(true);
 
-  function runUpdate() {
+  function runUpdate(force) {
     const btn       = document.getElementById('update-btn');
     const outputBox = document.getElementById('update-output');
     const log       = document.getElementById('update-log');
@@ -260,10 +261,19 @@
     btn.textContent = 'Updating…';
     outputBox.classList.remove('hidden');
     log.textContent = 'Running git pull…\n';
-    fetch('/system/update', { method: 'POST' })
+    fetch('/system/update' + (force ? '?force=1' : ''), { method: 'POST' })
       .then(r => r.json())
       .then(data => {
+        (data.local_changes_log || []).forEach(l => log.textContent += l + '\n');
         if (!data.success) {
+          if (data.busy) {
+            log.textContent += '\n' + data.error + '\n';
+            btn.disabled = false;
+            btn.textContent = 'Update';
+            if (confirm(data.error + '\n\nUpdate anyway?')) return runUpdate(true);
+            log.textContent += '\nUpdate postponed.';
+            return;
+          }
           log.textContent += '\nERROR:\n' + (data.error || 'unknown error');
           btn.textContent = 'Failed';
           btn.className = btn.className.replace('bg-[#0C2461]', 'bg-red-500');
@@ -271,9 +281,10 @@
         }
         log.textContent += data.git_output + '\n';
         if (data.migration_log && data.migration_log.length)
-          log.textContent += '\n' + data.migration_log.join('\n') + '\n';
+          log.textContent += '\nDatabase:\n' + data.migration_log.join('\n') + '\n';
         if (data.restart_log && data.restart_log.length)
           log.textContent += '\n' + data.restart_log.join('\n') + '\n';
+        (data.warnings || []).forEach(w => log.textContent += '\n⚠ ' + w + '\n');
         if (data.needs_rebuild)
           log.textContent += '\n⚠ requirements.txt or Dockerfile changed — run: docker compose build && docker compose up -d\n';
         log.textContent += '\nDone. Please refresh this page.';
@@ -281,7 +292,7 @@
         localStorage.removeItem('latest_version');
         localStorage.removeItem('update_check_time');
         document.getElementById('update-dot')?.classList.add('hidden');
-        btn.textContent = 'Done ✓';
+        btn.textContent = (data.warnings || []).length ? 'Done — see warnings' : 'Done ✓';
         btn.disabled = false;
         log.scrollTop = log.scrollHeight;
       })

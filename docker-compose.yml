@@ -27,6 +27,11 @@ services:
     image: rabbitmq:3-management
     container_name: fastapi_gateway_rabbitmq
     restart: always
+    environment:
+      # A pipeline message is acked only when its checksum/upload finishes, which can take
+      # hours. RabbitMQ's default 30 min ack timeout would close the channel mid-upload and
+      # crash the worker, so allow 7 days.
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "-rabbit consumer_timeout 604800000"
     ports:
       - "5672:5672" # AMQP protocol (used by pika)
       - "15672:15672" # Management UI → http://localhost:15672  (guest/guest)

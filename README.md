@@ -21,6 +21,8 @@ A web application for managing DNA sequencer runs. It monitors sequencer output 
 - [Docker Desktop](https://docs.docker.com/get-docker/) installed and running / [Rancher Desktop](https://rancherdesktop.io/) installed and running with dockerd container engine
 - S3 storage credentials (endpoint URL, access key, secret key) — get these from the project administrator
 
+Installing on a Linux server? Follow the copy-and-paste guide in [INSTALL-LINUX.md](INSTALL-LINUX.md).
+
 ---
 
 ## How it works (overview)

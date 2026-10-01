@@ -603,7 +603,8 @@ def check_verifying_run(run, db, now: datetime | None = None):
     interval = get_setting_int("verify_interval", 60)
     # the TRE re-hashes every byte before it confirms — large runs get extra time
     per_100gb = get_setting_int("verify_minutes_per_100gb", 24)
-    run_bytes = db.query(func.coalesce(func.sum(RunFiles.size), 0)).filter(RunFiles.run_uuid == run.uuid).scalar() or 0
+    # SUM(bigint) comes back from Postgres as Decimal
+    run_bytes = int(db.query(func.coalesce(func.sum(RunFiles.size), 0)).filter(RunFiles.run_uuid == run.uuid).scalar() or 0)
     deadline  = retries * interval + int(run_bytes / 100e9 * per_100gb * 60)   # proportional to size
 
     if not run.checksum_file:

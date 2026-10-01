@@ -5,6 +5,7 @@ import fnmatch
 import os
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import boto3
 from boto3.exceptions import S3UploadFailedError
@@ -69,17 +70,109 @@ def _is_excluded(relative_path: str, exclusions: list[str]) -> bool:
 _MULTIPART_THRESHOLD   = 16 * 1024 * 1024   # files >= 16 MB use multipart
 _MULTIPART_CHUNKSIZE   = 16 * 1024 * 1024   # 16 MB per part
 _MULTIPART_CONCURRENCY = 4                   # 4 parallel streams — kubectl port-forward safe limit
+_MAX_PARTS             = 10_000              # S3 limit per multipart upload
+
+
+def _is_precondition(exc: Exception) -> bool:
+    # the proxy refuses overwrites with PreconditionFailed; S3UploadFailedError only carries it in the text
+    return (
+        isinstance(exc, ClientError) and exc.response.get("Error", {}).get("Code", "") == "PreconditionFailed"
+    ) or "PreconditionFailed" in str(exc)
+
+
+def _error_details(exc: Exception) -> str:
+    """Code, message and response headers of an S3 error — the proxy's 400s come without a code."""
+    if not isinstance(exc, ClientError):
+        return str(exc)
+    meta = exc.response.get("ResponseMetadata", {})
+    err  = exc.response.get("Error", {})
+    return (f"HTTP {meta.get('HTTPStatusCode')} code={err.get('Code')!r} message={err.get('Message')!r} "
+            f"request_id={meta.get('RequestId')!r} headers={meta.get('HTTPHeaders')}")
+
+
+def _part_size(size: int) -> int:
+    """_MULTIPART_CHUNKSIZE, or bigger (whole MiB) when the file would need more than _MAX_PARTS parts."""
+    mib = 1024 * 1024
+    needed = -(-size // _MAX_PARTS)
+    return max(_MULTIPART_CHUNKSIZE, -(-needed // mib) * mib)
+
+
+def _multipart_upload(s3, local_path: str, bucket: str, s3_key: str,
+                      on_bytes=None, max_attempts: int = 5, backoff_max: int = 30) -> None:
+    """
+    Multipart upload where every part is retried on its own. With upload_file() one
+    rejected part (the proxy answers an occasional UploadPart with a bare 400) threw away
+    the whole file — for a 100 GB file that meant starting again from byte 0.
+    Parts are read from disk per attempt, _MULTIPART_CONCURRENCY at a time.
+    """
+    size       = os.path.getsize(local_path)
+    part_size  = _part_size(size)
+    n_parts    = -(-size // part_size)
+    upload_id  = s3.create_multipart_upload(Bucket=bucket, Key=s3_key)["UploadId"]
+
+    def _send(part_number: int) -> dict:
+        offset = (part_number - 1) * part_size
+        length = min(part_size, size - offset)
+        for attempt in range(1, max_attempts + 1):
+            try:
+                with open(local_path, "rb") as f:
+                    f.seek(offset)
+                    data = f.read(length)
+                resp = s3.upload_part(Bucket=bucket, Key=s3_key, UploadId=upload_id,
+                                      PartNumber=part_number, Body=data)
+                if on_bytes:
+                    on_bytes(length)
+                return {"PartNumber": part_number, "ETag": resp["ETag"]}
+            except Exception as exc:
+                if _is_precondition(exc) or attempt == max_attempts:
+                    raise
+                wait = min(5 * attempt, backoff_max)
+                logger.warning(f"[TRE upload] part {part_number}/{n_parts} of {s3_key} attempt {attempt} failed "
+                               f"— retry in {wait}s: {_error_details(exc)}")
+                time.sleep(wait)
+
+    try:
+        parts = []
+        with ThreadPoolExecutor(max_workers=_MULTIPART_CONCURRENCY) as pool:
+            futures = [pool.submit(_send, n) for n in range(1, n_parts + 1)]
+            try:
+                for future in as_completed(futures):
+                    parts.append(future.result())
+            except BaseException:
+                pool.shutdown(wait=True, cancel_futures=True)
+                raise
+        parts.sort(key=lambda p: p["PartNumber"])
+        s3.complete_multipart_upload(Bucket=bucket, Key=s3_key, UploadId=upload_id,
+                                     MultipartUpload={"Parts": parts})
+    except BaseException:
+        try:
+            s3.abort_multipart_upload(Bucket=bucket, Key=s3_key, UploadId=upload_id)
+        except Exception as exc:
+            logger.warning(f"[TRE upload] could not abort multipart upload of {s3_key}: {exc}")
+        raise
 
 
 def _upload_file(s3, local_path: str, bucket: str, s3_key: str,
                  on_bytes=None, on_retry=None, max_attempts: int = 5, backoff_max: int = 30) -> None:
     """
-    Upload a single file using the S3 Transfer Manager.
-    Files >= _MULTIPART_THRESHOLD are split into _MULTIPART_CHUNKSIZE parts and
-    uploaded with _MULTIPART_CONCURRENCY parallel threads. Smaller files use a
-    single PUT. on_bytes(n) is called as bytes are transferred (thread-safe —
-    the Transfer Manager may call it from multiple threads for large files).
+    Upload a single file. Files >= _MULTIPART_THRESHOLD go through _multipart_upload
+    (parts retried one by one); smaller files are a single PUT via the S3 Transfer
+    Manager, retried as a whole. on_bytes(n) is called as bytes are transferred
+    (thread-safe — it is called from several threads for large files).
     """
+    try:
+        if os.path.getsize(local_path) >= _MULTIPART_THRESHOLD:
+            _multipart_upload(s3, local_path, bucket, s3_key, on_bytes=on_bytes,
+                              max_attempts=max_attempts, backoff_max=backoff_max)
+            logger.info(f"[TRE upload] complete: s3://{bucket}/{s3_key} size={os.path.getsize(local_path)}")
+            return
+    except Exception as exc:
+        if _is_precondition(exc):
+            logger.warning(f"[TRE upload] PreconditionFailed for {s3_key} — file already on S3, skipping")
+            return
+        logger.error(f"[TRE upload] failed for {local_path}: {_error_details(exc)}")
+        raise
+
     config = TransferConfig(
         multipart_threshold=_MULTIPART_THRESHOLD,
         multipart_chunksize=_MULTIPART_CHUNKSIZE,
@@ -94,11 +187,7 @@ def _upload_file(s3, local_path: str, bucket: str, s3_key: str,
             logger.info(f"[TRE upload] complete: s3://{bucket}/{s3_key} size={os.path.getsize(local_path)}")
             return
         except (S3UploadFailedError, ClientError) as exc:
-            # S3UploadFailedError wraps ClientError when using upload_file(); check both forms
-            is_precondition = (
-                isinstance(exc, ClientError) and exc.response.get("Error", {}).get("Code", "") == "PreconditionFailed"
-            ) or "PreconditionFailed" in str(exc)
-            if is_precondition:
+            if _is_precondition(exc):
                 logger.warning(f"[TRE upload] PreconditionFailed for {s3_key} — file already on S3, skipping")
                 return
             if attempt < max_attempts:

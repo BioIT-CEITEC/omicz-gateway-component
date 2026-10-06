@@ -1,0 +1,1323 @@
+<!doctype html>
+<html lang="en">
+  <head>
+<script data-demo-base="../">
+(function () {
+  var BASE = document.currentScript.getAttribute('data-demo-base');
+  var ROUTES = {"/": "index.html", "/instruments/": "instruments/index.html", "/instruments/create/": "instruments/create/index.html", "/instrument-models/": "instrument-models/index.html", "/instrument-models/create/": "instrument-models/create/index.html", "/acquisition-runs/": "acquisition-runs/index.html", "/acquisition-runs/queue/view/": "acquisition-runs/queue/view/index.html", "/containers/": "containers/index.html", "/settings/": "settings/index.html", "/logs/": "logs/index.html", "/changelog/": "changelog/index.html", "/acquisition-runs/?status=running": "acquisition-runs/status/running/index.html", "/acquisition-runs/?status=running_finished": "acquisition-runs/status/runningfinished/index.html", "/acquisition-runs/?status=completed": "acquisition-runs/status/completed/index.html", "/acquisition-runs/?status=failed&status=move_failed&status=transfer_conflict&status=verify_failed": "acquisition-runs/status/failed-movefailed-transferconflict-verifyfailed/index.html", "/instruments/38346bb2-9997-5aa7-b494-5e146e2936db/": "instruments/38346bb2-9997-5aa7-b494-5e146e2936db/index.html", "/instruments/4ccf36f8-2aa2-5bef-9a5f-13a3206f274c/": "instruments/4ccf36f8-2aa2-5bef-9a5f-13a3206f274c/index.html", "/instruments/35cc239d-cbda-5aaa-9fa5-55d91522c62b/": "instruments/35cc239d-cbda-5aaa-9fa5-55d91522c62b/index.html", "/instruments/1d5b97bc-0d1c-53f2-b08c-ea6e0e967d43/": "instruments/1d5b97bc-0d1c-53f2-b08c-ea6e0e967d43/index.html", "/instruments/e86214eb-8ab3-5383-b3b7-e491696813df/": "instruments/e86214eb-8ab3-5383-b3b7-e491696813df/index.html", "/instruments/38346bb2-9997-5aa7-b494-5e146e2936db/edit/": "instruments/38346bb2-9997-5aa7-b494-5e146e2936db/edit/index.html", "/instruments/4ccf36f8-2aa2-5bef-9a5f-13a3206f274c/edit/": "instruments/4ccf36f8-2aa2-5bef-9a5f-13a3206f274c/edit/index.html", "/instruments/35cc239d-cbda-5aaa-9fa5-55d91522c62b/edit/": "instruments/35cc239d-cbda-5aaa-9fa5-55d91522c62b/edit/index.html", "/instruments/1d5b97bc-0d1c-53f2-b08c-ea6e0e967d43/edit/": "instruments/1d5b97bc-0d1c-53f2-b08c-ea6e0e967d43/edit/index.html", "/instruments/e86214eb-8ab3-5383-b3b7-e491696813df/edit/": "instruments/e86214eb-8ab3-5383-b3b7-e491696813df/edit/index.html", "/acquisition-runs/?sequencer_uuid=38346bb2-9997-5aa7-b494-5e146e2936db": "acquisition-runs/instrument/38346bb2-9997-5aa7-b494-5e146e2936db/index.html", "/acquisition-runs/?sequencer_uuid=4ccf36f8-2aa2-5bef-9a5f-13a3206f274c": "acquisition-runs/instrument/4ccf36f8-2aa2-5bef-9a5f-13a3206f274c/index.html", "/acquisition-runs/?sequencer_uuid=35cc239d-cbda-5aaa-9fa5-55d91522c62b": "acquisition-runs/instrument/35cc239d-cbda-5aaa-9fa5-55d91522c62b/index.html", "/acquisition-runs/?sequencer_uuid=1d5b97bc-0d1c-53f2-b08c-ea6e0e967d43": "acquisition-runs/instrument/1d5b97bc-0d1c-53f2-b08c-ea6e0e967d43/index.html", "/acquisition-runs/?sequencer_uuid=e86214eb-8ab3-5383-b3b7-e491696813df": "acquisition-runs/instrument/e86214eb-8ab3-5383-b3b7-e491696813df/index.html", "/instrument-models/ac9ec2bf-13f6-5d38-906e-4f0af8f0f6b4/": "instrument-models/ac9ec2bf-13f6-5d38-906e-4f0af8f0f6b4/index.html", "/instrument-models/7888a4ac-a3a4-53df-8fef-c25ae6157164/": "instrument-models/7888a4ac-a3a4-53df-8fef-c25ae6157164/index.html", "/instrument-models/c6ba5a9c-e570-51a9-98aa-6fb1e312a605/": "instrument-models/c6ba5a9c-e570-51a9-98aa-6fb1e312a605/index.html", "/instrument-models/8c0ba332-5272-54a2-8bed-87d3fe8c2e03/": "instrument-models/8c0ba332-5272-54a2-8bed-87d3fe8c2e03/index.html", "/instrument-models/ac9ec2bf-13f6-5d38-906e-4f0af8f0f6b4/edit/": "instrument-models/ac9ec2bf-13f6-5d38-906e-4f0af8f0f6b4/edit/index.html", "/instrument-models/7888a4ac-a3a4-53df-8fef-c25ae6157164/edit/": "instrument-models/7888a4ac-a3a4-53df-8fef-c25ae6157164/edit/index.html", "/instrument-models/c6ba5a9c-e570-51a9-98aa-6fb1e312a605/edit/": "instrument-models/c6ba5a9c-e570-51a9-98aa-6fb1e312a605/edit/index.html", "/instrument-models/8c0ba332-5272-54a2-8bed-87d3fe8c2e03/edit/": "instrument-models/8c0ba332-5272-54a2-8bed-87d3fe8c2e03/edit/index.html", "/acquisition-runs/73df9270-2dd1-5dfd-b738-3331bb830e42/": "acquisition-runs/73df9270-2dd1-5dfd-b738-3331bb830e42/index.html", "/acquisition-runs/ff459ed2-614c-5794-87ef-979f4c868e58/": "acquisition-runs/ff459ed2-614c-5794-87ef-979f4c868e58/index.html", "/acquisition-runs/bf3b3b98-8ee9-520f-89fc-906c11f5cd65/": "acquisition-runs/bf3b3b98-8ee9-520f-89fc-906c11f5cd65/index.html", "/acquisition-runs/68f06e7b-303b-5d9e-99f9-4140173a498d/": "acquisition-runs/68f06e7b-303b-5d9e-99f9-4140173a498d/index.html", "/acquisition-runs/9765699a-e2a4-51c0-944d-f1d49be30f82/": "acquisition-runs/9765699a-e2a4-51c0-944d-f1d49be30f82/index.html", "/acquisition-runs/a5c1827b-dde8-5f80-b0c4-195ea956c672/": "acquisition-runs/a5c1827b-dde8-5f80-b0c4-195ea956c672/index.html", "/acquisition-runs/440771a2-4e36-5a92-83eb-563afb195378/": "acquisition-runs/440771a2-4e36-5a92-83eb-563afb195378/index.html", "/acquisition-runs/d3ae7223-a84b-5754-8e90-4b7389d843d6/": "acquisition-runs/d3ae7223-a84b-5754-8e90-4b7389d843d6/index.html", "/acquisition-runs/1e8629e4-0788-58bc-b8c9-aeea6efd4057/": "acquisition-runs/1e8629e4-0788-58bc-b8c9-aeea6efd4057/index.html", "/acquisition-runs/30d73591-a2c9-57a7-8916-6f743c9e8bc6/": "acquisition-runs/30d73591-a2c9-57a7-8916-6f743c9e8bc6/index.html", "/acquisition-runs/4544dd41-e463-57ce-810c-1f59dbe26c6e/": "acquisition-runs/4544dd41-e463-57ce-810c-1f59dbe26c6e/index.html", "/acquisition-runs/ab4c2e0b-037a-5370-8670-d07b5dcfab71/": "acquisition-runs/ab4c2e0b-037a-5370-8670-d07b5dcfab71/index.html", "/acquisition-runs/d448c3f3-f7d2-5607-8e5f-72517b35027e/": "acquisition-runs/d448c3f3-f7d2-5607-8e5f-72517b35027e/index.html", "/acquisition-runs/ce9fbba2-7ab0-5741-a293-b07cc8fb88ef/": "acquisition-runs/ce9fbba2-7ab0-5741-a293-b07cc8fb88ef/index.html", "/acquisition-runs/ce559804-8ca9-5043-a034-1096c45683ef/": "acquisition-runs/ce559804-8ca9-5043-a034-1096c45683ef/index.html", "/acquisition-runs/83b4465c-d236-5b6e-8c62-6201d0aad5ce/": "acquisition-runs/83b4465c-d236-5b6e-8c62-6201d0aad5ce/index.html", "/acquisition-runs/8497974f-f086-5b69-91fb-347be3d09dae/": "acquisition-runs/8497974f-f086-5b69-91fb-347be3d09dae/index.html", "/acquisition-runs/fc8e3c99-2392-59fa-bbe7-a8c3397e2e11/": "acquisition-runs/fc8e3c99-2392-59fa-bbe7-a8c3397e2e11/index.html", "/acquisition-runs/ee257f0d-1cd7-52a1-ab5d-da809ebcb196/": "acquisition-runs/ee257f0d-1cd7-52a1-ab5d-da809ebcb196/index.html", "/acquisition-runs/689bc39a-73b5-5377-9f55-58946e22ca0b/": "acquisition-runs/689bc39a-73b5-5377-9f55-58946e22ca0b/index.html", "/acquisition-runs/b9cd7115-8ee6-5ac5-b619-febc05907c3a/": "acquisition-runs/b9cd7115-8ee6-5ac5-b619-febc05907c3a/index.html", "/acquisition-runs/0c11c13f-4c9a-5c6e-84f3-e23c2b0fff5b/": "acquisition-runs/0c11c13f-4c9a-5c6e-84f3-e23c2b0fff5b/index.html", "/logs/?service=backend": "logs/backend/index.html", "/logs/?service=watcher": "logs/watcher/index.html", "/logs/?service=worker": "logs/worker/index.html", "/logs/?service=backup": "logs/backup/index.html", "/logs/?service=frontend": "logs/frontend/index.html"};
+  function canonical(url) {
+    var u = new URL(url, 'https://demo.local');
+    var path = u.pathname.endsWith('/') ? u.pathname : u.pathname + '/';
+    var q = [];
+    u.searchParams.forEach(function (v, k) { if (['skip', 'limit', 'order'].indexOf(k) < 0) q.push([k, v]); });
+    q.sort(function (a, b) { return a[0] === b[0] ? (a[1] < b[1] ? -1 : 1) : (a[0] < b[0] ? -1 : 1); });
+    return path + (q.length ? '?' + q.map(function (p) { return p[0] + '=' + p[1]; }).join('&') : '');
+  }
+  function toast(msg) {
+    var el = document.getElementById('demo-toast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'demo-toast';
+      el.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:9999;background:#0C2461;color:#fff;' +
+        'padding:10px 18px;border-radius:10px;font:500 13px system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.25);transition:opacity .3s';
+      document.body.appendChild(el);
+    }
+    el.textContent = msg; el.style.opacity = '1';
+    clearTimeout(el._t); el._t = setTimeout(function () { el.style.opacity = '0'; }, 3200);
+  }
+  window.__demoNav = function (url) {
+    var target = ROUTES[canonical(url)] || ROUTES[canonical(url.split('?')[0])];
+    if (url.indexOf('?') >= 0 && !ROUTES[canonical(url)]) toast('Demo: this filter is not pre-rendered — showing all runs.');
+    if (target) setTimeout(function () { location.href = BASE + target; }, ROUTES[canonical(url)] ? 0 : 900);
+  };
+  var realFetch = window.fetch.bind(window);
+  window.fetch = function (input, opts) {
+    var url = typeof input === 'string' ? input : input.url;
+    var method = ((opts && opts.method) || 'GET').toUpperCase();
+    if (method !== 'GET') {
+      toast('Demo: actions are disabled in this static preview.');
+      var body = JSON.stringify({ success: false, detail: 'Demo mode: actions are disabled', error: 'Demo mode: actions are disabled' });
+      return Promise.resolve(new Response(body, { status: 403, headers: { 'Content-Type': 'application/json' } }));
+    }
+    if (url.charAt(0) === '/') return realFetch(BASE + 'api' + url.split('?')[0].replace(/\/$/, '') + '.json');
+    return realFetch(input, opts);
+  };
+  function handleSubmit(f) {
+    if ((f.getAttribute('method') || 'get').toLowerCase() === 'get' && f.getAttribute('data-demo-path')) {
+      var params = new URLSearchParams(new FormData(f)).toString();
+      window.__demoNav(f.getAttribute('data-demo-path') + (params ? '?' + params : ''));
+    } else {
+      toast('Demo: actions are disabled in this static preview.');
+    }
+  }
+  document.addEventListener('submit', function (e) {
+    e.preventDefault(); e.stopPropagation();
+    handleSubmit(e.target);
+  }, true);
+  HTMLFormElement.prototype.submit = function () { handleSubmit(this); };
+})();
+</script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="../static/images/fav.png" />
+    <title>Settings</title>
+    <script>
+      // Apply the theme before first paint: saved choice, otherwise the system setting.
+      (function () {
+        var saved = null;
+        try { saved = localStorage.getItem('theme'); } catch (e) {}
+        var dark = saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.classList.toggle('dark', dark);
+      })();
+    </script>
+    <link rel="stylesheet" href="../static/css/dark.css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-[#F0F4FA] text-gray-800 flex min-h-screen">
+
+    
+    <div class="lg:hidden fixed top-0 inset-x-0 h-14 bg-white border-b border-gray-100 z-40 flex items-center gap-3 px-4 shadow-sm">
+      <button type="button" onclick="openSidebar()" aria-label="Open menu" aria-controls="sidebar"
+              class="-ml-1 p-2 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-50">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg>
+      </button>
+      <a href="../index.html" class="block w-28">
+
+<style>
+  .omicz-logo .logo-red   { stroke: #D7141A; }
+  .omicz-logo .logo-blue  { stroke: #1466B8; }
+  .omicz-logo .logo-navy  { stroke: #11457E; }
+  .omicz-logo .logo-navy-fill { fill: #11457E; }
+  .omicz-logo .logo-label { fill: #11457E; }
+  html.dark .omicz-logo .logo-red   { stroke: #F0474C; }
+  html.dark .omicz-logo .logo-blue  { stroke: #4C9BE8; }
+  html.dark .omicz-logo .logo-navy  { stroke: #E2E8F0; }
+  html.dark .omicz-logo .logo-navy-fill { fill: #E2E8F0; }
+  html.dark .omicz-logo .logo-label { fill: #CBD5E1; }
+</style>
+<svg class="omicz-logo w-full h-auto" xmlns="http://www.w3.org/2000/svg" viewBox="24 44 516 178" role="img" aria-label="OmiCZ Gateway">
+  <defs>
+    <mask id="logo-red-weave-topbar" maskUnits="userSpaceOnUse" x="76" y="62" width="56" height="92">
+      <rect x="76" y="62" width="56" height="92" fill="white"/>
+      <circle cx="104" cy="125.556" r="8" fill="black"/>
+    </mask>
+    <mask id="logo-blue-weave-topbar" maskUnits="userSpaceOnUse" x="76" y="62" width="56" height="92">
+      <rect x="76" y="62" width="56" height="92" fill="white"/>
+      <circle cx="104" cy="94.444" r="8" fill="black"/>
+    </mask>
+  </defs>
+  <g fill="none" stroke-linecap="round">
+    <path class="logo-red" stroke-width="15" d="M92 59.404 A52 52 0 0 0 92 160.596"/>
+    <path class="logo-blue" stroke-width="15" d="M116 59.404 A52 52 0 0 1 116 160.596"/>
+    <path class="logo-red" stroke-width="9.5" mask="url(#logo-red-weave-topbar)" d="M87 78 C87 92.222 121 95.778 121 110 C121 124.222 87 127.778 87 142"/>
+    <path class="logo-blue" stroke-width="9.5" mask="url(#logo-blue-weave-topbar)" d="M121 78 C121 92.222 87 95.778 87 110 C87 124.222 121 127.778 121 142"/>
+    <path class="logo-navy" stroke-width="16" stroke-linejoin="round" d="M190 158 V112 C190 78 236 78 236 111 V158 M236 111 C236 78 282 78 282 111 V158"/>
+    <path class="logo-blue" stroke-width="15" d="M423.568 77.862 A46 46 0 1 0 423.568 148.338"/>
+    <path class="logo-red" stroke-width="15" stroke-linejoin="round" d="M453 67.1 H528 L451 159.1 H528"/>
+  </g>
+  <rect class="logo-navy-fill" x="307" y="88" width="16" height="78" rx="7"/>
+  <circle class="logo-navy-fill" cx="315" cy="63" r="9"/>
+  <text class="logo-label" x="535" y="214" text-anchor="end" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="44" font-weight="600" letter-spacing="0.5">Gateway</text>
+</svg></a>
+    </div>
+    <div id="sidebar-backdrop" onclick="closeSidebar()" class="hidden lg:hidden fixed inset-0 bg-black/40 z-40"></div>
+
+    <aside id="sidebar" class="fixed top-0 left-0 h-screen w-48 bg-white border-r border-gray-100 flex flex-col z-50 shadow-sm -translate-x-full lg:translate-x-0 transition-transform duration-200">
+
+  
+  <div class="px-4 pt-5 pb-3 border-b border-gray-100 shrink-0">
+    <a href="../index.html" class="block">
+      
+
+<style>
+  .omicz-logo .logo-red   { stroke: #D7141A; }
+  .omicz-logo .logo-blue  { stroke: #1466B8; }
+  .omicz-logo .logo-navy  { stroke: #11457E; }
+  .omicz-logo .logo-navy-fill { fill: #11457E; }
+  .omicz-logo .logo-label { fill: #11457E; }
+  html.dark .omicz-logo .logo-red   { stroke: #F0474C; }
+  html.dark .omicz-logo .logo-blue  { stroke: #4C9BE8; }
+  html.dark .omicz-logo .logo-navy  { stroke: #E2E8F0; }
+  html.dark .omicz-logo .logo-navy-fill { fill: #E2E8F0; }
+  html.dark .omicz-logo .logo-label { fill: #CBD5E1; }
+</style>
+<svg class="omicz-logo w-full h-auto" xmlns="http://www.w3.org/2000/svg" viewBox="24 44 516 178" role="img" aria-label="OmiCZ Gateway">
+  <defs>
+    <mask id="logo-red-weave-main" maskUnits="userSpaceOnUse" x="76" y="62" width="56" height="92">
+      <rect x="76" y="62" width="56" height="92" fill="white"/>
+      <circle cx="104" cy="125.556" r="8" fill="black"/>
+    </mask>
+    <mask id="logo-blue-weave-main" maskUnits="userSpaceOnUse" x="76" y="62" width="56" height="92">
+      <rect x="76" y="62" width="56" height="92" fill="white"/>
+      <circle cx="104" cy="94.444" r="8" fill="black"/>
+    </mask>
+  </defs>
+  <g fill="none" stroke-linecap="round">
+    <path class="logo-red" stroke-width="15" d="M92 59.404 A52 52 0 0 0 92 160.596"/>
+    <path class="logo-blue" stroke-width="15" d="M116 59.404 A52 52 0 0 1 116 160.596"/>
+    <path class="logo-red" stroke-width="9.5" mask="url(#logo-red-weave-main)" d="M87 78 C87 92.222 121 95.778 121 110 C121 124.222 87 127.778 87 142"/>
+    <path class="logo-blue" stroke-width="9.5" mask="url(#logo-blue-weave-main)" d="M121 78 C121 92.222 87 95.778 87 110 C87 124.222 121 127.778 121 142"/>
+    <path class="logo-navy" stroke-width="16" stroke-linejoin="round" d="M190 158 V112 C190 78 236 78 236 111 V158 M236 111 C236 78 282 78 282 111 V158"/>
+    <path class="logo-blue" stroke-width="15" d="M423.568 77.862 A46 46 0 1 0 423.568 148.338"/>
+    <path class="logo-red" stroke-width="15" stroke-linejoin="round" d="M453 67.1 H528 L451 159.1 H528"/>
+  </g>
+  <rect class="logo-navy-fill" x="307" y="88" width="16" height="78" rx="7"/>
+  <circle class="logo-navy-fill" cx="315" cy="63" r="9"/>
+  <text class="logo-label" x="535" y="214" text-anchor="end" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="44" font-weight="600" letter-spacing="0.5">Gateway</text>
+</svg>
+    </a>
+    <a href="../settings/index.html" id="version-badge-link" class="mt-1.5 flex justify-end items-center gap-1 group">
+      <span class="text-[9px] text-gray-300 group-hover:text-indigo-400 transition tabular-nums">v1.3.1</span>
+      <span id="update-dot" class="hidden relative shrink-0 w-2 h-2">
+        <span class="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-75"></span>
+        <span class="relative block w-2 h-2 rounded-full bg-red-500"></span>
+      </span>
+    </a>
+  </div>
+
+  
+  <nav class="flex-1 overflow-y-auto py-3 px-2">
+    
+    
+
+    
+    
+    
+      
+        
+        
+        <p class="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-gray-400 select-none">General</p>
+      
+    
+      
+        
+        <a href="../index.html"
+           class="flex items-center gap-2.5 px-3 py-2 mb-0.5 rounded-md text-sm transition-all
+             text-gray-500 hover:text-gray-900 hover:bg-gray-50">
+          <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/></svg>
+          Dashboard
+        </a>
+      
+    
+      
+        
+        <a href="../acquisition-runs/index.html"
+           class="flex items-center gap-2.5 px-3 py-2 mb-0.5 rounded-md text-sm transition-all
+             text-gray-500 hover:text-gray-900 hover:bg-gray-50">
+          <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/></svg>
+          Acquisition Runs
+        </a>
+      
+    
+      
+        
+        <a href="../acquisition-runs/queue/view/index.html"
+           class="flex items-center gap-2.5 px-3 py-2 mb-0.5 rounded-md text-sm transition-all
+             text-gray-500 hover:text-gray-900 hover:bg-gray-50">
+          <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM3.75 12h.007v.008H3.75V12Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm-.375 5.25h.007v.008H3.75v-.008Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"/></svg>
+          Transfer Queue
+        </a>
+      
+    
+      
+        
+        <div class="mx-3 my-2 h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent"></div>
+        
+        
+        <p class="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-gray-400 select-none">Configuration</p>
+      
+    
+      
+        
+        <a href="../instrument-models/index.html"
+           class="flex items-center gap-2.5 px-3 py-2 mb-0.5 rounded-md text-sm transition-all
+             text-gray-500 hover:text-gray-900 hover:bg-gray-50">
+          <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z"/></svg>
+          Inst. Models
+        </a>
+      
+    
+      
+        
+        <a href="../instruments/index.html"
+           class="flex items-center gap-2.5 px-3 py-2 mb-0.5 rounded-md text-sm transition-all
+             text-gray-500 hover:text-gray-900 hover:bg-gray-50">
+          <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 0 0 2.25-2.25V6.75a2.25 2.25 0 0 0-2.25-2.25H6.75A2.25 2.25 0 0 0 4.5 6.75v10.5a2.25 2.25 0 0 0 2.25 2.25Zm.75-12h9v9h-9v-9Z"/></svg>
+          Instruments
+        </a>
+      
+    
+      
+        
+        <div class="mx-3 my-2 h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent"></div>
+        
+        
+        <p class="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-gray-400 select-none">System</p>
+      
+    
+      
+        
+        <a href="../containers/index.html"
+           class="flex items-center gap-2.5 px-3 py-2 mb-0.5 rounded-md text-sm transition-all
+             text-gray-500 hover:text-gray-900 hover:bg-gray-50">
+          <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/></svg>
+          Containers
+        </a>
+      
+    
+      
+        
+        <a href="../logs/index.html"
+           class="flex items-center gap-2.5 px-3 py-2 mb-0.5 rounded-md text-sm transition-all
+             text-gray-500 hover:text-gray-900 hover:bg-gray-50">
+          <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0 0 21 18V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v12a2.25 2.25 0 0 0 2.25 2.25Z"/></svg>
+          Logs
+        </a>
+      
+    
+      
+        
+        <a href="../settings/index.html"
+           class="flex items-center gap-2.5 px-3 py-2 mb-0.5 rounded-md text-sm transition-all
+             bg-[#0C2461]/5 text-[#0C2461] font-semibold border-l-2 border-[#C0392B] pl-[10px]
+             ">
+          <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
+          Settings
+        </a>
+      
+    
+      
+        
+        <a href="../changelog/index.html"
+           class="flex items-center gap-2.5 px-3 py-2 mb-0.5 rounded-md text-sm transition-all
+             text-gray-500 hover:text-gray-900 hover:bg-gray-50">
+          <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25"/></svg>
+          Changelog
+        </a>
+      
+    
+  </nav>
+
+  
+  <div class="px-2 pb-2 shrink-0">
+    <button type="button" onclick="toggleTheme()"
+       class="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-all">
+      <svg data-theme-icon="moon" class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z"/></svg>
+      <svg data-theme-icon="sun" class="hidden w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z"/></svg>
+      <span id="theme-toggle-label">Dark mode</span>
+    </button>
+    <a href="https://github.com/BioIT-CEITEC/omicz-gateway-component/issues" target="_blank" rel="noopener noreferrer"
+       class="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-all">
+      <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z"/></svg>
+      Support
+      <svg class="w-3 h-3 ml-auto opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
+    </a>
+  </div>
+
+  
+  <div class="px-4 py-3 border-t border-gray-100 shrink-0 text-center">
+    <p class="text-gray-300 text-[10px]">&copy; 2026 OmiCZ GateWay</p>
+  </div>
+
+</aside>
+
+    <main class="lg:ml-48 flex-1 min-w-0 px-4 sm:px-6 lg:px-8 pt-20 pb-8 lg:py-8 min-h-screen lg:max-w-[calc(100vw-12rem)]">
+      
+<div>
+  <div class="mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">Settings</h1>
+    <p class="text-sm text-gray-500 mt-1">Adjust application behaviour without restarting containers. Changes take effect immediately (except Watcher settings — see note below).</p>
+  </div>
+
+  
+  <div class="mb-8">
+    <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Application</h2>
+    <div class="bg-white rounded-xl shadow divide-y divide-gray-100">
+      <div class="px-5 py-4 flex items-center justify-between gap-4">
+        <div>
+          <p class="text-sm font-medium text-gray-800">Current version</p>
+          <p class="text-xs text-gray-400 mt-0.5">Installed on this machine</p>
+        </div>
+        <span class="text-sm font-mono font-semibold text-[#0C2461]">v1.3.1</span>
+      </div>
+      <div class="px-5 py-4">
+        <div class="flex items-center justify-between gap-4">
+          <div>
+            <p class="text-sm font-medium text-gray-800">Latest version</p>
+            <p class="text-xs text-gray-400 mt-0.5">From GitHub repository</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <span id="latest-version" class="text-sm font-mono text-gray-400">—</span>
+            <button onclick="checkVersion()"
+              class="bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg text-xs font-medium hover:border-gray-400 hover:text-gray-800 transition">
+              Check
+            </button>
+          </div>
+        </div>
+
+        
+        <div id="update-banner" class="hidden mt-4 p-4 bg-indigo-50 border border-indigo-200 rounded-xl">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <p class="text-sm font-semibold text-indigo-800">Update available</p>
+              <p class="text-xs text-indigo-600 mt-0.5">
+                Pulls the latest code from GitHub, then restarts backend / worker / watcher automatically.
+                Refresh this page after the update completes.
+              </p>
+            </div>
+            <button id="update-btn" onclick="runUpdate()"
+              class="shrink-0 bg-[#0C2461] text-white px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-[#091B4D] transition">
+              Update Now
+            </button>
+          </div>
+          
+          <div id="update-output" class="hidden mt-3">
+            <pre id="update-log" class="text-[11px] font-mono bg-gray-900 text-green-400 rounded-lg p-3 whitespace-pre-wrap break-all max-h-48 overflow-y-auto"></pre>
+          </div>
+        </div>
+
+        
+        <div id="uptodate-banner" class="hidden mt-4 p-3 bg-green-50 border border-green-200 rounded-xl">
+          <p class="text-xs text-green-700 font-medium">You are running the latest version.</p>
+        </div>
+
+        
+        <div id="check-error" class="hidden mt-4 p-3 bg-red-50 border border-red-200 rounded-xl">
+          <p class="text-xs text-red-700 font-medium" id="check-error-msg"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  
+
+  
+  
+
+  
+
+  
+  
+  
+  <div class="mb-8">
+    <div class="flex items-center gap-3 mb-3">
+      <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">UI Timings</h2>
+      
+    </div>
+    <p class="text-xs text-gray-400 mb-3">Controls how often pages auto-refresh. Changes apply on the next page load.</p>
+    <div class="bg-white rounded-xl shadow divide-y divide-gray-100">
+      
+      
+      <div class="px-5 py-4" id="row-active_refresh_interval">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-800">Transfer Status Refresh Interval</p>
+            <p class="text-xs text-gray-400 mt-0.5">Run detail page while checksumming / moving / verifying</p>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            
+            <input
+              type="number"
+              id="input-active_refresh_interval"
+              value="5"
+              min="1"
+              max="300"
+              class="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#0C2461]"
+            />
+            
+            <span class="text-xs text-gray-400 w-14">seconds</span>
+            <button
+              onclick="saveSetting('active_refresh_interval')"
+              class="bg-[#0C2461] text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#091B4D] transition"
+            >
+              Save
+            </button>
+            <span id="status-active_refresh_interval" class="text-xs w-16 text-center"></span>
+          </div>
+        </div>
+        
+      </div>
+      
+      
+      <div class="px-5 py-4" id="row-containers_refresh_interval">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-800">Containers page refresh</p>
+            <p class="text-xs text-gray-400 mt-0.5">Docker container list auto-refresh</p>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            
+            <input
+              type="number"
+              id="input-containers_refresh_interval"
+              value="10"
+              min="1"
+              max="300"
+              class="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#0C2461]"
+            />
+            
+            <span class="text-xs text-gray-400 w-14">seconds</span>
+            <button
+              onclick="saveSetting('containers_refresh_interval')"
+              class="bg-[#0C2461] text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#091B4D] transition"
+            >
+              Save
+            </button>
+            <span id="status-containers_refresh_interval" class="text-xs w-16 text-center"></span>
+          </div>
+        </div>
+        
+      </div>
+      
+      
+      <div class="px-5 py-4" id="row-idle_refresh_interval">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-800">Acquisition Status Refresh Interval</p>
+            <p class="text-xs text-gray-400 mt-0.5">Run detail page while the instrument is still running</p>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            
+            <input
+              type="number"
+              id="input-idle_refresh_interval"
+              value="120"
+              min="10"
+              max="3600"
+              class="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#0C2461]"
+            />
+            
+            <span class="text-xs text-gray-400 w-14">seconds</span>
+            <button
+              onclick="saveSetting('idle_refresh_interval')"
+              class="bg-[#0C2461] text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#091B4D] transition"
+            >
+              Save
+            </button>
+            <span id="status-idle_refresh_interval" class="text-xs w-16 text-center"></span>
+          </div>
+        </div>
+        
+      </div>
+      
+    </div>
+  </div>
+  
+  
+  
+  
+  <div class="mb-8">
+    <div class="flex items-center gap-3 mb-3">
+      <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Upload</h2>
+      
+    </div>
+    <p class="text-xs text-gray-400 mb-3">Controls how run data is uploaded to S3 and how failed uploads are retried. Changes apply to the next upload.</p>
+    <div class="bg-white rounded-xl shadow divide-y divide-gray-100">
+      
+      
+      <div class="px-5 py-4" id="row-upload_engine">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-800">Upload engine</p>
+            <p class="text-xs text-gray-400 mt-0.5">boto3: one file at a time with live progress. s5cmd: several files at once (faster for runs with many files); progress moves per finished file. s5cmd must be in the images (after an update that adds it, run docker compose build &amp;&amp; docker compose up -d); until then boto3 is used</p>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            
+            <select
+              id="input-upload_engine"
+              data-choice="1"
+              class="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0C2461]"
+            >
+              
+              <option value="boto3" selected>boto3</option>
+              
+              <option value="s5cmd" >s5cmd</option>
+              
+            </select>
+            
+            <span class="text-xs text-gray-400 w-14"></span>
+            <button
+              onclick="saveSetting('upload_engine')"
+              class="bg-[#0C2461] text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#091B4D] transition"
+            >
+              Save
+            </button>
+            <span id="status-upload_engine" class="text-xs w-16 text-center"></span>
+          </div>
+        </div>
+        
+      </div>
+      
+      
+      <div class="px-5 py-4" id="row-upload_max_attempts">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-800">Upload retry attempts</p>
+            <p class="text-xs text-gray-400 mt-0.5">How many times to retry a failed S3 file upload</p>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            
+            <input
+              type="number"
+              id="input-upload_max_attempts"
+              value="5"
+              min="1"
+              max="20"
+              class="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#0C2461]"
+            />
+            
+            <span class="text-xs text-gray-400 w-14">attempts</span>
+            <button
+              onclick="saveSetting('upload_max_attempts')"
+              class="bg-[#0C2461] text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#091B4D] transition"
+            >
+              Save
+            </button>
+            <span id="status-upload_max_attempts" class="text-xs w-16 text-center"></span>
+          </div>
+        </div>
+        
+      </div>
+      
+      
+      <div class="px-5 py-4" id="row-upload_retry_backoff_max">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-800">Upload retry wait cap</p>
+            <p class="text-xs text-gray-400 mt-0.5">Maximum pause between retry attempts (exponential backoff)</p>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            
+            <input
+              type="number"
+              id="input-upload_retry_backoff_max"
+              value="60"
+              min="5"
+              max="300"
+              class="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#0C2461]"
+            />
+            
+            <span class="text-xs text-gray-400 w-14">seconds</span>
+            <button
+              onclick="saveSetting('upload_retry_backoff_max')"
+              class="bg-[#0C2461] text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#091B4D] transition"
+            >
+              Save
+            </button>
+            <span id="status-upload_retry_backoff_max" class="text-xs w-16 text-center"></span>
+          </div>
+        </div>
+        
+      </div>
+      
+      
+      <div class="px-5 py-4" id="row-upload_s5cmd_workers">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-800">s5cmd parallel files</p>
+            <p class="text-xs text-gray-400 mt-0.5">Files sent at the same time when the upload engine is s5cmd; each large file also uses 4 parallel parts</p>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            
+            <input
+              type="number"
+              id="input-upload_s5cmd_workers"
+              value="4"
+              min="1"
+              max="64"
+              class="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#0C2461]"
+            />
+            
+            <span class="text-xs text-gray-400 w-14">files</span>
+            <button
+              onclick="saveSetting('upload_s5cmd_workers')"
+              class="bg-[#0C2461] text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#091B4D] transition"
+            >
+              Save
+            </button>
+            <span id="status-upload_s5cmd_workers" class="text-xs w-16 text-center"></span>
+          </div>
+        </div>
+        
+      </div>
+      
+    </div>
+  </div>
+  
+  
+  
+  
+  <div class="mb-8">
+    <div class="flex items-center gap-3 mb-3">
+      <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Verification</h2>
+      
+    </div>
+    <p class="text-xs text-gray-400 mb-3">Controls how long to wait for TRE to confirm the uploaded data.</p>
+    <div class="bg-white rounded-xl shadow divide-y divide-gray-100">
+      
+      
+      <div class="px-5 py-4" id="row-verify_interval">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-800">Verification poll interval</p>
+            <p class="text-xs text-gray-400 mt-0.5">Wait time between each S3 verification poll</p>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            
+            <input
+              type="number"
+              id="input-verify_interval"
+              value="60"
+              min="5"
+              max="3600"
+              class="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#0C2461]"
+            />
+            
+            <span class="text-xs text-gray-400 w-14">seconds</span>
+            <button
+              onclick="saveSetting('verify_interval')"
+              class="bg-[#0C2461] text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#091B4D] transition"
+            >
+              Save
+            </button>
+            <span id="status-verify_interval" class="text-xs w-16 text-center"></span>
+          </div>
+        </div>
+        
+      </div>
+      
+      
+      <div class="px-5 py-4" id="row-verify_minutes_per_100gb">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-800">verify_minutes_per_100gb</p>
+            <p class="text-xs text-gray-400 mt-0.5">Extra minutes of TRE wait per 100 GB of run data, on top of verify_retries × verify_interval (the TRE re-hashes all data before confirming). Default 24: 250 GB → 2 h, 1 TB → 5 h in total</p>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            
+            <input
+              type="number"
+              id="input-verify_minutes_per_100gb"
+              value="24"
+              min="1"
+              max="9999"
+              class="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#0C2461]"
+            />
+            
+            <span class="text-xs text-gray-400 w-14"></span>
+            <button
+              onclick="saveSetting('verify_minutes_per_100gb')"
+              class="bg-[#0C2461] text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#091B4D] transition"
+            >
+              Save
+            </button>
+            <span id="status-verify_minutes_per_100gb" class="text-xs w-16 text-center"></span>
+          </div>
+        </div>
+        
+      </div>
+      
+      
+      <div class="px-5 py-4" id="row-verify_retries">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-800">Verification poll attempts</p>
+            <p class="text-xs text-gray-400 mt-0.5">How many times to check S3 for TRE&#39;s checksum confirmation</p>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            
+            <input
+              type="number"
+              id="input-verify_retries"
+              value="60"
+              min="1"
+              max="100"
+              class="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#0C2461]"
+            />
+            
+            <span class="text-xs text-gray-400 w-14">attempts</span>
+            <button
+              onclick="saveSetting('verify_retries')"
+              class="bg-[#0C2461] text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#091B4D] transition"
+            >
+              Save
+            </button>
+            <span id="status-verify_retries" class="text-xs w-16 text-center"></span>
+          </div>
+        </div>
+        
+      </div>
+      
+    </div>
+  </div>
+  
+  
+  
+  
+  <div class="mb-8">
+    <div class="flex items-center gap-3 mb-3">
+      <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Watcher</h2>
+      
+      <span class="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">applies on next watcher poll — no restart needed</span>
+      
+    </div>
+    <p class="text-xs text-gray-400 mb-3">Controls run detection timing. Changes apply on the next watcher polling cycle (no restart needed).</p>
+    <div class="bg-white rounded-xl shadow divide-y divide-gray-100">
+      
+      
+      <div class="px-5 py-4" id="row-dir_stability_poll_interval">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-800">dir_stability_poll_interval</p>
+            <p class="text-xs text-gray-400 mt-0.5">Seconds between directory stability checks. Each check walks every running run folder of instruments using the Directory Stability method</p>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            
+            <input
+              type="number"
+              id="input-dir_stability_poll_interval"
+              value="60"
+              min="1"
+              max="9999"
+              class="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#0C2461]"
+            />
+            
+            <span class="text-xs text-gray-400 w-14"></span>
+            <button
+              onclick="saveSetting('dir_stability_poll_interval')"
+              class="bg-[#0C2461] text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#091B4D] transition"
+            >
+              Save
+            </button>
+            <span id="status-dir_stability_poll_interval" class="text-xs w-16 text-center"></span>
+          </div>
+        </div>
+        
+      </div>
+      
+      
+      <div class="px-5 py-4" id="row-run_detection_delay">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-800">Acquisition Registration Delay</p>
+            <p class="text-xs text-gray-400 mt-0.5">Pause after a new folder appears before registering it as a run</p>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            
+            <input
+              type="number"
+              id="input-run_detection_delay"
+              value="15"
+              min="0"
+              max="120"
+              class="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#0C2461]"
+            />
+            
+            <span class="text-xs text-gray-400 w-14">seconds</span>
+            <button
+              onclick="saveSetting('run_detection_delay')"
+              class="bg-[#0C2461] text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#091B4D] transition"
+            >
+              Save
+            </button>
+            <span id="status-run_detection_delay" class="text-xs w-16 text-center"></span>
+          </div>
+        </div>
+        
+      </div>
+      
+      
+      <div class="px-5 py-4" id="row-sequencer_check_interval">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-800">Instrument Registration Check Interval</p>
+            <p class="text-xs text-gray-400 mt-0.5">How often the watcher polls the DB for newly added instruments</p>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            
+            <input
+              type="number"
+              id="input-sequencer_check_interval"
+              value="60"
+              min="10"
+              max="3600"
+              class="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#0C2461]"
+            />
+            
+            <span class="text-xs text-gray-400 w-14">seconds</span>
+            <button
+              onclick="saveSetting('sequencer_check_interval')"
+              class="bg-[#0C2461] text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#091B4D] transition"
+            >
+              Save
+            </button>
+            <span id="status-sequencer_check_interval" class="text-xs w-16 text-center"></span>
+          </div>
+        </div>
+        
+      </div>
+      
+    </div>
+  </div>
+  
+  
+  
+  
+  <div class="mb-8">
+    <div class="flex items-center gap-3 mb-3">
+      <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Pagination</h2>
+      
+    </div>
+    <p class="text-xs text-gray-400 mb-3">Controls how many items appear per page on list views. Changes apply on the next page navigation.</p>
+    <div class="bg-white rounded-xl shadow divide-y divide-gray-100">
+      
+      
+      <div class="px-5 py-4" id="row-pagination_page_size">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-800">Items per page</p>
+            <p class="text-xs text-gray-400 mt-0.5">Number of rows shown per page on Runs, Instruments, and Instrument Models list pages</p>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            
+            <input
+              type="number"
+              id="input-pagination_page_size"
+              value="50"
+              min="5"
+              max="200"
+              class="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#0C2461]"
+            />
+            
+            <span class="text-xs text-gray-400 w-14">items</span>
+            <button
+              onclick="saveSetting('pagination_page_size')"
+              class="bg-[#0C2461] text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#091B4D] transition"
+            >
+              Save
+            </button>
+            <span id="status-pagination_page_size" class="text-xs w-16 text-center"></span>
+          </div>
+        </div>
+        
+      </div>
+      
+    </div>
+  </div>
+  
+  
+  
+  
+  <div class="mb-8">
+    <div class="flex items-center gap-3 mb-3">
+      <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Logs</h2>
+      
+    </div>
+    <p class="text-xs text-gray-400 mb-3">Controls the Logs viewer. Changes apply on the next page load.</p>
+    <div class="bg-white rounded-xl shadow divide-y divide-gray-100">
+      
+      
+      <div class="px-5 py-4" id="row-log_lines_count">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-800">Log lines to show</p>
+            <p class="text-xs text-gray-400 mt-0.5">Number of log lines displayed per service in the Logs viewer</p>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            
+            <input
+              type="number"
+              id="input-log_lines_count"
+              value="500"
+              min="50"
+              max="5000"
+              class="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#0C2461]"
+            />
+            
+            <span class="text-xs text-gray-400 w-14">lines</span>
+            <button
+              onclick="saveSetting('log_lines_count')"
+              class="bg-[#0C2461] text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#091B4D] transition"
+            >
+              Save
+            </button>
+            <span id="status-log_lines_count" class="text-xs w-16 text-center"></span>
+          </div>
+        </div>
+        
+      </div>
+      
+      
+      <div class="px-5 py-4" id="row-log_viewer_refresh_interval">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-800">Log viewer refresh interval</p>
+            <p class="text-xs text-gray-400 mt-0.5">How often the Logs viewer auto-refreshes</p>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            
+            <input
+              type="number"
+              id="input-log_viewer_refresh_interval"
+              value="10"
+              min="1"
+              max="300"
+              class="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#0C2461]"
+            />
+            
+            <span class="text-xs text-gray-400 w-14">seconds</span>
+            <button
+              onclick="saveSetting('log_viewer_refresh_interval')"
+              class="bg-[#0C2461] text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#091B4D] transition"
+            >
+              Save
+            </button>
+            <span id="status-log_viewer_refresh_interval" class="text-xs w-16 text-center"></span>
+          </div>
+        </div>
+        
+      </div>
+      
+    </div>
+  </div>
+  
+  
+  
+  
+  <div class="mb-8">
+    <div class="flex items-center gap-3 mb-3">
+      <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Checksum</h2>
+      
+    </div>
+    <p class="text-xs text-gray-400 mb-3">Controls checksumming behaviour. Changes apply on the next run that starts checksumming.</p>
+    <div class="bg-white rounded-xl shadow divide-y divide-gray-100">
+      
+      
+      <div class="px-5 py-4" id="row-checksum_chunk_size_mb">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-800">Checksum read chunk size</p>
+            <p class="text-xs text-gray-400 mt-0.5">Chunk size for reading files during SHA256 checksumming. Larger values (e.g. 32–64) are faster over network shares. Max 4096 MB (4 GB).</p>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            
+            <input
+              type="number"
+              id="input-checksum_chunk_size_mb"
+              value="256"
+              min="1"
+              max="4096"
+              class="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#0C2461]"
+            />
+            
+            <span class="text-xs text-gray-400 w-14">MB</span>
+            <button
+              onclick="saveSetting('checksum_chunk_size_mb')"
+              class="bg-[#0C2461] text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#091B4D] transition"
+            >
+              Save
+            </button>
+            <span id="status-checksum_chunk_size_mb" class="text-xs w-16 text-center"></span>
+          </div>
+        </div>
+        
+      </div>
+      
+    </div>
+  </div>
+  
+  
+  
+  
+  <div class="mb-8">
+    <div class="flex items-center gap-3 mb-3">
+      <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Backup</h2>
+      
+    </div>
+    <p class="text-xs text-gray-400 mb-3">Controls automatic database backups, stored in the backups/ folder. Changes apply within a minute, no restart needed.</p>
+    <div class="bg-white rounded-xl shadow divide-y divide-gray-100">
+      
+      
+      <div class="px-5 py-4" id="row-backup_interval_days">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-800">Backup interval</p>
+            <p class="text-xs text-gray-400 mt-0.5">How often an automatic database backup is taken and saved to the backups/ folder</p>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            
+            <input
+              type="number"
+              id="input-backup_interval_days"
+              value="2"
+              min="1"
+              max="365"
+              class="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#0C2461]"
+            />
+            
+            <span class="text-xs text-gray-400 w-14">days</span>
+            <button
+              onclick="saveSetting('backup_interval_days')"
+              class="bg-[#0C2461] text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#091B4D] transition"
+            >
+              Save
+            </button>
+            <span id="status-backup_interval_days" class="text-xs w-16 text-center"></span>
+          </div>
+        </div>
+        
+      </div>
+      
+      
+      <div class="px-5 py-4" id="row-backup_retention_count">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-800">Backups to keep</p>
+            <p class="text-xs text-gray-400 mt-0.5">Number of most recent database backups to keep; older ones are deleted automatically</p>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            
+            <input
+              type="number"
+              id="input-backup_retention_count"
+              value="10"
+              min="1"
+              max="1000"
+              class="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#0C2461]"
+            />
+            
+            <span class="text-xs text-gray-400 w-14">backups</span>
+            <button
+              onclick="saveSetting('backup_retention_count')"
+              class="bg-[#0C2461] text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#091B4D] transition"
+            >
+              Save
+            </button>
+            <span id="status-backup_retention_count" class="text-xs w-16 text-center"></span>
+          </div>
+        </div>
+        
+      </div>
+      
+    </div>
+  </div>
+  
+  
+</div>
+
+    </main>
+
+    
+<script>
+  function saveSetting(key) {
+    const input  = document.getElementById('input-' + key);
+    const status = document.getElementById('status-' + key);
+    const value  = input.value.trim();
+    const choice = input.dataset.choice === '1';
+
+    if (!choice && (!value || isNaN(value) || parseInt(value) < 1)) {
+      status.textContent = 'invalid';
+      status.className = 'text-xs w-16 text-center text-red-500';
+      return;
+    }
+
+    status.textContent = 'saving…';
+    status.className = 'text-xs w-16 text-center text-gray-400';
+
+    fetch('/settings/update/' + key, {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({value: choice ? value : String(parseInt(value))}),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.key) {
+          status.textContent = 'saved ✓';
+          status.className = 'text-xs w-16 text-center text-green-600 font-medium';
+        } else {
+          status.textContent = data.detail || 'error';
+          status.className = 'text-xs w-16 text-center text-red-500';
+        }
+        setTimeout(() => { status.textContent = ''; status.className = 'text-xs w-16 text-center'; }, 3000);
+      })
+      .catch(() => {
+        status.textContent = 'error';
+        status.className = 'text-xs w-16 text-center text-red-500';
+      });
+  }
+
+  // Allow pressing Enter in any input to save
+  document.querySelectorAll('input[type=number]').forEach(input => {
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        const key = input.id.replace('input-', '');
+        saveSetting(key);
+      }
+    });
+  });
+
+  function checkVersion(silent) {
+    const latestEl       = document.getElementById('latest-version');
+    const updateBanner   = document.getElementById('update-banner');
+    const uptodateBanner = document.getElementById('uptodate-banner');
+    const errorBanner    = document.getElementById('check-error');
+    const errorMsg       = document.getElementById('check-error-msg');
+    if (!silent) latestEl.textContent = 'checking…';
+    updateBanner.classList.add('hidden');
+    uptodateBanner.classList.add('hidden');
+    errorBanner.classList.add('hidden');
+    // the server caches GitHub's answer for 15 min; the Check button asks for a fresh one
+    fetch(silent ? '/system/version' : '/system/version?refresh=1')
+      .then(r => r.json())
+      .then(data => {
+        latestEl.textContent = data.latest ? 'v' + data.latest : 'unavailable';
+        if (!data.workspace_mounted) {
+          errorMsg.textContent = "Workspace not mounted — add '- .:/workspace' to frontend volumes in docker-compose.yml.";
+          errorBanner.classList.remove('hidden');
+        } else if (data.update_available) {
+          localStorage.setItem('update_available', 'true');
+          localStorage.setItem('latest_version', data.latest);
+          document.getElementById('update-dot')?.classList.remove('hidden');
+          updateBanner.classList.remove('hidden');
+        } else if (data.latest) {
+          localStorage.removeItem('update_available');
+          localStorage.removeItem('latest_version');
+          document.getElementById('update-dot')?.classList.add('hidden');
+          uptodateBanner.classList.remove('hidden');
+        } else {
+          if (!silent) {
+            errorMsg.textContent = 'Could not reach GitHub to check for updates.';
+            errorBanner.classList.remove('hidden');
+          }
+        }
+      })
+      .catch(() => {
+        if (!silent) {
+          latestEl.textContent = 'error';
+          errorMsg.textContent = 'Version check failed — check your internet connection.';
+          errorBanner.classList.remove('hidden');
+        }
+      });
+  }
+
+  // Always fetch fresh version data on page load
+  checkVersion(true);
+
+  function runUpdate(force) {
+    const btn       = document.getElementById('update-btn');
+    const outputBox = document.getElementById('update-output');
+    const log       = document.getElementById('update-log');
+    btn.disabled    = true;
+    btn.textContent = 'Updating…';
+    outputBox.classList.remove('hidden');
+    log.textContent = 'Running git pull…\n';
+    fetch('/system/update' + (force ? '?force=1' : ''), { method: 'POST' })
+      .then(r => r.json())
+      .then(data => {
+        (data.local_changes_log || []).forEach(l => log.textContent += l + '\n');
+        if (!data.success) {
+          if (data.busy) {
+            log.textContent += '\n' + data.error + '\n';
+            btn.disabled = false;
+            btn.textContent = 'Update';
+            if (confirm(data.error + '\n\nUpdate anyway?')) return runUpdate(true);
+            log.textContent += '\nUpdate postponed.';
+            return;
+          }
+          log.textContent += '\nERROR:\n' + (data.error || 'unknown error');
+          btn.textContent = 'Failed';
+          btn.className = btn.className.replace('bg-[#0C2461]', 'bg-red-500');
+          return;
+        }
+        log.textContent += data.git_output + '\n';
+        if (data.migration_log && data.migration_log.length)
+          log.textContent += '\nDatabase:\n' + data.migration_log.join('\n') + '\n';
+        if (data.restart_log && data.restart_log.length)
+          log.textContent += '\n' + data.restart_log.join('\n') + '\n';
+        (data.warnings || []).forEach(w => log.textContent += '\n⚠ ' + w + '\n');
+        if (data.needs_rebuild)
+          log.textContent += '\n⚠ requirements.txt or Dockerfile changed — run: docker compose build && docker compose up -d\n';
+        log.textContent += '\nDone. Please refresh this page.';
+        localStorage.removeItem('update_available');
+        localStorage.removeItem('latest_version');
+        localStorage.removeItem('update_check_time');
+        document.getElementById('update-dot')?.classList.add('hidden');
+        btn.textContent = (data.warnings || []).length ? 'Done — see warnings' : 'Done ✓';
+        btn.disabled = false;
+        log.scrollTop = log.scrollHeight;
+      })
+      .catch(() => {
+        log.textContent += '\nRequest failed — the backend may be restarting. Refresh in a few seconds.';
+        btn.textContent = 'Error';
+      });
+  }
+</script>
+
+
+    <script>
+      // Theme toggle (sidebar). Without a saved choice the page follows the system setting.
+      function setTheme(dark, save) {
+        document.documentElement.classList.toggle('dark', dark);
+        if (save) { try { localStorage.setItem('theme', dark ? 'dark' : 'light'); } catch (e) {} }
+        var label = document.getElementById('theme-toggle-label');
+        if (label) label.textContent = dark ? 'Light mode' : 'Dark mode';
+        document.querySelectorAll('[data-theme-icon]').forEach(function (el) {
+          el.classList.toggle('hidden', el.dataset.themeIcon !== (dark ? 'sun' : 'moon'));
+        });
+      }
+      // Sidebar as a slide-in menu on small screens
+      function openSidebar() {
+        document.getElementById('sidebar').classList.remove('-translate-x-full');
+        document.getElementById('sidebar-backdrop').classList.remove('hidden');
+      }
+      function closeSidebar() {
+        document.getElementById('sidebar').classList.add('-translate-x-full');
+        document.getElementById('sidebar-backdrop').classList.add('hidden');
+      }
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeSidebar(); });
+      function toggleTheme() {
+        setTheme(!document.documentElement.classList.contains('dark'), true);
+        location.reload();  // charts read the theme when they are drawn
+      }
+      setTheme(document.documentElement.classList.contains('dark'), false);
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) {
+        var saved = null;
+        try { saved = localStorage.getItem('theme'); } catch (err) {}
+        if (!saved) setTheme(e.matches, false);
+      });
+    </script>
+
+    <script>
+      // Clear any stale localStorage keys from old implementation
+      localStorage.removeItem('update_available');
+      localStorage.removeItem('latest_version');
+      localStorage.removeItem('update_check_time');
+
+      // Check for updates on every page load. Server caches GitHub result for 5 min.
+      fetch('/system/version')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          var dot    = document.getElementById('update-dot');
+          var badge  = document.getElementById('version-badge-link');
+          var banner = document.getElementById('update-available-banner');
+          var msg    = document.getElementById('update-available-msg');
+          if (data.update_available) {
+            if (dot)   dot.classList.remove('hidden');
+            if (badge) badge.title = 'Update available: v' + data.latest + ' — click to update';
+            if (banner) {
+              if (msg) msg.textContent = 'Version ' + data.latest + ' is available.';
+              banner.classList.remove('hidden');
+            }
+          } else {
+            if (dot)    dot.classList.add('hidden');
+            if (banner) banner.classList.add('hidden');
+          }
+        })
+        .catch(function() {});
+    </script>
+  <a href="https://github.com/BioIT-CEITEC/omicz-gateway-component" target="_blank" rel="noopener"
+  style="position:fixed;right:16px;bottom:16px;z-index:9998;background:#FFF8E1;color:#5D4300;border:1px solid #E8C870;
+  padding:6px 12px;border-radius:999px;font:500 12px system-ui,sans-serif;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,.12)">
+  Demo · sample data · actions disabled · view on GitHub ↗</a>
+</body>
+</html>

@@ -29,10 +29,10 @@
     </div>
   </div>
 
-  <div class="flex gap-4 flex-1 min-h-0">
+  <div class="flex flex-col md:flex-row gap-4 flex-1 min-h-0">
 
     {# ── Service sidebar ── #}
-    <div class="w-40 flex-shrink-0">
+    <div class="md:w-40 flex-shrink-0">
       <nav class="bg-white rounded-xl shadow overflow-hidden">
         {% set backend_svcs = ['backend', 'containers', 'repositories', 'publisher'] %}
         {% set worker_svcs  = ['worker', 'watcher', 'checksum', 'tre'] %}

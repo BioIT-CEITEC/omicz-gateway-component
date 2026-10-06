@@ -5,6 +5,17 @@ from shared_templates import templates
 
 CHANGELOG = [
     {
+        "version": "1.3.1",
+        "date": "2026-10-06",
+        "sections": {
+            "New Features": [
+                "New OmiCZ logo in the sidebar; its colours follow light and dark mode",
+                "Works on phones and tablets: below 1024 px wide the sidebar becomes a menu opened from a top bar, and the pages rearrange for narrow screens",
+                "Static demo of the web interface with sample data for GitHub Pages, built from the real templates by demo/build.py (see demo/README.md)",
+            ],
+        },
+    },
+    {
         "version": "1.3.0",
         "date": "2026-10-06",
         "sections": {

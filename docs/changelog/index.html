@@ -1,0 +1,2077 @@
+<!doctype html>
+<html lang="en">
+  <head>
+<script data-demo-base="../">
+(function () {
+  var BASE = document.currentScript.getAttribute('data-demo-base');
+  var ROUTES = {"/": "index.html", "/instruments/": "instruments/index.html", "/instruments/create/": "instruments/create/index.html", "/instrument-models/": "instrument-models/index.html", "/instrument-models/create/": "instrument-models/create/index.html", "/acquisition-runs/": "acquisition-runs/index.html", "/acquisition-runs/queue/view/": "acquisition-runs/queue/view/index.html", "/containers/": "containers/index.html", "/settings/": "settings/index.html", "/logs/": "logs/index.html", "/changelog/": "changelog/index.html", "/acquisition-runs/?status=running": "acquisition-runs/status/running/index.html", "/acquisition-runs/?status=running_finished": "acquisition-runs/status/runningfinished/index.html", "/acquisition-runs/?status=completed": "acquisition-runs/status/completed/index.html", "/acquisition-runs/?status=failed&status=move_failed&status=transfer_conflict&status=verify_failed": "acquisition-runs/status/failed-movefailed-transferconflict-verifyfailed/index.html", "/instruments/38346bb2-9997-5aa7-b494-5e146e2936db/": "instruments/38346bb2-9997-5aa7-b494-5e146e2936db/index.html", "/instruments/4ccf36f8-2aa2-5bef-9a5f-13a3206f274c/": "instruments/4ccf36f8-2aa2-5bef-9a5f-13a3206f274c/index.html", "/instruments/35cc239d-cbda-5aaa-9fa5-55d91522c62b/": "instruments/35cc239d-cbda-5aaa-9fa5-55d91522c62b/index.html", "/instruments/1d5b97bc-0d1c-53f2-b08c-ea6e0e967d43/": "instruments/1d5b97bc-0d1c-53f2-b08c-ea6e0e967d43/index.html", "/instruments/e86214eb-8ab3-5383-b3b7-e491696813df/": "instruments/e86214eb-8ab3-5383-b3b7-e491696813df/index.html", "/instruments/38346bb2-9997-5aa7-b494-5e146e2936db/edit/": "instruments/38346bb2-9997-5aa7-b494-5e146e2936db/edit/index.html", "/instruments/4ccf36f8-2aa2-5bef-9a5f-13a3206f274c/edit/": "instruments/4ccf36f8-2aa2-5bef-9a5f-13a3206f274c/edit/index.html", "/instruments/35cc239d-cbda-5aaa-9fa5-55d91522c62b/edit/": "instruments/35cc239d-cbda-5aaa-9fa5-55d91522c62b/edit/index.html", "/instruments/1d5b97bc-0d1c-53f2-b08c-ea6e0e967d43/edit/": "instruments/1d5b97bc-0d1c-53f2-b08c-ea6e0e967d43/edit/index.html", "/instruments/e86214eb-8ab3-5383-b3b7-e491696813df/edit/": "instruments/e86214eb-8ab3-5383-b3b7-e491696813df/edit/index.html", "/acquisition-runs/?sequencer_uuid=38346bb2-9997-5aa7-b494-5e146e2936db": "acquisition-runs/instrument/38346bb2-9997-5aa7-b494-5e146e2936db/index.html", "/acquisition-runs/?sequencer_uuid=4ccf36f8-2aa2-5bef-9a5f-13a3206f274c": "acquisition-runs/instrument/4ccf36f8-2aa2-5bef-9a5f-13a3206f274c/index.html", "/acquisition-runs/?sequencer_uuid=35cc239d-cbda-5aaa-9fa5-55d91522c62b": "acquisition-runs/instrument/35cc239d-cbda-5aaa-9fa5-55d91522c62b/index.html", "/acquisition-runs/?sequencer_uuid=1d5b97bc-0d1c-53f2-b08c-ea6e0e967d43": "acquisition-runs/instrument/1d5b97bc-0d1c-53f2-b08c-ea6e0e967d43/index.html", "/acquisition-runs/?sequencer_uuid=e86214eb-8ab3-5383-b3b7-e491696813df": "acquisition-runs/instrument/e86214eb-8ab3-5383-b3b7-e491696813df/index.html", "/instrument-models/ac9ec2bf-13f6-5d38-906e-4f0af8f0f6b4/": "instrument-models/ac9ec2bf-13f6-5d38-906e-4f0af8f0f6b4/index.html", "/instrument-models/7888a4ac-a3a4-53df-8fef-c25ae6157164/": "instrument-models/7888a4ac-a3a4-53df-8fef-c25ae6157164/index.html", "/instrument-models/c6ba5a9c-e570-51a9-98aa-6fb1e312a605/": "instrument-models/c6ba5a9c-e570-51a9-98aa-6fb1e312a605/index.html", "/instrument-models/8c0ba332-5272-54a2-8bed-87d3fe8c2e03/": "instrument-models/8c0ba332-5272-54a2-8bed-87d3fe8c2e03/index.html", "/instrument-models/ac9ec2bf-13f6-5d38-906e-4f0af8f0f6b4/edit/": "instrument-models/ac9ec2bf-13f6-5d38-906e-4f0af8f0f6b4/edit/index.html", "/instrument-models/7888a4ac-a3a4-53df-8fef-c25ae6157164/edit/": "instrument-models/7888a4ac-a3a4-53df-8fef-c25ae6157164/edit/index.html", "/instrument-models/c6ba5a9c-e570-51a9-98aa-6fb1e312a605/edit/": "instrument-models/c6ba5a9c-e570-51a9-98aa-6fb1e312a605/edit/index.html", "/instrument-models/8c0ba332-5272-54a2-8bed-87d3fe8c2e03/edit/": "instrument-models/8c0ba332-5272-54a2-8bed-87d3fe8c2e03/edit/index.html", "/acquisition-runs/73df9270-2dd1-5dfd-b738-3331bb830e42/": "acquisition-runs/73df9270-2dd1-5dfd-b738-3331bb830e42/index.html", "/acquisition-runs/ff459ed2-614c-5794-87ef-979f4c868e58/": "acquisition-runs/ff459ed2-614c-5794-87ef-979f4c868e58/index.html", "/acquisition-runs/bf3b3b98-8ee9-520f-89fc-906c11f5cd65/": "acquisition-runs/bf3b3b98-8ee9-520f-89fc-906c11f5cd65/index.html", "/acquisition-runs/68f06e7b-303b-5d9e-99f9-4140173a498d/": "acquisition-runs/68f06e7b-303b-5d9e-99f9-4140173a498d/index.html", "/acquisition-runs/9765699a-e2a4-51c0-944d-f1d49be30f82/": "acquisition-runs/9765699a-e2a4-51c0-944d-f1d49be30f82/index.html", "/acquisition-runs/a5c1827b-dde8-5f80-b0c4-195ea956c672/": "acquisition-runs/a5c1827b-dde8-5f80-b0c4-195ea956c672/index.html", "/acquisition-runs/440771a2-4e36-5a92-83eb-563afb195378/": "acquisition-runs/440771a2-4e36-5a92-83eb-563afb195378/index.html", "/acquisition-runs/d3ae7223-a84b-5754-8e90-4b7389d843d6/": "acquisition-runs/d3ae7223-a84b-5754-8e90-4b7389d843d6/index.html", "/acquisition-runs/1e8629e4-0788-58bc-b8c9-aeea6efd4057/": "acquisition-runs/1e8629e4-0788-58bc-b8c9-aeea6efd4057/index.html", "/acquisition-runs/30d73591-a2c9-57a7-8916-6f743c9e8bc6/": "acquisition-runs/30d73591-a2c9-57a7-8916-6f743c9e8bc6/index.html", "/acquisition-runs/4544dd41-e463-57ce-810c-1f59dbe26c6e/": "acquisition-runs/4544dd41-e463-57ce-810c-1f59dbe26c6e/index.html", "/acquisition-runs/ab4c2e0b-037a-5370-8670-d07b5dcfab71/": "acquisition-runs/ab4c2e0b-037a-5370-8670-d07b5dcfab71/index.html", "/acquisition-runs/d448c3f3-f7d2-5607-8e5f-72517b35027e/": "acquisition-runs/d448c3f3-f7d2-5607-8e5f-72517b35027e/index.html", "/acquisition-runs/ce9fbba2-7ab0-5741-a293-b07cc8fb88ef/": "acquisition-runs/ce9fbba2-7ab0-5741-a293-b07cc8fb88ef/index.html", "/acquisition-runs/ce559804-8ca9-5043-a034-1096c45683ef/": "acquisition-runs/ce559804-8ca9-5043-a034-1096c45683ef/index.html", "/acquisition-runs/83b4465c-d236-5b6e-8c62-6201d0aad5ce/": "acquisition-runs/83b4465c-d236-5b6e-8c62-6201d0aad5ce/index.html", "/acquisition-runs/8497974f-f086-5b69-91fb-347be3d09dae/": "acquisition-runs/8497974f-f086-5b69-91fb-347be3d09dae/index.html", "/acquisition-runs/fc8e3c99-2392-59fa-bbe7-a8c3397e2e11/": "acquisition-runs/fc8e3c99-2392-59fa-bbe7-a8c3397e2e11/index.html", "/acquisition-runs/ee257f0d-1cd7-52a1-ab5d-da809ebcb196/": "acquisition-runs/ee257f0d-1cd7-52a1-ab5d-da809ebcb196/index.html", "/acquisition-runs/689bc39a-73b5-5377-9f55-58946e22ca0b/": "acquisition-runs/689bc39a-73b5-5377-9f55-58946e22ca0b/index.html", "/acquisition-runs/b9cd7115-8ee6-5ac5-b619-febc05907c3a/": "acquisition-runs/b9cd7115-8ee6-5ac5-b619-febc05907c3a/index.html", "/acquisition-runs/0c11c13f-4c9a-5c6e-84f3-e23c2b0fff5b/": "acquisition-runs/0c11c13f-4c9a-5c6e-84f3-e23c2b0fff5b/index.html", "/logs/?service=backend": "logs/backend/index.html", "/logs/?service=watcher": "logs/watcher/index.html", "/logs/?service=worker": "logs/worker/index.html", "/logs/?service=backup": "logs/backup/index.html", "/logs/?service=frontend": "logs/frontend/index.html"};
+  function canonical(url) {
+    var u = new URL(url, 'https://demo.local');
+    var path = u.pathname.endsWith('/') ? u.pathname : u.pathname + '/';
+    var q = [];
+    u.searchParams.forEach(function (v, k) { if (['skip', 'limit', 'order'].indexOf(k) < 0) q.push([k, v]); });
+    q.sort(function (a, b) { return a[0] === b[0] ? (a[1] < b[1] ? -1 : 1) : (a[0] < b[0] ? -1 : 1); });
+    return path + (q.length ? '?' + q.map(function (p) { return p[0] + '=' + p[1]; }).join('&') : '');
+  }
+  function toast(msg) {
+    var el = document.getElementById('demo-toast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'demo-toast';
+      el.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:9999;background:#0C2461;color:#fff;' +
+        'padding:10px 18px;border-radius:10px;font:500 13px system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.25);transition:opacity .3s';
+      document.body.appendChild(el);
+    }
+    el.textContent = msg; el.style.opacity = '1';
+    clearTimeout(el._t); el._t = setTimeout(function () { el.style.opacity = '0'; }, 3200);
+  }
+  window.__demoNav = function (url) {
+    var target = ROUTES[canonical(url)] || ROUTES[canonical(url.split('?')[0])];
+    if (url.indexOf('?') >= 0 && !ROUTES[canonical(url)]) toast('Demo: this filter is not pre-rendered — showing all runs.');
+    if (target) setTimeout(function () { location.href = BASE + target; }, ROUTES[canonical(url)] ? 0 : 900);
+  };
+  var realFetch = window.fetch.bind(window);
+  window.fetch = function (input, opts) {
+    var url = typeof input === 'string' ? input : input.url;
+    var method = ((opts && opts.method) || 'GET').toUpperCase();
+    if (method !== 'GET') {
+      toast('Demo: actions are disabled in this static preview.');
+      var body = JSON.stringify({ success: false, detail: 'Demo mode: actions are disabled', error: 'Demo mode: actions are disabled' });
+      return Promise.resolve(new Response(body, { status: 403, headers: { 'Content-Type': 'application/json' } }));
+    }
+    if (url.charAt(0) === '/') return realFetch(BASE + 'api' + url.split('?')[0].replace(/\/$/, '') + '.json');
+    return realFetch(input, opts);
+  };
+  function handleSubmit(f) {
+    if ((f.getAttribute('method') || 'get').toLowerCase() === 'get' && f.getAttribute('data-demo-path')) {
+      var params = new URLSearchParams(new FormData(f)).toString();
+      window.__demoNav(f.getAttribute('data-demo-path') + (params ? '?' + params : ''));
+    } else {
+      toast('Demo: actions are disabled in this static preview.');
+    }
+  }
+  document.addEventListener('submit', function (e) {
+    e.preventDefault(); e.stopPropagation();
+    handleSubmit(e.target);
+  }, true);
+  HTMLFormElement.prototype.submit = function () { handleSubmit(this); };
+})();
+</script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="../static/images/fav.png" />
+    <title>Changelog — OmiCZ GateWay</title>
+    <script>
+      // Apply the theme before first paint: saved choice, otherwise the system setting.
+      (function () {
+        var saved = null;
+        try { saved = localStorage.getItem('theme'); } catch (e) {}
+        var dark = saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.classList.toggle('dark', dark);
+      })();
+    </script>
+    <link rel="stylesheet" href="../static/css/dark.css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-[#F0F4FA] text-gray-800 flex min-h-screen">
+
+    
+    <div class="lg:hidden fixed top-0 inset-x-0 h-14 bg-white border-b border-gray-100 z-40 flex items-center gap-3 px-4 shadow-sm">
+      <button type="button" onclick="openSidebar()" aria-label="Open menu" aria-controls="sidebar"
+              class="-ml-1 p-2 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-50">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg>
+      </button>
+      <a href="../index.html" class="block w-28">
+
+<style>
+  .omicz-logo .logo-red   { stroke: #D7141A; }
+  .omicz-logo .logo-blue  { stroke: #1466B8; }
+  .omicz-logo .logo-navy  { stroke: #11457E; }
+  .omicz-logo .logo-navy-fill { fill: #11457E; }
+  .omicz-logo .logo-label { fill: #11457E; }
+  html.dark .omicz-logo .logo-red   { stroke: #F0474C; }
+  html.dark .omicz-logo .logo-blue  { stroke: #4C9BE8; }
+  html.dark .omicz-logo .logo-navy  { stroke: #E2E8F0; }
+  html.dark .omicz-logo .logo-navy-fill { fill: #E2E8F0; }
+  html.dark .omicz-logo .logo-label { fill: #CBD5E1; }
+</style>
+<svg class="omicz-logo w-full h-auto" xmlns="http://www.w3.org/2000/svg" viewBox="24 44 516 178" role="img" aria-label="OmiCZ Gateway">
+  <defs>
+    <mask id="logo-red-weave-topbar" maskUnits="userSpaceOnUse" x="76" y="62" width="56" height="92">
+      <rect x="76" y="62" width="56" height="92" fill="white"/>
+      <circle cx="104" cy="125.556" r="8" fill="black"/>
+    </mask>
+    <mask id="logo-blue-weave-topbar" maskUnits="userSpaceOnUse" x="76" y="62" width="56" height="92">
+      <rect x="76" y="62" width="56" height="92" fill="white"/>
+      <circle cx="104" cy="94.444" r="8" fill="black"/>
+    </mask>
+  </defs>
+  <g fill="none" stroke-linecap="round">
+    <path class="logo-red" stroke-width="15" d="M92 59.404 A52 52 0 0 0 92 160.596"/>
+    <path class="logo-blue" stroke-width="15" d="M116 59.404 A52 52 0 0 1 116 160.596"/>
+    <path class="logo-red" stroke-width="9.5" mask="url(#logo-red-weave-topbar)" d="M87 78 C87 92.222 121 95.778 121 110 C121 124.222 87 127.778 87 142"/>
+    <path class="logo-blue" stroke-width="9.5" mask="url(#logo-blue-weave-topbar)" d="M121 78 C121 92.222 87 95.778 87 110 C87 124.222 121 127.778 121 142"/>
+    <path class="logo-navy" stroke-width="16" stroke-linejoin="round" d="M190 158 V112 C190 78 236 78 236 111 V158 M236 111 C236 78 282 78 282 111 V158"/>
+    <path class="logo-blue" stroke-width="15" d="M423.568 77.862 A46 46 0 1 0 423.568 148.338"/>
+    <path class="logo-red" stroke-width="15" stroke-linejoin="round" d="M453 67.1 H528 L451 159.1 H528"/>
+  </g>
+  <rect class="logo-navy-fill" x="307" y="88" width="16" height="78" rx="7"/>
+  <circle class="logo-navy-fill" cx="315" cy="63" r="9"/>
+  <text class="logo-label" x="535" y="214" text-anchor="end" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="44" font-weight="600" letter-spacing="0.5">Gateway</text>
+</svg></a>
+    </div>
+    <div id="sidebar-backdrop" onclick="closeSidebar()" class="hidden lg:hidden fixed inset-0 bg-black/40 z-40"></div>
+
+    <aside id="sidebar" class="fixed top-0 left-0 h-screen w-48 bg-white border-r border-gray-100 flex flex-col z-50 shadow-sm -translate-x-full lg:translate-x-0 transition-transform duration-200">
+
+  
+  <div class="px-4 pt-5 pb-3 border-b border-gray-100 shrink-0">
+    <a href="../index.html" class="block">
+      
+
+<style>
+  .omicz-logo .logo-red   { stroke: #D7141A; }
+  .omicz-logo .logo-blue  { stroke: #1466B8; }
+  .omicz-logo .logo-navy  { stroke: #11457E; }
+  .omicz-logo .logo-navy-fill { fill: #11457E; }
+  .omicz-logo .logo-label { fill: #11457E; }
+  html.dark .omicz-logo .logo-red   { stroke: #F0474C; }
+  html.dark .omicz-logo .logo-blue  { stroke: #4C9BE8; }
+  html.dark .omicz-logo .logo-navy  { stroke: #E2E8F0; }
+  html.dark .omicz-logo .logo-navy-fill { fill: #E2E8F0; }
+  html.dark .omicz-logo .logo-label { fill: #CBD5E1; }
+</style>
+<svg class="omicz-logo w-full h-auto" xmlns="http://www.w3.org/2000/svg" viewBox="24 44 516 178" role="img" aria-label="OmiCZ Gateway">
+  <defs>
+    <mask id="logo-red-weave-main" maskUnits="userSpaceOnUse" x="76" y="62" width="56" height="92">
+      <rect x="76" y="62" width="56" height="92" fill="white"/>
+      <circle cx="104" cy="125.556" r="8" fill="black"/>
+    </mask>
+    <mask id="logo-blue-weave-main" maskUnits="userSpaceOnUse" x="76" y="62" width="56" height="92">
+      <rect x="76" y="62" width="56" height="92" fill="white"/>
+      <circle cx="104" cy="94.444" r="8" fill="black"/>
+    </mask>
+  </defs>
+  <g fill="none" stroke-linecap="round">
+    <path class="logo-red" stroke-width="15" d="M92 59.404 A52 52 0 0 0 92 160.596"/>
+    <path class="logo-blue" stroke-width="15" d="M116 59.404 A52 52 0 0 1 116 160.596"/>
+    <path class="logo-red" stroke-width="9.5" mask="url(#logo-red-weave-main)" d="M87 78 C87 92.222 121 95.778 121 110 C121 124.222 87 127.778 87 142"/>
+    <path class="logo-blue" stroke-width="9.5" mask="url(#logo-blue-weave-main)" d="M121 78 C121 92.222 87 95.778 87 110 C87 124.222 121 127.778 121 142"/>
+    <path class="logo-navy" stroke-width="16" stroke-linejoin="round" d="M190 158 V112 C190 78 236 78 236 111 V158 M236 111 C236 78 282 78 282 111 V158"/>
+    <path class="logo-blue" stroke-width="15" d="M423.568 77.862 A46 46 0 1 0 423.568 148.338"/>
+    <path class="logo-red" stroke-width="15" stroke-linejoin="round" d="M453 67.1 H528 L451 159.1 H528"/>
+  </g>
+  <rect class="logo-navy-fill" x="307" y="88" width="16" height="78" rx="7"/>
+  <circle class="logo-navy-fill" cx="315" cy="63" r="9"/>
+  <text class="logo-label" x="535" y="214" text-anchor="end" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="44" font-weight="600" letter-spacing="0.5">Gateway</text>
+</svg>
+    </a>
+    <a href="../settings/index.html" id="version-badge-link" class="mt-1.5 flex justify-end items-center gap-1 group">
+      <span class="text-[9px] text-gray-300 group-hover:text-indigo-400 transition tabular-nums">v1.3.1</span>
+      <span id="update-dot" class="hidden relative shrink-0 w-2 h-2">
+        <span class="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-75"></span>
+        <span class="relative block w-2 h-2 rounded-full bg-red-500"></span>
+      </span>
+    </a>
+  </div>
+
+  
+  <nav class="flex-1 overflow-y-auto py-3 px-2">
+    
+    
+
+    
+    
+    
+      
+        
+        
+        <p class="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-gray-400 select-none">General</p>
+      
+    
+      
+        
+        <a href="../index.html"
+           class="flex items-center gap-2.5 px-3 py-2 mb-0.5 rounded-md text-sm transition-all
+             text-gray-500 hover:text-gray-900 hover:bg-gray-50">
+          <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/></svg>
+          Dashboard
+        </a>
+      
+    
+      
+        
+        <a href="../acquisition-runs/index.html"
+           class="flex items-center gap-2.5 px-3 py-2 mb-0.5 rounded-md text-sm transition-all
+             text-gray-500 hover:text-gray-900 hover:bg-gray-50">
+          <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/></svg>
+          Acquisition Runs
+        </a>
+      
+    
+      
+        
+        <a href="../acquisition-runs/queue/view/index.html"
+           class="flex items-center gap-2.5 px-3 py-2 mb-0.5 rounded-md text-sm transition-all
+             text-gray-500 hover:text-gray-900 hover:bg-gray-50">
+          <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM3.75 12h.007v.008H3.75V12Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm-.375 5.25h.007v.008H3.75v-.008Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"/></svg>
+          Transfer Queue
+        </a>
+      
+    
+      
+        
+        <div class="mx-3 my-2 h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent"></div>
+        
+        
+        <p class="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-gray-400 select-none">Configuration</p>
+      
+    
+      
+        
+        <a href="../instrument-models/index.html"
+           class="flex items-center gap-2.5 px-3 py-2 mb-0.5 rounded-md text-sm transition-all
+             text-gray-500 hover:text-gray-900 hover:bg-gray-50">
+          <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z"/></svg>
+          Inst. Models
+        </a>
+      
+    
+      
+        
+        <a href="../instruments/index.html"
+           class="flex items-center gap-2.5 px-3 py-2 mb-0.5 rounded-md text-sm transition-all
+             text-gray-500 hover:text-gray-900 hover:bg-gray-50">
+          <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 0 0 2.25-2.25V6.75a2.25 2.25 0 0 0-2.25-2.25H6.75A2.25 2.25 0 0 0 4.5 6.75v10.5a2.25 2.25 0 0 0 2.25 2.25Zm.75-12h9v9h-9v-9Z"/></svg>
+          Instruments
+        </a>
+      
+    
+      
+        
+        <div class="mx-3 my-2 h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent"></div>
+        
+        
+        <p class="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-gray-400 select-none">System</p>
+      
+    
+      
+        
+        <a href="../containers/index.html"
+           class="flex items-center gap-2.5 px-3 py-2 mb-0.5 rounded-md text-sm transition-all
+             text-gray-500 hover:text-gray-900 hover:bg-gray-50">
+          <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/></svg>
+          Containers
+        </a>
+      
+    
+      
+        
+        <a href="../logs/index.html"
+           class="flex items-center gap-2.5 px-3 py-2 mb-0.5 rounded-md text-sm transition-all
+             text-gray-500 hover:text-gray-900 hover:bg-gray-50">
+          <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0 0 21 18V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v12a2.25 2.25 0 0 0 2.25 2.25Z"/></svg>
+          Logs
+        </a>
+      
+    
+      
+        
+        <a href="../settings/index.html"
+           class="flex items-center gap-2.5 px-3 py-2 mb-0.5 rounded-md text-sm transition-all
+             text-gray-500 hover:text-gray-900 hover:bg-gray-50">
+          <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
+          Settings
+        </a>
+      
+    
+      
+        
+        <a href="../changelog/index.html"
+           class="flex items-center gap-2.5 px-3 py-2 mb-0.5 rounded-md text-sm transition-all
+             bg-[#0C2461]/5 text-[#0C2461] font-semibold border-l-2 border-[#C0392B] pl-[10px]
+             ">
+          <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25"/></svg>
+          Changelog
+        </a>
+      
+    
+  </nav>
+
+  
+  <div class="px-2 pb-2 shrink-0">
+    <button type="button" onclick="toggleTheme()"
+       class="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-all">
+      <svg data-theme-icon="moon" class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z"/></svg>
+      <svg data-theme-icon="sun" class="hidden w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z"/></svg>
+      <span id="theme-toggle-label">Dark mode</span>
+    </button>
+    <a href="https://github.com/BioIT-CEITEC/omicz-gateway-component/issues" target="_blank" rel="noopener noreferrer"
+       class="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-all">
+      <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z"/></svg>
+      Support
+      <svg class="w-3 h-3 ml-auto opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
+    </a>
+  </div>
+
+  
+  <div class="px-4 py-3 border-t border-gray-100 shrink-0 text-center">
+    <p class="text-gray-300 text-[10px]">&copy; 2026 OmiCZ GateWay</p>
+  </div>
+
+</aside>
+
+    <main class="lg:ml-48 flex-1 min-w-0 px-4 sm:px-6 lg:px-8 pt-20 pb-8 lg:py-8 min-h-screen lg:max-w-[calc(100vw-12rem)]">
+      
+
+<div class="flex items-center gap-2 mb-6">
+  <a href="../index.html" class="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-[#0C2461] transition">
+    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"/>
+    </svg>
+    Back
+  </a>
+</div>
+
+<div class="flex items-start justify-between mb-8">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900">Changelog</h1>
+    <p class="text-sm text-gray-400 mt-0.5">Release history and update notes for OmiCZ GateWay</p>
+  </div>
+  <div class="flex items-center gap-2 text-[11px] text-gray-400 bg-white border border-gray-100 rounded-lg px-3 py-2">
+    <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z"/>
+    </svg>
+    Current: <span class="font-semibold text-indigo-600">v1.3.1</span>
+  </div>
+</div>
+
+<div class="space-y-6">
+
+
+  <div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
+
+    
+    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50 bg-gradient-to-r from-indigo-50/40 to-transparent">
+      <div class="flex items-center gap-3">
+        <span class="text-xl font-bold text-gray-900">v1.3.1</span>
+        
+        <span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-600">
+          Latest
+        </span>
+        
+      </div>
+      <span class="text-xs text-gray-400 tabular-nums">2026-10-06</span>
+    </div>
+
+    
+    <div class="px-6 py-5 space-y-5">
+    
+
+      <div>
+        
+        <div class="flex items-center gap-2 mb-3">
+          
+          <span class="flex items-center justify-center w-5 h-5 rounded-full bg-indigo-100">
+            <svg class="w-3 h-3 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+            </svg>
+          </span>
+          <h3 class="text-xs font-bold uppercase tracking-wide text-indigo-600">New Features</h3>
+          
+        </div>
+
+        <ul class="space-y-2">
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            New OmiCZ logo in the sidebar; its colours follow light and dark mode
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Works on phones and tablets: below 1024 px wide the sidebar becomes a menu opened from a top bar, and the pages rearrange for narrow screens
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Static demo of the web interface with sample data for GitHub Pages, built from the real templates by demo/build.py (see demo/README.md)
+          </li>
+        
+        </ul>
+      </div>
+
+      
+
+    
+    </div>
+
+  </div>
+
+
+  <div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
+
+    
+    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50 bg-gradient-to-r from-indigo-50/40 to-transparent">
+      <div class="flex items-center gap-3">
+        <span class="text-xl font-bold text-gray-900">v1.3.0</span>
+        
+      </div>
+      <span class="text-xs text-gray-400 tabular-nums">2026-10-06</span>
+    </div>
+
+    
+    <div class="px-6 py-5 space-y-5">
+    
+
+      <div>
+        
+        <div class="flex items-center gap-2 mb-3">
+          
+          <span class="flex items-center justify-center w-5 h-5 rounded-full bg-indigo-100">
+            <svg class="w-3 h-3 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+            </svg>
+          </span>
+          <h3 class="text-xs font-bold uppercase tracking-wide text-indigo-600">New Features</h3>
+          
+        </div>
+
+        <ul class="space-y-2">
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Choice of upload engine in Settings → Upload: boto3 (default, one file at a time with live byte progress) or s5cmd (several files of a run at once, set with &#39;s5cmd parallel files&#39;, default 4; progress moves per finished file). The .CHECKSUM file is still sent last, and interrupted uploads still resume. Needs rebuilt images: run &#39;docker compose build &amp;&amp; docker compose up -d&#39; after updating — until then boto3 is used
+          </li>
+        
+        </ul>
+      </div>
+
+      
+      <div class="h-px bg-gray-50"></div>
+      
+
+    
+
+      <div>
+        
+        <div class="flex items-center gap-2 mb-3">
+          
+          <span class="flex items-center justify-center w-5 h-5 rounded-full bg-green-100">
+            <svg class="w-3 h-3 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
+            </svg>
+          </span>
+          <h3 class="text-xs font-bold uppercase tracking-wide text-green-600">Bug Fixes</h3>
+          
+        </div>
+
+        <ul class="space-y-2">
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-green-400
+              "></span>
+            Fixed runs staying in Transfer Validation forever: the TRE verifier crashed on the run size returned by PostgreSQL as a decimal number
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-green-400
+              "></span>
+            Fixed uploads longer than 30 minutes crashing the worker and failing the run: RabbitMQ&#39;s consumer timeout is raised to 7 days in docker-compose.yml
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-green-400
+              "></span>
+            Fixed a fresh image build failing with &#34;No module named &#39;psycopg&#39;&#34;: SQLAlchemy 2.1 picks psycopg 3 for postgresql:// URLs, so the database URL now names the psycopg2 driver
+          </li>
+        
+        </ul>
+      </div>
+
+      
+      <div class="h-px bg-gray-50"></div>
+      
+
+    
+
+      <div>
+        
+        <div class="flex items-center gap-2 mb-3">
+          
+          <span class="flex items-center justify-center w-5 h-5 rounded-full bg-amber-100">
+            <svg class="w-3 h-3 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18"/>
+            </svg>
+          </span>
+          <h3 class="text-xs font-bold uppercase tracking-wide text-amber-600">Improvements</h3>
+          
+        </div>
+
+        <ul class="space-y-2">
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-amber-300
+              "></span>
+            A rejected part of a large file is retried on its own instead of restarting the whole file from the beginning (the TRE proxy occasionally answers a part with HTTP 400 after tens of GB)
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-amber-300
+              "></span>
+            Rejected uploads are logged with status, error code, request ID and response headers, so failures can be traced with the TRE operators
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-amber-300
+              "></span>
+            Settings with a fixed set of values are shown as a drop-down and an invalid value is rejected
+          </li>
+        
+        </ul>
+      </div>
+
+      
+
+    
+    </div>
+
+  </div>
+
+
+  <div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
+
+    
+    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50 bg-gradient-to-r from-indigo-50/40 to-transparent">
+      <div class="flex items-center gap-3">
+        <span class="text-xl font-bold text-gray-900">v1.2.1</span>
+        
+      </div>
+      <span class="text-xs text-gray-400 tabular-nums">2026-09-30</span>
+    </div>
+
+    
+    <div class="px-6 py-5 space-y-5">
+    
+
+      <div>
+        
+        <div class="flex items-center gap-2 mb-3">
+          
+          <span class="flex items-center justify-center w-5 h-5 rounded-full bg-green-100">
+            <svg class="w-3 h-3 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
+            </svg>
+          </span>
+          <h3 class="text-xs font-bold uppercase tracking-wide text-green-600">Bug Fixes</h3>
+          
+        </div>
+
+        <ul class="space-y-2">
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-green-400
+              "></span>
+            Fixed Settings → Update failing at sites that had edited docker-compose.yml (e.g. to add an instrument) — local edits are now set aside during the update and put back afterwards; if they overlap with the new version, the update is rolled back cleanly and the site stays on its current version with its changes intact
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-green-400
+              "></span>
+            The database update (alembic upgrade head) now always runs during Update instead of only when migration files were detected in git&#39;s output
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-green-400
+              "></span>
+            A failed database update is now reported as a warning, and the worker and watcher keep running the previous version instead of being restarted on code that needs the new schema
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-green-400
+              "></span>
+            Reverted the DB_HOST_PORT change to docker-compose.yml from 1.2.0 so sites on 1.1.x with an edited docker-compose.yml can update with their current Update button; set a different host port in docker-compose.override.yml instead
+          </li>
+        
+        </ul>
+      </div>
+
+      
+      <div class="h-px bg-gray-50"></div>
+      
+
+    
+
+      <div>
+        
+        <div class="flex items-center gap-2 mb-3">
+          
+          <span class="flex items-center justify-center w-5 h-5 rounded-full bg-amber-100">
+            <svg class="w-3 h-3 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18"/>
+            </svg>
+          </span>
+          <h3 class="text-xs font-bold uppercase tracking-wide text-amber-600">Improvements</h3>
+          
+        </div>
+
+        <ul class="space-y-2">
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-amber-300
+              "></span>
+            Update asks for confirmation when transfers are running, because restarting the worker interrupts them
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-amber-300
+              "></span>
+            Update does nothing and restarts nothing when the site is already up to date, and reports when docker-compose.yml, a Dockerfile or requirements.txt changed and a manual &#39;docker compose up -d --build&#39; is needed
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-amber-300
+              "></span>
+            The latest-version check is cached for 15 minutes (it ran on every page load and could hit GitHub&#39;s rate limit); the Check button on the Settings page always asks GitHub directly
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-amber-300
+              "></span>
+            Site-specific settings such as additional instrument folders go into the git-ignored docker-compose.override.yml (see docker-compose.override.example.yml and the README), so updates never conflict with them
+          </li>
+        
+        </ul>
+      </div>
+
+      
+
+    
+    </div>
+
+  </div>
+
+
+  <div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
+
+    
+    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50 bg-gradient-to-r from-indigo-50/40 to-transparent">
+      <div class="flex items-center gap-3">
+        <span class="text-xl font-bold text-gray-900">v1.2.0</span>
+        
+      </div>
+      <span class="text-xs text-gray-400 tabular-nums">2026-09-29</span>
+    </div>
+
+    
+    <div class="px-6 py-5 space-y-5">
+    
+
+      <div>
+        
+        <div class="flex items-center gap-2 mb-3">
+          
+          <span class="flex items-center justify-center w-5 h-5 rounded-full bg-indigo-100">
+            <svg class="w-3 h-3 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+            </svg>
+          </span>
+          <h3 class="text-xs font-bold uppercase tracking-wide text-indigo-600">New Features</h3>
+          
+        </div>
+
+        <ul class="space-y-2">
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Directory stability completion method: each top-level folder of a run is sent to the TRE as soon as it has not changed for a set time, and the run is finalized once the whole run folder is quiet — checksums of folders already sent are reused
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            New Transfer Conflict status: a folder that changes after it was sent (file modified or deleted) puts the run on hold and lists the changed files, since uploaded files cannot be overwritten in the TRE
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Directories panel on the run detail page with the state of every folder and a Retry button for failed folder uploads
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Interrupted transfers resume: every file&#39;s checksum and upload is recorded, so Retry sends only the files that are missing and does not re-hash unchanged data
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Dark mode, following the system setting by default, with a toggle in the sidebar
+          </li>
+        
+        </ul>
+      </div>
+
+      
+      <div class="h-px bg-gray-50"></div>
+      
+
+    
+
+      <div>
+        
+        <div class="flex items-center gap-2 mb-3">
+          
+          <span class="flex items-center justify-center w-5 h-5 rounded-full bg-amber-100">
+            <svg class="w-3 h-3 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18"/>
+            </svg>
+          </span>
+          <h3 class="text-xs font-bold uppercase tracking-wide text-amber-600">Improvements</h3>
+          
+        </div>
+
+        <ul class="space-y-2">
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-amber-300
+              "></span>
+            TRE verification runs outside the transfer queue — the next run uploads while earlier runs wait for TRE confirmation (a burst of 5 runs finished in about 2 minutes instead of about 20)
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-amber-300
+              "></span>
+            TRE confirmation wait raised from 10 minutes to 1 hour, plus extra time for large runs (setting verify_minutes_per_100gb, default 24: 1 TB → 5 hours)
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-amber-300
+              "></span>
+            Runs waiting for TRE confirmation are resumed after a worker restart instead of being marked as failed
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-amber-300
+              "></span>
+            Upload progress is written to the database at most every 2 seconds instead of several times per MB
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-amber-300
+              "></span>
+            Database host port is configurable (DB_HOST_PORT, default 5432)
+          </li>
+        
+        </ul>
+      </div>
+
+      
+      <div class="h-px bg-gray-50"></div>
+      
+
+    
+
+      <div>
+        
+        <div class="flex items-center gap-2 mb-3">
+          
+          <span class="flex items-center justify-center w-5 h-5 rounded-full bg-green-100">
+            <svg class="w-3 h-3 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
+            </svg>
+          </span>
+          <h3 class="text-xs font-bold uppercase tracking-wide text-green-600">Bug Fixes</h3>
+          
+        </div>
+
+        <ul class="space-y-2">
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-green-400
+              "></span>
+            Fixed finished runs found at installation (backfill) never being transferred — they stayed at Acquisition Complete until the worker restarted
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-green-400
+              "></span>
+            Fixed the worker losing its RabbitMQ connection during uploads or verifications longer than about 3 minutes (missed heartbeats), which restarted the worker and processed the task twice
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-green-400
+              "></span>
+            Fixed runs being shown as Transfer Validation while only waiting in the queue after Retry Verification
+          </li>
+        
+        </ul>
+      </div>
+
+      
+
+    
+    </div>
+
+  </div>
+
+
+  <div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
+
+    
+    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50 bg-gradient-to-r from-indigo-50/40 to-transparent">
+      <div class="flex items-center gap-3">
+        <span class="text-xl font-bold text-gray-900">v1.1.17</span>
+        
+      </div>
+      <span class="text-xs text-gray-400 tabular-nums">2026-08-10</span>
+    </div>
+
+    
+    <div class="px-6 py-5 space-y-5">
+    
+
+      <div>
+        
+        <div class="flex items-center gap-2 mb-3">
+          
+          <span class="flex items-center justify-center w-5 h-5 rounded-full bg-green-100">
+            <svg class="w-3 h-3 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
+            </svg>
+          </span>
+          <h3 class="text-xs font-bold uppercase tracking-wide text-green-600">Bug Fixes</h3>
+          
+        </div>
+
+        <ul class="space-y-2">
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-green-400
+              "></span>
+            Fixed Containers page showing a Docker connection error after docker compose rebuild — accessing the image of a container running on a deleted image now falls back gracefully instead of crashing the entire listing
+          </li>
+        
+        </ul>
+      </div>
+
+      
+
+    
+    </div>
+
+  </div>
+
+
+  <div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
+
+    
+    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50 bg-gradient-to-r from-indigo-50/40 to-transparent">
+      <div class="flex items-center gap-3">
+        <span class="text-xl font-bold text-gray-900">v1.1.16</span>
+        
+      </div>
+      <span class="text-xs text-gray-400 tabular-nums">2026-08-07</span>
+    </div>
+
+    
+    <div class="px-6 py-5 space-y-5">
+    
+
+      <div>
+        
+        <div class="flex items-center gap-2 mb-3">
+          
+          <span class="flex items-center justify-center w-5 h-5 rounded-full bg-indigo-100">
+            <svg class="w-3 h-3 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+            </svg>
+          </span>
+          <h3 class="text-xs font-bold uppercase tracking-wide text-indigo-600">New Features</h3>
+          
+        </div>
+
+        <ul class="space-y-2">
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Automatic database backups: a dedicated backup service periodically dumps and gzips the database into a backups/ folder, with the interval and how many backups to keep configurable from Settings
+          </li>
+        
+        </ul>
+      </div>
+
+      
+
+    
+    </div>
+
+  </div>
+
+
+  <div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
+
+    
+    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50 bg-gradient-to-r from-indigo-50/40 to-transparent">
+      <div class="flex items-center gap-3">
+        <span class="text-xl font-bold text-gray-900">v1.1.15</span>
+        
+      </div>
+      <span class="text-xs text-gray-400 tabular-nums">2026-08-07</span>
+    </div>
+
+    
+    <div class="px-6 py-5 space-y-5">
+    
+
+      <div>
+        
+        <div class="flex items-center gap-2 mb-3">
+          
+          <span class="flex items-center justify-center w-5 h-5 rounded-full bg-green-100">
+            <svg class="w-3 h-3 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
+            </svg>
+          </span>
+          <h3 class="text-xs font-bold uppercase tracking-wide text-green-600">Bug Fixes</h3>
+          
+        </div>
+
+        <ul class="space-y-2">
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-green-400
+              "></span>
+            Fixed Alembic migration crash when seeding the checksum_chunk_size_mb setting (bound parameters were passed directly to op.execute(), which doesn&#39;t accept them)
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-green-400
+              "></span>
+            Fixed 500 error opening the New Instrument Type page, caused by missing UI language context
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-green-400
+              "></span>
+            Fixed unmatched routes and 404s returning raw JSON instead of a proper not-found page
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-green-400
+              "></span>
+            Removed an orphaned /test route referencing a nonexistent template
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-green-400
+              "></span>
+            Fixed the Logs viewer hiding service tabs (checksum, publisher, tre) that hadn&#39;t logged anything yet
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-green-400
+              "></span>
+            Fixed run, sequencer, and settings timestamps displaying in UTC instead of local time — including the live run-duration timer, which was silently off by the UTC offset
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-green-400
+              "></span>
+            Fixed the Changelog page showing a stale current-version badge and &#39;Latest&#39; tag instead of the real running version
+          </li>
+        
+        </ul>
+      </div>
+
+      
+      <div class="h-px bg-gray-50"></div>
+      
+
+    
+
+      <div>
+        
+        <div class="flex items-center gap-2 mb-3">
+          
+          <span class="flex items-center justify-center w-5 h-5 rounded-full bg-amber-100">
+            <svg class="w-3 h-3 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18"/>
+            </svg>
+          </span>
+          <h3 class="text-xs font-bold uppercase tracking-wide text-amber-600">Improvements</h3>
+          
+        </div>
+
+        <ul class="space-y-2">
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-amber-300
+              "></span>
+            Changelog &#39;Latest&#39; tag is now computed from the actual running version instead of hardcoded per entry
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-amber-300
+              "></span>
+            Added a large 404 numeral to the not-found page so it reads clearly as a not-found page
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-amber-300
+              "></span>
+            Updated default settings for fresh installs: checksum read chunk size 256 MB, 8 items per page, 60s upload retry wait cap
+          </li>
+        
+        </ul>
+      </div>
+
+      
+
+    
+    </div>
+
+  </div>
+
+
+  <div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
+
+    
+    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50 bg-gradient-to-r from-indigo-50/40 to-transparent">
+      <div class="flex items-center gap-3">
+        <span class="text-xl font-bold text-gray-900">v1.1.7</span>
+        
+      </div>
+      <span class="text-xs text-gray-400 tabular-nums">2026-08-05</span>
+    </div>
+
+    
+    <div class="px-6 py-5 space-y-5">
+    
+
+      <div>
+        
+        <div class="flex items-center gap-2 mb-3">
+          
+          <span class="flex items-center justify-center w-5 h-5 rounded-full bg-indigo-100">
+            <svg class="w-3 h-3 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+            </svg>
+          </span>
+          <h3 class="text-xs font-bold uppercase tracking-wide text-indigo-600">New Features</h3>
+          
+        </div>
+
+        <ul class="space-y-2">
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            One-click in-app update: Settings page shows current and latest version, fetches from GitHub automatically, and updates all services with a single button click
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Update notification: animated red dot on the version badge and a banner on the Dashboard appear automatically when a new version is available
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Version check runs on every page load using server-side GitHub API caching (5-minute TTL) — no manual check needed
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Frontend container restarts automatically as part of the update flow so template changes take effect immediately
+          </li>
+        
+        </ul>
+      </div>
+
+      
+      <div class="h-px bg-gray-50"></div>
+      
+
+    
+
+      <div>
+        
+        <div class="flex items-center gap-2 mb-3">
+          
+          <span class="flex items-center justify-center w-5 h-5 rounded-full bg-green-100">
+            <svg class="w-3 h-3 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
+            </svg>
+          </span>
+          <h3 class="text-xs font-bold uppercase tracking-wide text-green-600">Bug Fixes</h3>
+          
+        </div>
+
+        <ul class="space-y-2">
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-green-400
+              "></span>
+            Fixed auto-upload runs getting stuck in &#39;Sequencing Done&#39; after worker restart — worker now re-queues them automatically on startup
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-green-400
+              "></span>
+            Fixed &#39;Send to TRE&#39; button appearing for auto-upload sequencers when the run is already queued — replaced with a clear &#39;Auto-upload queued — waiting for worker…&#39; indicator
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-green-400
+              "></span>
+            Fixed run detail page stopping polling when status is &#39;Sequencing Done&#39; for auto sequencers — page now refreshes automatically until the pipeline resumes
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-green-400
+              "></span>
+            Fixed Changelog missing from sidebar navigation
+          </li>
+        
+        </ul>
+      </div>
+
+      
+
+    
+    </div>
+
+  </div>
+
+
+  <div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
+
+    
+    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50 bg-gradient-to-r from-indigo-50/40 to-transparent">
+      <div class="flex items-center gap-3">
+        <span class="text-xl font-bold text-gray-900">v1.1.0</span>
+        
+      </div>
+      <span class="text-xs text-gray-400 tabular-nums">2026-08-05</span>
+    </div>
+
+    
+    <div class="px-6 py-5 space-y-5">
+    
+
+      <div>
+        
+        <div class="flex items-center gap-2 mb-3">
+          
+          <span class="flex items-center justify-center w-5 h-5 rounded-full bg-green-100">
+            <svg class="w-3 h-3 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
+            </svg>
+          </span>
+          <h3 class="text-xs font-bold uppercase tracking-wide text-green-600">Bug Fixes</h3>
+          
+        </div>
+
+        <ul class="space-y-2">
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-green-400
+              "></span>
+            Fixed auto-upload runs getting stuck in &#39;Sequencing Done&#39; after worker restart — worker now re-queues them automatically on startup
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-green-400
+              "></span>
+            Fixed &#39;Send to TRE&#39; button appearing for auto-upload sequencers when the run is already queued — replaced with a clear &#39;Auto-upload queued — waiting for worker…&#39; indicator
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-green-400
+              "></span>
+            Fixed run detail page stopping polling when status is &#39;Sequencing Done&#39; for auto sequencers — page now refreshes automatically until the pipeline resumes
+          </li>
+        
+        </ul>
+      </div>
+
+      
+
+    
+    </div>
+
+  </div>
+
+
+  <div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
+
+    
+    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50 bg-gradient-to-r from-indigo-50/40 to-transparent">
+      <div class="flex items-center gap-3">
+        <span class="text-xl font-bold text-gray-900">v1.0.0</span>
+        
+      </div>
+      <span class="text-xs text-gray-400 tabular-nums">2026-07-27</span>
+    </div>
+
+    
+    <div class="px-6 py-5 space-y-5">
+    
+
+      <div>
+        
+        <div class="flex items-center gap-2 mb-3">
+          
+          <span class="flex items-center justify-center w-5 h-5 rounded-full bg-indigo-100">
+            <svg class="w-3 h-3 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+            </svg>
+          </span>
+          <h3 class="text-xs font-bold uppercase tracking-wide text-indigo-600">New Features</h3>
+          
+        </div>
+
+        <ul class="space-y-2">
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Dashboard with live stat widgets: Sequencing, Ready to Upload, Pipeline, Failed, Completed, Sequencers
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Chart.js charts on dashboard: run status donut, 14-day activity bar chart, per-sequencer horizontal bar
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Graphical SVG countdown ring on all auto-refresh pages — Logs, Containers, Queue, Run Detail (click to refresh immediately)
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Sequencer active/inactive toggle button directly on the sequencer list — no need to open the detail page
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Version badge in sidebar links to this changelog page
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Mount health monitoring: backend checks filesystem accessibility of every sequencer location at page load
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Warning banner on Dashboard and Sequencers page when storage mounts are inaccessible, with per-card badge on affected sequencers
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            One-click Restart Watcher button in the warning banner — watcher picks up newly-mounted locations within its 60 s poll cycle
+          </li>
+        
+        </ul>
+      </div>
+
+      
+      <div class="h-px bg-gray-50"></div>
+      
+
+    
+
+      <div>
+        
+        <div class="flex items-center gap-2 mb-3">
+          
+          <span class="flex items-center justify-center w-5 h-5 rounded-full bg-amber-100">
+            <svg class="w-3 h-3 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18"/>
+            </svg>
+          </span>
+          <h3 class="text-xs font-bold uppercase tracking-wide text-amber-600">Pipeline Improvements</h3>
+          
+        </div>
+
+        <ul class="space-y-2">
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-amber-300
+              "></span>
+            Two-queue RabbitMQ architecture: run events (run_created, run_completed) on a separate fast queue so new runs are always detected even during long uploads
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-amber-300
+              "></span>
+            Periodic run scan every 2 minutes as a safety net for runs missed by the filesystem watcher (e.g. renamed folders on SMB/NFS)
+          </li>
+        
+        </ul>
+      </div>
+
+      
+      <div class="h-px bg-gray-50"></div>
+      
+
+    
+
+      <div>
+        
+        <div class="flex items-center gap-2 mb-3">
+          
+          <span class="flex items-center justify-center w-5 h-5 rounded-full bg-green-100">
+            <svg class="w-3 h-3 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
+            </svg>
+          </span>
+          <h3 class="text-xs font-bold uppercase tracking-wide text-green-600">Bug Fixes</h3>
+          
+        </div>
+
+        <ul class="space-y-2">
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-green-400
+              "></span>
+            Fixed stale .CHECKSUM file being reused after run folder contents changed, causing TRE validation failure
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-green-400
+              "></span>
+            Fixed user upload retries being blocked by the stale_queued guard when checksum_file was still set in DB
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-green-400
+              "></span>
+            Fixed new runs not detected while a long upload was in progress (single-queue blocking issue)
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-green-400
+              "></span>
+            Fixed PollingObserver missing run folders renamed on SMB/NFS (untitled → final name race condition)
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-green-400
+              "></span>
+            Fixed dashboard showing 0/0 sequencers due to limit=100 exceeding PAGINATION_MAX_LIMIT=50
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-green-400
+              "></span>
+            Fixed verify_failed guard firing prematurely during race between upload event and DB write
+          </li>
+        
+        </ul>
+      </div>
+
+      
+
+    
+    </div>
+
+  </div>
+
+
+  <div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
+
+    
+    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50 bg-gradient-to-r from-indigo-50/40 to-transparent">
+      <div class="flex items-center gap-3">
+        <span class="text-xl font-bold text-gray-900">v0.9.0</span>
+        
+      </div>
+      <span class="text-xs text-gray-400 tabular-nums">2026-07-24</span>
+    </div>
+
+    
+    <div class="px-6 py-5 space-y-5">
+    
+
+      <div>
+        
+        <div class="flex items-center gap-2 mb-3">
+          
+          <span class="flex items-center justify-center w-5 h-5 rounded-full bg-indigo-100">
+            <svg class="w-3 h-3 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+            </svg>
+          </span>
+          <h3 class="text-xs font-bold uppercase tracking-wide text-indigo-600">New Features</h3>
+          
+        </div>
+
+        <ul class="space-y-2">
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Settings page: all pipeline and UI timings configurable from the browser (pagination size, refresh intervals, log line count, run scan interval)
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Logs page: live log viewer for all services (backend, worker, watcher, frontend) with syntax-coloured output, auto-scroll, and download
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Containers page: Docker container status overview with one-click restart per service
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Direct S3 HTTPS upload — removed dependency on kubectl proxy for data transfer
+          </li>
+        
+        </ul>
+      </div>
+
+      
+      <div class="h-px bg-gray-50"></div>
+      
+
+    
+
+      <div>
+        
+        <div class="flex items-center gap-2 mb-3">
+          
+          <span class="flex items-center justify-center w-5 h-5 rounded-full bg-amber-100">
+            <svg class="w-3 h-3 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18"/>
+            </svg>
+          </span>
+          <h3 class="text-xs font-bold uppercase tracking-wide text-amber-600">Improvements</h3>
+          
+        </div>
+
+        <ul class="space-y-2">
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-amber-300
+              "></span>
+            Single-file PUT upload replaces multipart approach, reducing overhead for large run folders
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-amber-300
+              "></span>
+            Live byte-level upload progress reported to the run detail page during transfer
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-amber-300
+              "></span>
+            kubectl proxy auto-restart managed internally so port-forwarding no longer requires manual intervention
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-amber-300
+              "></span>
+            Upload event race condition fixed: verify_failed guard now waits for DB write to settle before evaluating
+          </li>
+        
+        </ul>
+      </div>
+
+      
+
+    
+    </div>
+
+  </div>
+
+
+  <div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
+
+    
+    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50 bg-gradient-to-r from-indigo-50/40 to-transparent">
+      <div class="flex items-center gap-3">
+        <span class="text-xl font-bold text-gray-900">v0.8.0</span>
+        
+      </div>
+      <span class="text-xs text-gray-400 tabular-nums">2026-07-23</span>
+    </div>
+
+    
+    <div class="px-6 py-5 space-y-5">
+    
+
+      <div>
+        
+        <div class="flex items-center gap-2 mb-3">
+          
+          <span class="flex items-center justify-center w-5 h-5 rounded-full bg-indigo-100">
+            <svg class="w-3 h-3 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+            </svg>
+          </span>
+          <h3 class="text-xs font-bold uppercase tracking-wide text-indigo-600">New Features</h3>
+          
+        </div>
+
+        <ul class="space-y-2">
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Exclusions field on sequencer: list of folder/file patterns to skip during checksumming and upload
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            File stability completion method: watcher waits for run folder to stop changing before marking sequencing done
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Checksum filename stored in DB so verification always targets the correct S3 object
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            S3 checksum bucket verification: TRE confirmation pulled directly from S3 instead of polling an API
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Soft-delete for runs: removes the record from the list without touching any files; guarded for completed runs
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Delete button on run detail page with confirmation dialog
+          </li>
+        
+        </ul>
+      </div>
+
+      
+      <div class="h-px bg-gray-50"></div>
+      
+
+    
+
+      <div>
+        
+        <div class="flex items-center gap-2 mb-3">
+          
+          <span class="flex items-center justify-center w-5 h-5 rounded-full bg-green-100">
+            <svg class="w-3 h-3 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
+            </svg>
+          </span>
+          <h3 class="text-xs font-bold uppercase tracking-wide text-green-600">Bug Fixes</h3>
+          
+        </div>
+
+        <ul class="space-y-2">
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-green-400
+              "></span>
+            Fixed duplicate run rows appearing in the database on rapid watcher events
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-green-400
+              "></span>
+            Fixed stale pipeline restart loop when a run was already in a terminal state
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-green-400
+              "></span>
+            Fixed pipeline stepper alignment when connector widths were inconsistent
+          </li>
+        
+        </ul>
+      </div>
+
+      
+
+    
+    </div>
+
+  </div>
+
+
+  <div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
+
+    
+    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50 bg-gradient-to-r from-indigo-50/40 to-transparent">
+      <div class="flex items-center gap-3">
+        <span class="text-xl font-bold text-gray-900">v0.7.0</span>
+        
+      </div>
+      <span class="text-xs text-gray-400 tabular-nums">2026-07-21</span>
+    </div>
+
+    
+    <div class="px-6 py-5 space-y-5">
+    
+
+      <div>
+        
+        <div class="flex items-center gap-2 mb-3">
+          
+          <span class="flex items-center justify-center w-5 h-5 rounded-full bg-indigo-100">
+            <svg class="w-3 h-3 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+            </svg>
+          </span>
+          <h3 class="text-xs font-bold uppercase tracking-wide text-indigo-600">New Features</h3>
+          
+        </div>
+
+        <ul class="space-y-2">
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Duplicate upload guard: detects a run already queued with a valid checksum and discards the redundant message
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Status history detail field: error messages and stack traces attached to failed history entries
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Retry / Re-check button on run detail page for failed states
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Move_failed error detail shown inline on the run detail page
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Delete guard: completed runs cannot be accidentally deleted
+          </li>
+        
+        </ul>
+      </div>
+
+      
+      <div class="h-px bg-gray-50"></div>
+      
+
+    
+
+      <div>
+        
+        <div class="flex items-center gap-2 mb-3">
+          
+          <span class="flex items-center justify-center w-5 h-5 rounded-full bg-amber-100">
+            <svg class="w-3 h-3 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18"/>
+            </svg>
+          </span>
+          <h3 class="text-xs font-bold uppercase tracking-wide text-amber-600">Improvements</h3>
+          
+        </div>
+
+        <ul class="space-y-2">
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-amber-300
+              "></span>
+            Filter pills on Runs list: Sequencing pill now shows only actively-sequencing runs (not running_finished)
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-amber-300
+              "></span>
+            Failed filter pill removed — failed runs shown via the status filter dropdown instead
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-amber-300
+              "></span>
+            Filter pill buttons fixed: use data-attributes instead of inline onclick to avoid XSS and state issues
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-amber-300
+              "></span>
+            Watcher: set recursive=False and added signal-file checks to reduce false positives on SMB shares
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-amber-300
+              "></span>
+            Timezone-aware logging across all services for consistent timestamps in Logs viewer
+          </li>
+        
+        </ul>
+      </div>
+
+      
+      <div class="h-px bg-gray-50"></div>
+      
+
+    
+
+      <div>
+        
+        <div class="flex items-center gap-2 mb-3">
+          
+          <span class="flex items-center justify-center w-5 h-5 rounded-full bg-green-100">
+            <svg class="w-3 h-3 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
+            </svg>
+          </span>
+          <h3 class="text-xs font-bold uppercase tracking-wide text-green-600">Bug Fixes</h3>
+          
+        </div>
+
+        <ul class="space-y-2">
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-green-400
+              "></span>
+            Fixed duplicate status history entries being written on repeated pipeline restarts
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-green-400
+              "></span>
+            Fixed watcher not backfilling the database on startup when runs already existed on disk
+          </li>
+        
+        </ul>
+      </div>
+
+      
+
+    
+    </div>
+
+  </div>
+
+
+  <div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
+
+    
+    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-50 bg-gradient-to-r from-indigo-50/40 to-transparent">
+      <div class="flex items-center gap-3">
+        <span class="text-xl font-bold text-gray-900">v0.5.0</span>
+        
+      </div>
+      <span class="text-xs text-gray-400 tabular-nums">2026-05-19</span>
+    </div>
+
+    
+    <div class="px-6 py-5 space-y-5">
+    
+
+      <div>
+        
+        <div class="flex items-center gap-2 mb-3">
+          
+          <span class="flex items-center justify-center w-5 h-5 rounded-full bg-indigo-100">
+            <svg class="w-3 h-3 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+            </svg>
+          </span>
+          <h3 class="text-xs font-bold uppercase tracking-wide text-indigo-600">New Features</h3>
+          
+        </div>
+
+        <ul class="space-y-2">
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Initial public release of OmiCZ GateWay
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Filesystem watcher: automatically detects new sequencing run folders on registered sequencer locations
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Run pipeline: checksum → S3 upload → TRE verification, orchestrated via RabbitMQ
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Run detail page: pipeline stepper, status history timeline, progress bar for active stages
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Runs list with pagination and status filtering
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Sequencer management: register, edit, activate/deactivate sequencer machines
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Sequencer type catalogue for grouping machines by platform (Illumina, ONT, Aviti)
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Upload queue view: active and waiting runs in one place
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Alembic database migrations tracked in version control
+          </li>
+        
+          <li class="flex items-start gap-2.5 text-sm text-gray-600">
+            <span class="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0
+              bg-indigo-300
+              "></span>
+            Publisher logger and timezone-aware logging for all services
+          </li>
+        
+        </ul>
+      </div>
+
+      
+
+    
+    </div>
+
+  </div>
+
+</div>
+
+
+    </main>
+
+    
+
+    <script>
+      // Theme toggle (sidebar). Without a saved choice the page follows the system setting.
+      function setTheme(dark, save) {
+        document.documentElement.classList.toggle('dark', dark);
+        if (save) { try { localStorage.setItem('theme', dark ? 'dark' : 'light'); } catch (e) {} }
+        var label = document.getElementById('theme-toggle-label');
+        if (label) label.textContent = dark ? 'Light mode' : 'Dark mode';
+        document.querySelectorAll('[data-theme-icon]').forEach(function (el) {
+          el.classList.toggle('hidden', el.dataset.themeIcon !== (dark ? 'sun' : 'moon'));
+        });
+      }
+      // Sidebar as a slide-in menu on small screens
+      function openSidebar() {
+        document.getElementById('sidebar').classList.remove('-translate-x-full');
+        document.getElementById('sidebar-backdrop').classList.remove('hidden');
+      }
+      function closeSidebar() {
+        document.getElementById('sidebar').classList.add('-translate-x-full');
+        document.getElementById('sidebar-backdrop').classList.add('hidden');
+      }
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeSidebar(); });
+      function toggleTheme() {
+        setTheme(!document.documentElement.classList.contains('dark'), true);
+        location.reload();  // charts read the theme when they are drawn
+      }
+      setTheme(document.documentElement.classList.contains('dark'), false);
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) {
+        var saved = null;
+        try { saved = localStorage.getItem('theme'); } catch (err) {}
+        if (!saved) setTheme(e.matches, false);
+      });
+    </script>
+
+    <script>
+      // Clear any stale localStorage keys from old implementation
+      localStorage.removeItem('update_available');
+      localStorage.removeItem('latest_version');
+      localStorage.removeItem('update_check_time');
+
+      // Check for updates on every page load. Server caches GitHub result for 5 min.
+      fetch('/system/version')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          var dot    = document.getElementById('update-dot');
+          var badge  = document.getElementById('version-badge-link');
+          var banner = document.getElementById('update-available-banner');
+          var msg    = document.getElementById('update-available-msg');
+          if (data.update_available) {
+            if (dot)   dot.classList.remove('hidden');
+            if (badge) badge.title = 'Update available: v' + data.latest + ' — click to update';
+            if (banner) {
+              if (msg) msg.textContent = 'Version ' + data.latest + ' is available.';
+              banner.classList.remove('hidden');
+            }
+          } else {
+            if (dot)    dot.classList.add('hidden');
+            if (banner) banner.classList.add('hidden');
+          }
+        })
+        .catch(function() {});
+    </script>
+  <a href="https://github.com/BioIT-CEITEC/omicz-gateway-component" target="_blank" rel="noopener"
+  style="position:fixed;right:16px;bottom:16px;z-index:9998;background:#FFF8E1;color:#5D4300;border:1px solid #E8C870;
+  padding:6px 12px;border-radius:999px;font:500 12px system-ui,sans-serif;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,.12)">
+  Demo · sample data · actions disabled · view on GitHub ↗</a>
+</body>
+</html>

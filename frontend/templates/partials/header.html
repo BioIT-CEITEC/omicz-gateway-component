@@ -1,9 +1,9 @@
-<aside class="fixed top-0 left-0 h-screen w-48 bg-white border-r border-gray-100 flex flex-col z-50 shadow-sm">
+<aside id="sidebar" class="fixed top-0 left-0 h-screen w-48 bg-white border-r border-gray-100 flex flex-col z-50 shadow-sm -translate-x-full lg:translate-x-0 transition-transform duration-200">
 
   {# Logo + version badge #}
   <div class="px-4 pt-5 pb-3 border-b border-gray-100 shrink-0">
     <a href="/" class="block">
-      <img src="/static/images/logo.png" alt="OmiCZ GateWay" class="w-full brand-logo" />
+      {% include "partials/logo.html" %}
     </a>
     <a href="/settings/" id="version-badge-link" class="mt-1.5 flex justify-end items-center gap-1 group">
       <span class="text-[9px] text-gray-300 group-hover:text-indigo-400 transition tabular-nums">v{{ APP_VERSION }}</span>

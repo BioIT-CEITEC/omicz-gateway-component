@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1160" height="432" viewBox="0 0 580 216" role="img" aria-labelledby="title desc">
+  <title id="title">OmiCZ</title>
+  <desc id="desc">OmiCZ in a friendly rounded wordmark. A red and blue DNA-O is balanced by smaller blue C and red Z capitals, with navy mi. Bold rounded strokes and a transparent background.</desc>
+  <defs>
+    <mask id="red-weave" maskUnits="userSpaceOnUse" x="76" y="62" width="56" height="92">
+      <rect x="76" y="62" width="56" height="92" fill="white"/>
+      <circle cx="104" cy="125.556" r="8" fill="black"/>
+    </mask>
+    <mask id="blue-weave" maskUnits="userSpaceOnUse" x="76" y="62" width="56" height="92">
+      <rect x="76" y="62" width="56" height="92" fill="white"/>
+      <circle cx="104" cy="94.444" r="8" fill="black"/>
+    </mask>
+  </defs>
+  <g id="dna-o" fill="none">
+    <g stroke-width="15" stroke-linecap="round">
+      <path id="ring-red" stroke="#D7141A" d="M92 59.404 A52 52 0 0 0 92 160.596"/>
+      <path id="ring-blue" stroke="#1466B8" d="M116 59.404 A52 52 0 0 1 116 160.596"/>
+    </g>
+    <g stroke-width="9.5" stroke-linecap="round">
+      <path id="helix-red" stroke="#D7141A" mask="url(#red-weave)" d="M87 78 C87 92.222 121 95.778 121 110 C121 124.222 87 127.778 87 142"/>
+      <path id="helix-blue" stroke="#1466B8" mask="url(#blue-weave)" d="M121 78 C121 92.222 87 95.778 87 110 C87 124.222 121 127.778 121 142"/>
+    </g>
+  </g>
+  <g id="wordmark" fill="#11457E">
+    <g id="letter-m" fill="none" stroke="#11457E" stroke-width="16" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M190 158 V112 C190 78 236 78 236 111 V158 M236 111 C236 78 282 78 282 111 V158"/>
+    </g>
+    <rect id="letter-i" x="307" y="88" width="16" height="78" rx="7"/>
+    <circle id="i-dot" cx="315" cy="63" r="9"/>
+    <path id="letter-C" fill="none" stroke="#1466B8" stroke-width="15" stroke-linecap="round" d="M423.568 77.862 A46 46 0 1 0 423.568 148.338"/>
+    <path id="letter-Z" fill="none" stroke="#D7141A" stroke-width="15" stroke-linecap="round" stroke-linejoin="round" d="M453 67.1 H528 L451 159.1 H528"/>
+  </g>
+</svg>

@@ -116,7 +116,7 @@
   <div class="bg-white rounded-xl border border-gray-100 px-5 py-4">
     <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-3">Status</label>
     <input type="hidden" name="status" id="status_value" value="active" />
-    <div class="grid grid-cols-2 gap-3">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
 
       <button type="button" id="btn-active" onclick="selectStatus('active')"
               class="text-left p-4 rounded-xl border-2 border-green-500 bg-green-50 transition">
@@ -143,7 +143,7 @@
   <div class="bg-white rounded-xl border border-gray-100 px-5 py-4">
     <label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-3">{{ lang.transfer_to_tre }}</label>
     <input type="hidden" name="sent_to_tre" id="tre_value" value="manual" />
-    <div class="grid grid-cols-2 gap-3">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
 
       <button type="button" id="btn-auto" onclick="selectTRE('auto')"
               class="text-left p-4 rounded-xl border-2 border-gray-200 bg-white transition">

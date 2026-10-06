@@ -80,7 +80,9 @@
     "active_refresh_interval":     {"label": lang.setting_active_refresh,  "unit": "seconds", "min": 1,  "max": 300,  "hint": "Run detail page while checksumming / moving / verifying"},
     "idle_refresh_interval":       {"label": lang.setting_idle_refresh,    "unit": "seconds", "min": 10, "max": 3600, "hint": "Run detail page while the " ~ lang.instrument.lower() ~ " is still running"},
     "containers_refresh_interval": {"label": "Containers page refresh",      "unit": "seconds", "min": 1,  "max": 300,  "hint": "Docker container list auto-refresh"},
-"upload_max_attempts":         {"label": "Upload retry attempts",         "unit": "attempts","min": 1,  "max": 20,   "hint": "How many times to retry a failed S3 file upload"},
+    "upload_engine":               {"label": "Upload engine",                 "unit": "",        "choices": ["boto3", "s5cmd"], "hint": "boto3: one file at a time with live progress. s5cmd: several files at once (faster for runs with many files); progress moves per finished file. s5cmd must be in the images (after an update that adds it, run docker compose build && docker compose up -d); until then boto3 is used"},
+    "upload_s5cmd_workers":        {"label": "s5cmd parallel files",          "unit": "files",   "min": 1,  "max": 64,   "hint": "Files sent at the same time when the upload engine is s5cmd; each large file also uses 4 parallel parts"},
+    "upload_max_attempts":         {"label": "Upload retry attempts",         "unit": "attempts","min": 1,  "max": 20,   "hint": "How many times to retry a failed S3 file upload"},
     "upload_retry_backoff_max":    {"label": "Upload retry wait cap",         "unit": "seconds", "min": 5,  "max": 300,  "hint": "Maximum pause between retry attempts (exponential backoff)"},
     "verify_retries":              {"label": "Verification poll attempts",    "unit": "attempts","min": 1,  "max": 100,  "hint": "How many times to check S3 for TRE's checksum confirmation"},
     "verify_interval":             {"label": "Verification poll interval",    "unit": "seconds", "min": 5,  "max": 3600, "hint": "Wait time between each S3 verification poll"},
@@ -96,7 +98,7 @@
 
   {% set categories = [
     ("ui",           "UI Timings",    "Controls how often pages auto-refresh. Changes apply on the next page load.",           false),
-    ("upload",       "Upload",        "Controls retry behaviour when uploading run data to S3.",                               false),
+    ("upload",       "Upload",        "Controls how run data is uploaded to S3 and how failed uploads are retried. Changes apply to the next upload.",                               false),
     ("verification", "Verification",  "Controls how long to wait for TRE to confirm the uploaded data.",                      false),
     ("watcher",      "Watcher",       "Controls run detection timing. Changes apply on the next watcher polling cycle (no restart needed).", true),
     ("pagination",   "Pagination",    "Controls how many items appear per page on list views. Changes apply on the next page navigation.", false),
@@ -126,6 +128,17 @@
             <p class="text-xs text-gray-400 mt-0.5">{{ m.hint }}</p>
           </div>
           <div class="flex items-center gap-2 flex-shrink-0">
+            {% if m.choices %}
+            <select
+              id="input-{{ s.key }}"
+              data-choice="1"
+              class="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0C2461]"
+            >
+              {% for c in m.choices %}
+              <option value="{{ c }}" {% if c == s.value %}selected{% endif %}>{{ c }}</option>
+              {% endfor %}
+            </select>
+            {% else %}
             <input
               type="number"
               id="input-{{ s.key }}"
@@ -134,9 +147,8 @@
               max="{{ m.max }}"
               class="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#0C2461]"
             />
-            {% if m.unit %}
-            <span class="text-xs text-gray-400 w-14">{{ m.unit }}</span>
             {% endif %}
+            <span class="text-xs text-gray-400 w-14">{{ m.unit }}</span>
             <button
               onclick="saveSetting('{{ s.key }}')"
               class="bg-[#0C2461] text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#091B4D] transition"
@@ -164,8 +176,9 @@
     const input  = document.getElementById('input-' + key);
     const status = document.getElementById('status-' + key);
     const value  = input.value.trim();
+    const choice = input.dataset.choice === '1';
 
-    if (!value || isNaN(value) || parseInt(value) < 1) {
+    if (!choice && (!value || isNaN(value) || parseInt(value) < 1)) {
       status.textContent = 'invalid';
       status.className = 'text-xs w-16 text-center text-red-500';
       return;
@@ -177,7 +190,7 @@
     fetch('/settings/update/' + key, {
       method: 'PUT',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({value: String(parseInt(value))}),
+      body: JSON.stringify({value: choice ? value : String(parseInt(value))}),
     })
       .then(r => r.json())
       .then(data => {

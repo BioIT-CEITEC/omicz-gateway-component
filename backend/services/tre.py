@@ -2,7 +2,12 @@
 TRE (Trusted Research Environment)
 """
 import fnmatch
+import json
 import os
+import shlex
+import shutil
+import subprocess
+import tempfile
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -45,7 +50,7 @@ if _missing:
     )
 
 
-from db.repositories.settings import get_setting_int
+from db.repositories.settings import get_setting_int, get_setting_str
 
 
 def _is_excluded(relative_path: str, exclusions: list[str]) -> bool:
@@ -237,6 +242,139 @@ def _check_endpoint():
         raise RuntimeError(f"Cannot reach S3 endpoint ({S3_ENDPOINT}): {e}") from e
 
 
+def _s5cmd_command(local_path: str, bucket: str, s3_key: str) -> str:
+    """One line of an s5cmd run file. --raw: a '*' or '?' in a file name is not a wildcard."""
+    size = os.path.getsize(local_path)
+    return (f"cp --raw --part-size {_part_size(size) // (1024 * 1024)} --concurrency {_MULTIPART_CONCURRENCY} "
+            f"{shlex.quote(local_path)} {shlex.quote(f's3://{bucket}/{s3_key}')}")
+
+
+def _s5cmd_batch(files: list[tuple[str, str]], bucket: str, workers: int, on_success) -> dict[str, str]:
+    """
+    Upload [(local_path, s3_key)] with one `s5cmd run`, `workers` files at a time.
+    on_success(local_path) is called as each file finishes (from this thread).
+    Returns {local_path: error} for the files that did not upload; an error containing
+    PreconditionFailed means the object is already on S3 (the proxy refuses overwrites).
+    """
+    by_dest = {f"s3://{bucket}/{key}": lp for lp, key in files}
+    with tempfile.NamedTemporaryFile("w", suffix=".s5cmd", delete=False) as cmds:
+        for lp, key in files:
+            cmds.write(_s5cmd_command(lp, bucket, key) + "\n")
+    env = {**os.environ, "AWS_ACCESS_KEY_ID": S3_ACCESS_KEY or "", "AWS_SECRET_ACCESS_KEY": S3_SECRET_KEY or "",
+           "AWS_REGION": S3_REGION or ""}
+    proc = subprocess.Popen(["s5cmd", "--json", "--endpoint-url", S3_ENDPOINT, "--numworkers", str(workers),
+                             "run", cmds.name],
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
+    stderr_lines: list[str] = []
+    reader = threading.Thread(target=lambda: stderr_lines.extend(proc.stderr), daemon=True)
+    reader.start()
+    done: set[str] = set()
+    try:
+        for line in proc.stdout:
+            try:
+                rec = json.loads(line)
+            except ValueError:
+                continue
+            lp = by_dest.get(rec.get("destination"))
+            if rec.get("success") and lp and lp not in done:
+                done.add(lp)
+                on_success(lp)
+        proc.wait()
+    except BaseException:
+        proc.kill()   # e.g. on_success found the file changed — stop sending the rest
+        proc.wait()
+        raise
+    finally:
+        reader.join(timeout=5)
+        os.unlink(cmds.name)
+
+    # error lines name the command, not the file — match on the destination at its end
+    errors: dict[str, str] = {}
+    other: list[str] = []
+    for line in stderr_lines:
+        try:
+            rec = json.loads(line)
+        except ValueError:
+            if line.strip():
+                other.append(line.strip())
+            continue
+        command = rec.get("command", "")
+        lp = next((lp for dest, lp in by_dest.items() if command.endswith(" " + dest)), None)
+        if lp:
+            errors[lp] = rec.get("error", "unknown error")
+        else:
+            other.append(rec.get("error") or line.strip())
+    for lp, _ in files:
+        if lp not in done and lp not in errors:
+            errors[lp] = "; ".join(other) or f"s5cmd exited with code {proc.returncode}"
+    return errors
+
+
+def _upload_file_list_s5cmd(upload_files, sequencer_slug, on_progress, on_file_done, total_bytes,
+                            max_attempts: int, backoff_max: int) -> None:
+    """
+    s5cmd engine: data files go in parallel, then any .CHECKSUM manifest on its own, so the
+    TRE trigger still arrives last. Failed files are sent again as a smaller batch, up to
+    max_attempts times; s5cmd itself retries a rejected part a few times before giving up on a file.
+    Progress moves per finished file — s5cmd does not report bytes while a file is in flight.
+    """
+    workers     = get_setting_int("upload_s5cmd_workers", 4)
+    total_files = len(upload_files)
+    rel_of      = dict(upload_files)
+    state       = {"files": 0, "bytes": 0}
+
+    def _done(local_path):
+        try:
+            state["bytes"] += os.path.getsize(local_path)
+        except OSError:
+            pass
+        state["files"] += 1
+        if on_file_done:
+            on_file_done(local_path, rel_of[local_path])
+        if on_progress:
+            try:
+                on_progress(state["files"], total_files, state["bytes"], total_bytes)
+            except Exception:
+                pass
+
+    data      = [(lp, rp) for lp, rp in upload_files if not rp.endswith(".CHECKSUM")]
+    manifests = [(lp, rp) for lp, rp in upload_files if rp.endswith(".CHECKSUM")]
+    for group in (data, manifests):
+        pending = [(lp, f"{S3_PREFIX}{sequencer_slug}/{rp}") for lp, rp in group]
+        for attempt in range(1, max_attempts + 1):
+            if not pending:
+                break
+            errors = _s5cmd_batch(pending, S3_BUCKET, workers, _done)
+            for lp in [lp for lp, err in errors.items() if "PreconditionFailed" in err]:
+                logger.warning(f"[TRE upload] PreconditionFailed for {lp} — file already on S3, skipping")
+                errors.pop(lp)
+                _done(lp)
+            pending = [(lp, key) for lp, key in pending if lp in errors]
+            if not pending:
+                break
+            first = next(iter(errors.items()))
+            if attempt == max_attempts:
+                logger.error(f"[TRE upload] s5cmd: {len(pending)} file(s) still failing after {max_attempts} attempts — "
+                             f"first: {first[0]}: {first[1]}")
+                raise RuntimeError(f"s5cmd upload failed for {len(pending)} file(s) after {max_attempts} attempts; "
+                                   f"{first[0]}: {first[1]}")
+            wait = min(5 * attempt, backoff_max)
+            logger.warning(f"[TRE upload] s5cmd attempt {attempt}: {len(pending)} file(s) failed — retry in {wait}s; "
+                           f"first: {first[0]}: {first[1]}")
+            time.sleep(wait)
+    logger.info(f"[TRE upload] s5cmd complete: {state['files']} file(s), {state['bytes']} bytes")
+
+
+def upload_engine() -> str:
+    """The configured upload engine, or boto3 when s5cmd is chosen but missing from the image."""
+    engine = get_setting_str("upload_engine", "boto3")
+    if engine == "s5cmd" and not shutil.which("s5cmd"):
+        logger.warning("[TRE upload] upload_engine is s5cmd but the s5cmd binary is not installed — using boto3. "
+                       "Rebuild the images: docker compose build && docker compose up -d")
+        return "boto3"
+    return engine
+
+
 def upload_file_list(upload_files: list[tuple[str, str]], sequencer_slug: str, on_progress=None, on_file_done=None) -> None:
     """
     Upload the given files in order.
@@ -248,8 +386,8 @@ def upload_file_list(upload_files: list[tuple[str, str]], sequencer_slug: str, o
     """
     max_attempts = get_setting_int("upload_max_attempts", 5)
     backoff_max  = get_setting_int("upload_retry_backoff_max", 30)
+    engine       = upload_engine()
 
-    s3 = _upload_client()
     _check_endpoint()
 
     total_bytes = 0
@@ -271,6 +409,13 @@ def upload_file_list(upload_files: list[tuple[str, str]], sequencer_slug: str, o
         except Exception:
             pass
 
+    logger.info(f"[TRE upload] engine={engine} files={total_files} bytes={total_bytes}")
+    if engine == "s5cmd":
+        _upload_file_list_s5cmd(upload_files, sequencer_slug, on_progress, on_file_done, total_bytes,
+                                max_attempts, backoff_max)
+        return
+
+    s3 = _upload_client()
     for local_path, relative_path in upload_files:
         s3_key = f"{S3_PREFIX}{sequencer_slug}/{relative_path}"
 

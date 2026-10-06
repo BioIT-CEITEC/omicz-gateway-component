@@ -129,7 +129,6 @@ rules += [
     "html.dark input:not([type=checkbox]):not([type=radio]),html.dark select,html.dark textarea"
     f"{{background-color:#0f1829;color:#e2e8f0;border-color:#2b384d}}",
     "html.dark input::placeholder,html.dark textarea::placeholder{color:#64748b}",
-    "html.dark .brand-logo{background:#f8fafc;border-radius:8px;padding:4px 6px}",
     "html.dark .shadow-sm,html.dark .shadow{--tw-shadow-color:rgb(0 0 0 / 0.4)}",
 ]
 

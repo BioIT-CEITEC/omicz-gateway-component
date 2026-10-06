@@ -4,6 +4,8 @@ A web application for managing DNA sequencer runs. It monitors sequencer output 
 
 ![OmiCZ Gateway dashboard](readme-images/omicz-gateway-app.png)
 
+**[Try the interactive demo →](https://bioit-ceitec.github.io/omicz-gateway-component/)** a static copy of the web interface with sample data, so you can click through every page without installing anything.
+
 ---
 
 ## What it does

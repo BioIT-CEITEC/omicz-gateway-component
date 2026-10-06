@@ -9,7 +9,7 @@ load_dotenv(dotenv_path=env_path)
 class Settings:
     API_V1_STR: str = "/api/v1"
     PROJECT_TITLE: str = "GateWay API"
-    PROJECT_VERSION: str = "1.1.0"
+    PROJECT_VERSION: str = "1.3.0"
     PROJECT_DESCRIPTION: str = "API Gateway for sequencer"
 
     LOG_LEVEL: str    = os.getenv("LOG_LEVEL", "DEBUG").upper()

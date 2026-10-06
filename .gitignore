@@ -31,3 +31,7 @@ backend/k8s_proxy_config/kubeconfig.yaml
 
 # site-specific compose settings (see docker-compose.override.example.yml)
 docker-compose.override.yml
+
+# Static GUI demo for GitHub Pages (demo/build.py): its JSON data and Logs pages are part of the site
+!docs/**/*.json
+!docs/**/logs/

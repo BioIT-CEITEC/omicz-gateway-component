@@ -262,7 +262,7 @@ def main():
     if OUT.exists():
         shutil.rmtree(OUT)
     OUT.mkdir(parents=True)
-    shutil.copytree(FRONTEND / "static", OUT / "static", ignore=shutil.ignore_patterns("*.py", "__pycache__"))
+    shutil.copytree(FRONTEND / "static", OUT / "static", ignore=shutil.ignore_patterns("*.py", "__pycache__", ".DS_Store"))
     (OUT / ".nojekyll").write_text("")
 
     for url in PAGES:

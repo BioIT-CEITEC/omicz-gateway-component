@@ -2,9 +2,15 @@
 TRE (Trusted Research Environment)
 """
 import fnmatch
+import json
 import os
+import shlex
+import shutil
+import subprocess
+import tempfile
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import boto3
 from boto3.exceptions import S3UploadFailedError
@@ -44,7 +50,7 @@ if _missing:
     )
 
 
-from db.repositories.settings import get_setting_int
+from db.repositories.settings import get_setting_int, get_setting_str
 
 
 def _is_excluded(relative_path: str, exclusions: list[str]) -> bool:
@@ -69,17 +75,109 @@ def _is_excluded(relative_path: str, exclusions: list[str]) -> bool:
 _MULTIPART_THRESHOLD   = 16 * 1024 * 1024   # files >= 16 MB use multipart
 _MULTIPART_CHUNKSIZE   = 16 * 1024 * 1024   # 16 MB per part
 _MULTIPART_CONCURRENCY = 4                   # 4 parallel streams — kubectl port-forward safe limit
+_MAX_PARTS             = 10_000              # S3 limit per multipart upload
+
+
+def _is_precondition(exc: Exception) -> bool:
+    # the proxy refuses overwrites with PreconditionFailed; S3UploadFailedError only carries it in the text
+    return (
+        isinstance(exc, ClientError) and exc.response.get("Error", {}).get("Code", "") == "PreconditionFailed"
+    ) or "PreconditionFailed" in str(exc)
+
+
+def _error_details(exc: Exception) -> str:
+    """Code, message and response headers of an S3 error — the proxy's 400s come without a code."""
+    if not isinstance(exc, ClientError):
+        return str(exc)
+    meta = exc.response.get("ResponseMetadata", {})
+    err  = exc.response.get("Error", {})
+    return (f"HTTP {meta.get('HTTPStatusCode')} code={err.get('Code')!r} message={err.get('Message')!r} "
+            f"request_id={meta.get('RequestId')!r} headers={meta.get('HTTPHeaders')}")
+
+
+def _part_size(size: int) -> int:
+    """_MULTIPART_CHUNKSIZE, or bigger (whole MiB) when the file would need more than _MAX_PARTS parts."""
+    mib = 1024 * 1024
+    needed = -(-size // _MAX_PARTS)
+    return max(_MULTIPART_CHUNKSIZE, -(-needed // mib) * mib)
+
+
+def _multipart_upload(s3, local_path: str, bucket: str, s3_key: str,
+                      on_bytes=None, max_attempts: int = 5, backoff_max: int = 30) -> None:
+    """
+    Multipart upload where every part is retried on its own. With upload_file() one
+    rejected part (the proxy answers an occasional UploadPart with a bare 400) threw away
+    the whole file — for a 100 GB file that meant starting again from byte 0.
+    Parts are read from disk per attempt, _MULTIPART_CONCURRENCY at a time.
+    """
+    size       = os.path.getsize(local_path)
+    part_size  = _part_size(size)
+    n_parts    = -(-size // part_size)
+    upload_id  = s3.create_multipart_upload(Bucket=bucket, Key=s3_key)["UploadId"]
+
+    def _send(part_number: int) -> dict:
+        offset = (part_number - 1) * part_size
+        length = min(part_size, size - offset)
+        for attempt in range(1, max_attempts + 1):
+            try:
+                with open(local_path, "rb") as f:
+                    f.seek(offset)
+                    data = f.read(length)
+                resp = s3.upload_part(Bucket=bucket, Key=s3_key, UploadId=upload_id,
+                                      PartNumber=part_number, Body=data)
+                if on_bytes:
+                    on_bytes(length)
+                return {"PartNumber": part_number, "ETag": resp["ETag"]}
+            except Exception as exc:
+                if _is_precondition(exc) or attempt == max_attempts:
+                    raise
+                wait = min(5 * attempt, backoff_max)
+                logger.warning(f"[TRE upload] part {part_number}/{n_parts} of {s3_key} attempt {attempt} failed "
+                               f"— retry in {wait}s: {_error_details(exc)}")
+                time.sleep(wait)
+
+    try:
+        parts = []
+        with ThreadPoolExecutor(max_workers=_MULTIPART_CONCURRENCY) as pool:
+            futures = [pool.submit(_send, n) for n in range(1, n_parts + 1)]
+            try:
+                for future in as_completed(futures):
+                    parts.append(future.result())
+            except BaseException:
+                pool.shutdown(wait=True, cancel_futures=True)
+                raise
+        parts.sort(key=lambda p: p["PartNumber"])
+        s3.complete_multipart_upload(Bucket=bucket, Key=s3_key, UploadId=upload_id,
+                                     MultipartUpload={"Parts": parts})
+    except BaseException:
+        try:
+            s3.abort_multipart_upload(Bucket=bucket, Key=s3_key, UploadId=upload_id)
+        except Exception as exc:
+            logger.warning(f"[TRE upload] could not abort multipart upload of {s3_key}: {exc}")
+        raise
 
 
 def _upload_file(s3, local_path: str, bucket: str, s3_key: str,
                  on_bytes=None, on_retry=None, max_attempts: int = 5, backoff_max: int = 30) -> None:
     """
-    Upload a single file using the S3 Transfer Manager.
-    Files >= _MULTIPART_THRESHOLD are split into _MULTIPART_CHUNKSIZE parts and
-    uploaded with _MULTIPART_CONCURRENCY parallel threads. Smaller files use a
-    single PUT. on_bytes(n) is called as bytes are transferred (thread-safe —
-    the Transfer Manager may call it from multiple threads for large files).
+    Upload a single file. Files >= _MULTIPART_THRESHOLD go through _multipart_upload
+    (parts retried one by one); smaller files are a single PUT via the S3 Transfer
+    Manager, retried as a whole. on_bytes(n) is called as bytes are transferred
+    (thread-safe — it is called from several threads for large files).
     """
+    try:
+        if os.path.getsize(local_path) >= _MULTIPART_THRESHOLD:
+            _multipart_upload(s3, local_path, bucket, s3_key, on_bytes=on_bytes,
+                              max_attempts=max_attempts, backoff_max=backoff_max)
+            logger.info(f"[TRE upload] complete: s3://{bucket}/{s3_key} size={os.path.getsize(local_path)}")
+            return
+    except Exception as exc:
+        if _is_precondition(exc):
+            logger.warning(f"[TRE upload] PreconditionFailed for {s3_key} — file already on S3, skipping")
+            return
+        logger.error(f"[TRE upload] failed for {local_path}: {_error_details(exc)}")
+        raise
+
     config = TransferConfig(
         multipart_threshold=_MULTIPART_THRESHOLD,
         multipart_chunksize=_MULTIPART_CHUNKSIZE,
@@ -94,11 +192,7 @@ def _upload_file(s3, local_path: str, bucket: str, s3_key: str,
             logger.info(f"[TRE upload] complete: s3://{bucket}/{s3_key} size={os.path.getsize(local_path)}")
             return
         except (S3UploadFailedError, ClientError) as exc:
-            # S3UploadFailedError wraps ClientError when using upload_file(); check both forms
-            is_precondition = (
-                isinstance(exc, ClientError) and exc.response.get("Error", {}).get("Code", "") == "PreconditionFailed"
-            ) or "PreconditionFailed" in str(exc)
-            if is_precondition:
+            if _is_precondition(exc):
                 logger.warning(f"[TRE upload] PreconditionFailed for {s3_key} — file already on S3, skipping")
                 return
             if attempt < max_attempts:
@@ -148,6 +242,139 @@ def _check_endpoint():
         raise RuntimeError(f"Cannot reach S3 endpoint ({S3_ENDPOINT}): {e}") from e
 
 
+def _s5cmd_command(local_path: str, bucket: str, s3_key: str) -> str:
+    """One line of an s5cmd run file. --raw: a '*' or '?' in a file name is not a wildcard."""
+    size = os.path.getsize(local_path)
+    return (f"cp --raw --part-size {_part_size(size) // (1024 * 1024)} --concurrency {_MULTIPART_CONCURRENCY} "
+            f"{shlex.quote(local_path)} {shlex.quote(f's3://{bucket}/{s3_key}')}")
+
+
+def _s5cmd_batch(files: list[tuple[str, str]], bucket: str, workers: int, on_success) -> dict[str, str]:
+    """
+    Upload [(local_path, s3_key)] with one `s5cmd run`, `workers` files at a time.
+    on_success(local_path) is called as each file finishes (from this thread).
+    Returns {local_path: error} for the files that did not upload; an error containing
+    PreconditionFailed means the object is already on S3 (the proxy refuses overwrites).
+    """
+    by_dest = {f"s3://{bucket}/{key}": lp for lp, key in files}
+    with tempfile.NamedTemporaryFile("w", suffix=".s5cmd", delete=False) as cmds:
+        for lp, key in files:
+            cmds.write(_s5cmd_command(lp, bucket, key) + "\n")
+    env = {**os.environ, "AWS_ACCESS_KEY_ID": S3_ACCESS_KEY or "", "AWS_SECRET_ACCESS_KEY": S3_SECRET_KEY or "",
+           "AWS_REGION": S3_REGION or ""}
+    proc = subprocess.Popen(["s5cmd", "--json", "--endpoint-url", S3_ENDPOINT, "--numworkers", str(workers),
+                             "run", cmds.name],
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
+    stderr_lines: list[str] = []
+    reader = threading.Thread(target=lambda: stderr_lines.extend(proc.stderr), daemon=True)
+    reader.start()
+    done: set[str] = set()
+    try:
+        for line in proc.stdout:
+            try:
+                rec = json.loads(line)
+            except ValueError:
+                continue
+            lp = by_dest.get(rec.get("destination"))
+            if rec.get("success") and lp and lp not in done:
+                done.add(lp)
+                on_success(lp)
+        proc.wait()
+    except BaseException:
+        proc.kill()   # e.g. on_success found the file changed — stop sending the rest
+        proc.wait()
+        raise
+    finally:
+        reader.join(timeout=5)
+        os.unlink(cmds.name)
+
+    # error lines name the command, not the file — match on the destination at its end
+    errors: dict[str, str] = {}
+    other: list[str] = []
+    for line in stderr_lines:
+        try:
+            rec = json.loads(line)
+        except ValueError:
+            if line.strip():
+                other.append(line.strip())
+            continue
+        command = rec.get("command", "")
+        lp = next((lp for dest, lp in by_dest.items() if command.endswith(" " + dest)), None)
+        if lp:
+            errors[lp] = rec.get("error", "unknown error")
+        else:
+            other.append(rec.get("error") or line.strip())
+    for lp, _ in files:
+        if lp not in done and lp not in errors:
+            errors[lp] = "; ".join(other) or f"s5cmd exited with code {proc.returncode}"
+    return errors
+
+
+def _upload_file_list_s5cmd(upload_files, sequencer_slug, on_progress, on_file_done, total_bytes,
+                            max_attempts: int, backoff_max: int) -> None:
+    """
+    s5cmd engine: data files go in parallel, then any .CHECKSUM manifest on its own, so the
+    TRE trigger still arrives last. Failed files are sent again as a smaller batch, up to
+    max_attempts times; s5cmd itself retries a rejected part a few times before giving up on a file.
+    Progress moves per finished file — s5cmd does not report bytes while a file is in flight.
+    """
+    workers     = get_setting_int("upload_s5cmd_workers", 4)
+    total_files = len(upload_files)
+    rel_of      = dict(upload_files)
+    state       = {"files": 0, "bytes": 0}
+
+    def _done(local_path):
+        try:
+            state["bytes"] += os.path.getsize(local_path)
+        except OSError:
+            pass
+        state["files"] += 1
+        if on_file_done:
+            on_file_done(local_path, rel_of[local_path])
+        if on_progress:
+            try:
+                on_progress(state["files"], total_files, state["bytes"], total_bytes)
+            except Exception:
+                pass
+
+    data      = [(lp, rp) for lp, rp in upload_files if not rp.endswith(".CHECKSUM")]
+    manifests = [(lp, rp) for lp, rp in upload_files if rp.endswith(".CHECKSUM")]
+    for group in (data, manifests):
+        pending = [(lp, f"{S3_PREFIX}{sequencer_slug}/{rp}") for lp, rp in group]
+        for attempt in range(1, max_attempts + 1):
+            if not pending:
+                break
+            errors = _s5cmd_batch(pending, S3_BUCKET, workers, _done)
+            for lp in [lp for lp, err in errors.items() if "PreconditionFailed" in err]:
+                logger.warning(f"[TRE upload] PreconditionFailed for {lp} — file already on S3, skipping")
+                errors.pop(lp)
+                _done(lp)
+            pending = [(lp, key) for lp, key in pending if lp in errors]
+            if not pending:
+                break
+            first = next(iter(errors.items()))
+            if attempt == max_attempts:
+                logger.error(f"[TRE upload] s5cmd: {len(pending)} file(s) still failing after {max_attempts} attempts — "
+                             f"first: {first[0]}: {first[1]}")
+                raise RuntimeError(f"s5cmd upload failed for {len(pending)} file(s) after {max_attempts} attempts; "
+                                   f"{first[0]}: {first[1]}")
+            wait = min(5 * attempt, backoff_max)
+            logger.warning(f"[TRE upload] s5cmd attempt {attempt}: {len(pending)} file(s) failed — retry in {wait}s; "
+                           f"first: {first[0]}: {first[1]}")
+            time.sleep(wait)
+    logger.info(f"[TRE upload] s5cmd complete: {state['files']} file(s), {state['bytes']} bytes")
+
+
+def upload_engine() -> str:
+    """The configured upload engine, or boto3 when s5cmd is chosen but missing from the image."""
+    engine = get_setting_str("upload_engine", "boto3")
+    if engine == "s5cmd" and not shutil.which("s5cmd"):
+        logger.warning("[TRE upload] upload_engine is s5cmd but the s5cmd binary is not installed — using boto3. "
+                       "Rebuild the images: docker compose build && docker compose up -d")
+        return "boto3"
+    return engine
+
+
 def upload_file_list(upload_files: list[tuple[str, str]], sequencer_slug: str, on_progress=None, on_file_done=None) -> None:
     """
     Upload the given files in order.
@@ -159,8 +386,8 @@ def upload_file_list(upload_files: list[tuple[str, str]], sequencer_slug: str, o
     """
     max_attempts = get_setting_int("upload_max_attempts", 5)
     backoff_max  = get_setting_int("upload_retry_backoff_max", 30)
+    engine       = upload_engine()
 
-    s3 = _upload_client()
     _check_endpoint()
 
     total_bytes = 0
@@ -182,6 +409,13 @@ def upload_file_list(upload_files: list[tuple[str, str]], sequencer_slug: str, o
         except Exception:
             pass
 
+    logger.info(f"[TRE upload] engine={engine} files={total_files} bytes={total_bytes}")
+    if engine == "s5cmd":
+        _upload_file_list_s5cmd(upload_files, sequencer_slug, on_progress, on_file_done, total_bytes,
+                                max_attempts, backoff_max)
+        return
+
+    s3 = _upload_client()
     for local_path, relative_path in upload_files:
         s3_key = f"{S3_PREFIX}{sequencer_slug}/{relative_path}"
 

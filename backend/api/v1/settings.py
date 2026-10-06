@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from db.session import get_db
-from db.repositories.settings import get_all, get_by_key, upsert
+from db.repositories.settings import get_all, get_by_key, upsert, InvalidSettingValue
 from schemas.settings import ShowSetting, UpdateSetting
 
 router = APIRouter()
@@ -25,5 +25,7 @@ def get_setting(key: str, db: Session = Depends(get_db)):
 def update_setting(key: str, body: UpdateSetting, db: Session = Depends(get_db)):
     try:
         return upsert(key, body.value, db)
+    except InvalidSettingValue as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))

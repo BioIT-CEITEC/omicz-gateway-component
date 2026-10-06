@@ -32,6 +32,18 @@ DEFAULTS = [
     },
     # ── Upload ────────────────────────────────────────────────────────────────
     {
+        "key": "upload_engine",
+        "value": "boto3",
+        "category": "upload",
+        "description": "Library that uploads run files to S3: boto3 (Python, one file at a time, live byte progress) or s5cmd (Go binary, several files at once, progress per finished file)",
+    },
+    {
+        "key": "upload_s5cmd_workers",
+        "value": "4",
+        "category": "upload",
+        "description": "Files uploaded at the same time when the upload engine is s5cmd. Each large file is also sent in 4 parallel parts",
+    },
+    {
         "key": "upload_max_attempts",
         "value": "5",
         "category": "upload",
@@ -117,6 +129,16 @@ DEFAULTS = [
 ]
 
 
+# settings that take one of a fixed set of values instead of a number
+CHOICES = {
+    "upload_engine": ["boto3", "s5cmd"],
+}
+
+
+class InvalidSettingValue(ValueError):
+    pass
+
+
 def seed_defaults(db: Session) -> None:
     """Insert default settings that do not already exist. Safe to call on every startup."""
     for row in DEFAULTS:
@@ -143,6 +165,8 @@ def upsert(key: str, value: str, db: Session) -> Settings:
     s = db.query(Settings).filter(Settings.key == key).first()
     if not s:
         raise ValueError(f"Unknown setting key: '{key}'")
+    if key in CHOICES and str(value) not in CHOICES[key]:
+        raise InvalidSettingValue(f"'{value}' is not valid for {key} — choose one of: {', '.join(CHOICES[key])}")
     s.value = str(value)
     s.updated_at = datetime.now()
     db.commit()
@@ -162,6 +186,20 @@ def get_setting_int(key: str, default: int) -> int:
         try:
             row = session.query(Settings).filter(Settings.key == key).first()
             return int(row.value) if row else default
+        finally:
+            session.close()
+    except Exception:
+        return default
+
+
+def get_setting_str(key: str, default: str) -> str:
+    """Like get_setting_int, for text settings such as upload_engine."""
+    try:
+        from db.session import SESSION_LOCAL
+        session = SESSION_LOCAL()
+        try:
+            row = session.query(Settings).filter(Settings.key == key).first()
+            return row.value if row else default
         finally:
             session.close()
     except Exception:

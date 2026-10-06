@@ -5,6 +5,25 @@ from shared_templates import templates
 
 CHANGELOG = [
     {
+        "version": "1.3.0",
+        "date": "2026-10-06",
+        "sections": {
+            "New Features": [
+                "Choice of upload engine in Settings → Upload: boto3 (default, one file at a time with live byte progress) or s5cmd (several files of a run at once, set with 's5cmd parallel files', default 4; progress moves per finished file). The .CHECKSUM file is still sent last, and interrupted uploads still resume. Needs rebuilt images: run 'docker compose build && docker compose up -d' after updating — until then boto3 is used",
+            ],
+            "Bug Fixes": [
+                "Fixed runs staying in Transfer Validation forever: the TRE verifier crashed on the run size returned by PostgreSQL as a decimal number",
+                "Fixed uploads longer than 30 minutes crashing the worker and failing the run: RabbitMQ's consumer timeout is raised to 7 days in docker-compose.yml",
+                "Fixed a fresh image build failing with \"No module named 'psycopg'\": SQLAlchemy 2.1 picks psycopg 3 for postgresql:// URLs, so the database URL now names the psycopg2 driver",
+            ],
+            "Improvements": [
+                "A rejected part of a large file is retried on its own instead of restarting the whole file from the beginning (the TRE proxy occasionally answers a part with HTTP 400 after tens of GB)",
+                "Rejected uploads are logged with status, error code, request ID and response headers, so failures can be traced with the TRE operators",
+                "Settings with a fixed set of values are shown as a drop-down and an invalid value is rejected",
+            ],
+        },
+    },
+    {
         "version": "1.2.1",
         "date": "2026-09-30",
         "sections": {

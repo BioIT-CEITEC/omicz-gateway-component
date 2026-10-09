@@ -592,7 +592,7 @@ def _finish_verification(run, db, new_status: str, detail: str | None = None):
 def check_verifying_run(run, db, now: datetime | None = None):
     """
     One single-shot TRE check for one run in 'verifying':
-      empty file in checksums/  → completed
+      empty confirmation file   → completed
       file with content         → verify_failed (TRE reported a problem)
       not there yet / S3 error  → keep waiting until the deadline:
                                   verify_retries × verify_interval, plus verify_minutes_per_100gb

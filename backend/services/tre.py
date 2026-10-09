@@ -30,6 +30,9 @@ S3_SECRET_KEY  = os.getenv("S3_SECRET_KEY")
 S3_REGION      = os.getenv("S3_REGION")
 S3_BUCKET      = os.getenv("S3_BUCKET")
 S3_PREFIX      = os.getenv("S3_PREFIX")
+# where the TRE writes its confirmation (<bucket>/<prefix><manifest>.CHECKSUM)
+S3_CHECKSUM_BUCKET = os.getenv("S3_CHECKSUM_BUCKET")
+S3_CHECKSUM_PREFIX = os.getenv("S3_CHECKSUM_PREFIX")
 
 _REQUIRED_S3_VARS = {
     "S3_ENDPOINT": S3_ENDPOINT,
@@ -38,6 +41,8 @@ _REQUIRED_S3_VARS = {
     "S3_REGION": S3_REGION,
     "S3_BUCKET": S3_BUCKET,
     "S3_PREFIX": S3_PREFIX,
+    "S3_CHECKSUM_BUCKET": S3_CHECKSUM_BUCKET,
+    "S3_CHECKSUM_PREFIX": S3_CHECKSUM_PREFIX,
 }
 _missing = [k for k, v in _REQUIRED_S3_VARS.items() if not v]
 if _missing:
@@ -538,7 +543,7 @@ def find_checksum_filename_in_s3(run_name: str, sequencer_slug: str) -> str | No
 
 def check_verify_status(checksum_filename: str) -> dict:
     """
-    Single-shot check of the TRE checksums bucket — no retries, no sleeping.
+    Single-shot check of S3_CHECKSUM_BUCKET/S3_CHECKSUM_PREFIX for the TRE confirmation — no retries, no sleeping.
     Returns a dict:
       {"status": "pending"}              — file not in bucket yet (TRE still processing)
       {"status": "success"}              — empty file = TRE confirmed OK
@@ -554,7 +559,7 @@ def check_verify_status(checksum_filename: str) -> dict:
         config=boto3.session.Config(s3={"addressing_style": "path"}),
     )
     try:
-        obj = s3.get_object(Bucket="checksums", Key=checksum_filename)
+        obj = s3.get_object(Bucket=S3_CHECKSUM_BUCKET, Key=f"{S3_CHECKSUM_PREFIX}{checksum_filename}")
         content = obj["Body"].read().decode("utf-8")
         if len(content) == 0:
             return {"status": "success"}

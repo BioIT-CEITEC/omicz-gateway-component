@@ -41,7 +41,19 @@ DEFAULTS = [
         "key": "upload_s5cmd_workers",
         "value": "4",
         "category": "upload",
-        "description": "Files uploaded at the same time when the upload engine is s5cmd. Each large file is also sent in 4 parallel parts",
+        "description": "Files uploaded at the same time when the upload engine is s5cmd. Many small files (e.g. Illumina BCL) upload faster with more workers",
+    },
+    {
+        "key": "upload_s5cmd_concurrency",
+        "value": "4",
+        "category": "upload",
+        "description": "Parts of one large file uploaded at the same time when the upload engine is s5cmd. Open connections = workers × this",
+    },
+    {
+        "key": "upload_s5cmd_part_size_mb",
+        "value": "16",
+        "category": "upload",
+        "description": "Size in MB of each part of a large file when the upload engine is s5cmd (5–5120). Larger parts suit very large files; s5cmd holds about workers × concurrency × part size in memory",
     },
     {
         "key": "upload_max_attempts",
@@ -135,6 +147,14 @@ CHOICES = {
 }
 
 
+# numeric settings with hard limits (inclusive) — values outside are refused
+RANGES = {
+    "upload_s5cmd_workers":      (1, 256),
+    "upload_s5cmd_concurrency":  (1, 64),
+    "upload_s5cmd_part_size_mb": (5, 5120),   # S3 multipart limits: 5 MiB to 5 GiB per part
+}
+
+
 class InvalidSettingValue(ValueError):
     pass
 
@@ -161,12 +181,25 @@ def get_by_key(key: str, db: Session) -> Settings | None:
     return db.query(Settings).filter(Settings.key == key).first()
 
 
+def validate_value(key: str, value) -> None:
+    """Raise InvalidSettingValue when value is outside the key's CHOICES or RANGES."""
+    if key in CHOICES and str(value) not in CHOICES[key]:
+        raise InvalidSettingValue(f"'{value}' is not valid for {key} — choose one of: {', '.join(CHOICES[key])}")
+    if key in RANGES:
+        lo, hi = RANGES[key]
+        try:
+            ok = lo <= int(str(value)) <= hi
+        except ValueError:
+            ok = False
+        if not ok:
+            raise InvalidSettingValue(f"'{value}' is not valid for {key} — enter a whole number from {lo} to {hi}")
+
+
 def upsert(key: str, value: str, db: Session) -> Settings:
     s = db.query(Settings).filter(Settings.key == key).first()
     if not s:
         raise ValueError(f"Unknown setting key: '{key}'")
-    if key in CHOICES and str(value) not in CHOICES[key]:
-        raise InvalidSettingValue(f"'{value}' is not valid for {key} — choose one of: {', '.join(CHOICES[key])}")
+    validate_value(key, value)
     s.value = str(value)
     s.updated_at = datetime.now()
     db.commit()

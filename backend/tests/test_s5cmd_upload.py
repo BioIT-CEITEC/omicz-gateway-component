@@ -152,3 +152,21 @@ def test_missing_binary_falls_back_to_boto3(monkeypatch):
     monkeypatch.setattr(tre, "get_setting_str", lambda key, default: "s5cmd")
     monkeypatch.setattr(tre.shutil, "which", lambda name: None)
     assert tre.upload_engine() == "boto3"
+
+
+def test_part_size_and_concurrency_settings_reach_the_command(fake_s5cmd, run_files, monkeypatch):
+    values = {"upload_s5cmd_workers": 8, "upload_s5cmd_concurrency": 6, "upload_s5cmd_part_size_mb": 64}
+    monkeypatch.setattr(tre, "get_setting_int", lambda key, default: values.get(key, default))
+    seen = []
+    real = tre._s5cmd_batch
+    monkeypatch.setattr(tre, "_s5cmd_batch", lambda *a, **kw: seen.append(a) or real(*a, **kw))
+    tre.upload_file_list(run_files, "slug")
+    assert seen and all(a[2] == 8 and a[4] == 64 and a[5] == 6 for a in seen)
+    line = tre._s5cmd_command(run_files[0][0], "bkt", "pre/x", 64, 6)
+    assert "--part-size 64 --concurrency 6 " in line
+
+
+def test_part_size_setting_still_grows_for_huge_files(monkeypatch):
+    monkeypatch.setattr(tre.os.path, "getsize", lambda p: 2 * 1024 ** 4)   # 2 TiB needs >= 210 MiB parts
+    assert "--part-size 210 " in tre._s5cmd_command("/runs/x/a.bin", "bkt", "pre/a.bin", 64, 4)
+    assert "--part-size 256 " in tre._s5cmd_command("/runs/x/a.bin", "bkt", "pre/a.bin", 256, 4)

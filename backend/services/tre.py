@@ -95,11 +95,11 @@ def _error_details(exc: Exception) -> str:
             f"request_id={meta.get('RequestId')!r} headers={meta.get('HTTPHeaders')}")
 
 
-def _part_size(size: int) -> int:
-    """_MULTIPART_CHUNKSIZE, or bigger (whole MiB) when the file would need more than _MAX_PARTS parts."""
+def _part_size(size: int, min_part: int | None = None) -> int:
+    """min_part (default _MULTIPART_CHUNKSIZE), or bigger (whole MiB) when the file would need more than _MAX_PARTS parts."""
     mib = 1024 * 1024
     needed = -(-size // _MAX_PARTS)
-    return max(_MULTIPART_CHUNKSIZE, -(-needed // mib) * mib)
+    return max(min_part or _MULTIPART_CHUNKSIZE, -(-needed // mib) * mib)
 
 
 def _multipart_upload(s3, local_path: str, bucket: str, s3_key: str,
@@ -242,14 +242,17 @@ def _check_endpoint():
         raise RuntimeError(f"Cannot reach S3 endpoint ({S3_ENDPOINT}): {e}") from e
 
 
-def _s5cmd_command(local_path: str, bucket: str, s3_key: str) -> str:
+def _s5cmd_command(local_path: str, bucket: str, s3_key: str,
+                   part_size_mb: int | None = None, concurrency: int | None = None) -> str:
     """One line of an s5cmd run file. --raw: a '*' or '?' in a file name is not a wildcard."""
     size = os.path.getsize(local_path)
-    return (f"cp --raw --part-size {_part_size(size) // (1024 * 1024)} --concurrency {_MULTIPART_CONCURRENCY} "
+    part_mb = _part_size(size, part_size_mb and part_size_mb * 1024 * 1024) // (1024 * 1024)
+    return (f"cp --raw --part-size {part_mb} --concurrency {concurrency or _MULTIPART_CONCURRENCY} "
             f"{shlex.quote(local_path)} {shlex.quote(f's3://{bucket}/{s3_key}')}")
 
 
-def _s5cmd_batch(files: list[tuple[str, str]], bucket: str, workers: int, on_success) -> dict[str, str]:
+def _s5cmd_batch(files: list[tuple[str, str]], bucket: str, workers: int, on_success,
+                 part_size_mb: int | None = None, concurrency: int | None = None) -> dict[str, str]:
     """
     Upload [(local_path, s3_key)] with one `s5cmd run`, `workers` files at a time.
     on_success(local_path) is called as each file finishes (from this thread).
@@ -259,7 +262,7 @@ def _s5cmd_batch(files: list[tuple[str, str]], bucket: str, workers: int, on_suc
     by_dest = {f"s3://{bucket}/{key}": lp for lp, key in files}
     with tempfile.NamedTemporaryFile("w", suffix=".s5cmd", delete=False) as cmds:
         for lp, key in files:
-            cmds.write(_s5cmd_command(lp, bucket, key) + "\n")
+            cmds.write(_s5cmd_command(lp, bucket, key, part_size_mb, concurrency) + "\n")
     env = {**os.environ, "AWS_ACCESS_KEY_ID": S3_ACCESS_KEY or "", "AWS_SECRET_ACCESS_KEY": S3_SECRET_KEY or "",
            "AWS_REGION": S3_REGION or ""}
     proc = subprocess.Popen(["s5cmd", "--json", "--endpoint-url", S3_ENDPOINT, "--numworkers", str(workers),
@@ -318,7 +321,10 @@ def _upload_file_list_s5cmd(upload_files, sequencer_slug, on_progress, on_file_d
     max_attempts times; s5cmd itself retries a rejected part a few times before giving up on a file.
     Progress moves per finished file — s5cmd does not report bytes while a file is in flight.
     """
-    workers     = get_setting_int("upload_s5cmd_workers", 4)
+    workers      = max(1, get_setting_int("upload_s5cmd_workers", 4))
+    concurrency  = max(1, get_setting_int("upload_s5cmd_concurrency", _MULTIPART_CONCURRENCY))
+    part_size_mb = min(max(get_setting_int("upload_s5cmd_part_size_mb", _MULTIPART_CHUNKSIZE // (1024 * 1024)), 5), 5120)
+    logger.info(f"[TRE upload] s5cmd workers={workers} concurrency={concurrency} part_size={part_size_mb} MB")
     total_files = len(upload_files)
     rel_of      = dict(upload_files)
     state       = {"files": 0, "bytes": 0}
@@ -344,7 +350,7 @@ def _upload_file_list_s5cmd(upload_files, sequencer_slug, on_progress, on_file_d
         for attempt in range(1, max_attempts + 1):
             if not pending:
                 break
-            errors = _s5cmd_batch(pending, S3_BUCKET, workers, _done)
+            errors = _s5cmd_batch(pending, S3_BUCKET, workers, _done, part_size_mb, concurrency)
             for lp in [lp for lp, err in errors.items() if "PreconditionFailed" in err]:
                 logger.warning(f"[TRE upload] PreconditionFailed for {lp} — file already on S3, skipping")
                 errors.pop(lp)

@@ -18,7 +18,7 @@ from db.repositories.runs_status_history import add_run_status_history
 import glob
 
 from services.checksum import create_checksum_file, find_file_by_hash, _fmt_bytes, _sha256
-from services.tre import send_to_tre, check_verify_status, find_checksum_filename_in_s3, upload_file_list
+from services.tre import send_to_tre, check_verify_status, find_checksum_filename_in_s3, upload_file_list, UploadCancelled
 from db.models.runs_status_history import RunsStatusHistory
 from sqlalchemy import func
 from services import dir_stability
@@ -105,6 +105,29 @@ def _make_progress_callback(run_uuid, show_files: bool = False):
         finally:
             db.close()
     return callback
+
+
+def _make_stop_check(run_uuid, interval: float = 5.0):
+    """
+    Returns should_stop() for an upload: True once the run has left 'moving' (Cancel in the UI).
+    Reads the DB at most every interval seconds; called from upload threads.
+    """
+    state = {"checked": 0.0, "stop": False}
+
+    def should_stop() -> bool:
+        now = time.monotonic()
+        if not state["stop"] and now - state["checked"] >= interval:
+            state["checked"] = now
+            db = SESSION_LOCAL()
+            try:
+                run = db.query(Runs).filter(Runs.uuid == run_uuid).first()
+                state["stop"] = run is None or run.status != "moving"
+            except Exception as e:
+                logger.warning(f"could not check status of run {run_uuid}: {e}")
+            finally:
+                db.close()
+        return state["stop"]
+    return should_stop
 
 
 def resolve_checksum_filename(run_name: str, sequencer_uuid, db) -> str | None:
@@ -456,8 +479,15 @@ def handle_run_upload_requested(name: str, sequencer_uuid):
         if already:
             logger.info(f"[upload] '{name}': {len(already)} file(s) already sent — skipped if unchanged")
         send_to_tre(run_name=name, sequencer_location=sequencer.location, sequencer_slug=sequencer.slug, exclusions=sequencer.exclusions or [], on_progress=_make_progress_callback(run.uuid, show_files=True), already_uploaded=already,
-                    on_file_done=lambda local_path, _rel: mark_uploaded(run.uuid, os.path.relpath(local_path, run_folder).replace(os.sep, "/"), db))
+                    on_file_done=lambda local_path, _rel: mark_uploaded(run.uuid, os.path.relpath(local_path, run_folder).replace(os.sep, "/"), db),
+                    should_stop=_make_stop_check(run.uuid))
         logger.info(f"run folder uploaded to S3 for run '{name}'")
+
+    except UploadCancelled:
+        # Cancel set the status already; finished files are recorded, so Retry resumes from there
+        logger.info(f"[upload] stopped for run '{name}' — cancelled")
+        db.close()
+        return
 
     except Exception as e:
         logger.error(f"[upload] FAILED for run '{name}': {e}", exc_info=True)
@@ -479,6 +509,12 @@ def handle_run_upload_requested(name: str, sequencer_uuid):
     # The TRE takes minutes to confirm. Waiting here would hold the single pipeline
     # slot, so the next run could not upload. The verifier thread picks the run up.
     try:
+        current = db.query(Runs).filter(Runs.name == name, Runs.sequencer_uuid == sequencer_uuid).first()
+        db.refresh(current)
+        if current.status != "moving":
+            # cancelled right as the last file finished — leave the status the user set
+            logger.info(f"[upload] not setting verifying — status is already '{current.status}'")
+            return
         run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="verifying", db=db)
         run.progress = None
         db.commit()

@@ -179,7 +179,7 @@ def test_progress_follows_bytes_sent_and_never_goes_back(fake_s5cmd, run_files, 
     """A large file shows bytes moving before it finishes; a retry's new process counts from 0."""
     sent = iter([[15, 40, 999], [3]])       # first batch: headers push it past the total; manifest batch: small
 
-    def fake_batch(pending, bucket, workers, on_success, part_size_mb, concurrency, on_sent):
+    def fake_batch(pending, bucket, workers, on_success, part_size_mb, concurrency, on_sent, should_stop=None):
         for n in next(sent):
             on_sent(n)
         for lp, _ in pending:
@@ -210,3 +210,21 @@ def test_batch_reports_bytes_sent_while_s5cmd_runs(fake_s5cmd, run_files, monkey
 
 def test_bytes_written_without_proc_is_none():
     assert tre._bytes_written(-1) is None
+
+
+# ── cancel ────────────────────────────────────────────────────────────────────
+
+def test_cancel_kills_s5cmd_within_a_poll(fake_s5cmd, run_files, monkeypatch):
+    monkeypatch.setenv("FAKE_S5CMD_SLEEP", "30")        # an upload that would take 30 s
+    monkeypatch.setattr(tre, "_S5CMD_SENT_POLL", 0.05)
+    started = tre.time.monotonic()
+    with pytest.raises(tre.UploadCancelled):
+        tre._s5cmd_batch(run_files[:1], "bkt", 1, lambda lp: None, should_stop=lambda: True)
+    assert tre.time.monotonic() - started < 5
+
+
+def test_cancel_before_a_batch_sends_nothing(fake_s5cmd, run_files):
+    done = []
+    with pytest.raises(tre.UploadCancelled):
+        tre.upload_file_list(run_files, "slug", on_file_done=lambda lp, rp: done.append(rp), should_stop=lambda: True)
+    assert fake_s5cmd.batches() == [] and done == []

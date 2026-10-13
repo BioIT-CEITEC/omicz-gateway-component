@@ -208,8 +208,8 @@ def recheck(uuid: UUID, db: Session = Depends(get_db)):
 def cancel_upload(uuid: UUID, db: Session = Depends(get_db)):
     """
     Force a run in 'queued' or 'moving' back to 'move_failed'.
-    The background worker will still run to completion, but the status is corrected
-    so the user can retry later via start-upload.
+    A running upload notices within a few seconds and stops; files already sent are kept,
+    so a retry via start-upload resumes from there.
     """
     run = get_run_by_uuid(uuid=uuid, db=db)
     if run.status not in ("queued", "moving"):

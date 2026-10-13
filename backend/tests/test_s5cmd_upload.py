@@ -17,7 +17,8 @@ from services import tre
 
 FAKE_S5CMD = textwrap.dedent('''\
     #!{python}
-    import json, os, shlex, sys
+    import json, os, shlex, sys, time
+    time.sleep(float(os.environ.get("FAKE_S5CMD_SLEEP", 0)))
     args = sys.argv[1:]
     run_file = args[args.index("run") + 1]
     state_path = os.environ["FAKE_S5CMD_STATE"]
@@ -170,3 +171,42 @@ def test_part_size_setting_still_grows_for_huge_files(monkeypatch):
     monkeypatch.setattr(tre.os.path, "getsize", lambda p: 2 * 1024 ** 4)   # 2 TiB needs >= 210 MiB parts
     assert "--part-size 210 " in tre._s5cmd_command("/runs/x/a.bin", "bkt", "pre/a.bin", 64, 4)
     assert "--part-size 256 " in tre._s5cmd_command("/runs/x/a.bin", "bkt", "pre/a.bin", 256, 4)
+
+
+# ── bytes in flight ───────────────────────────────────────────────────────────
+
+def test_progress_follows_bytes_sent_and_never_goes_back(fake_s5cmd, run_files, monkeypatch):
+    """A large file shows bytes moving before it finishes; a retry's new process counts from 0."""
+    sent = iter([[15, 40, 999], [3]])       # first batch: headers push it past the total; manifest batch: small
+
+    def fake_batch(pending, bucket, workers, on_success, part_size_mb, concurrency, on_sent):
+        for n in next(sent):
+            on_sent(n)
+        for lp, _ in pending:
+            on_success(lp)
+        return {}
+
+    monkeypatch.setattr(tre, "_s5cmd_batch", fake_batch)
+    progress = []
+    tre.upload_file_list(run_files, "slug", on_progress=lambda *a: progress.append(a))
+
+    shown = [p[2] for p in progress]
+    assert shown[:4] == [0, 15, 40, 65]                 # 999 is capped at the total (65)
+    assert shown == sorted(shown)                       # finished files never pull it back
+    assert progress[-1] == (4, 4, 65, 65)
+
+
+def test_batch_reports_bytes_sent_while_s5cmd_runs(fake_s5cmd, run_files, monkeypatch):
+    if tre._bytes_written(os.getpid()) is None:
+        pytest.skip("no /proc on this system")
+    monkeypatch.setenv("FAKE_S5CMD_SLEEP", "0.3")
+    monkeypatch.setattr(tre, "_S5CMD_SENT_POLL", 0.05)
+    reports = []
+    pending = [(lp, rp) for lp, rp in run_files[:1]]
+    errors = tre._s5cmd_batch(pending, "bkt", 1, lambda lp: None, on_sent=reports.append)
+    assert errors == {}
+    assert reports and reports == sorted(reports)
+
+
+def test_bytes_written_without_proc_is_none():
+    assert tre._bytes_written(-1) is None

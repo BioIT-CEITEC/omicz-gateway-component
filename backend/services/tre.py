@@ -81,6 +81,7 @@ _MULTIPART_THRESHOLD   = 16 * 1024 * 1024   # files >= 16 MB use multipart
 _MULTIPART_CHUNKSIZE   = 16 * 1024 * 1024   # 16 MB per part
 _MULTIPART_CONCURRENCY = 4                   # 4 parallel streams — kubectl port-forward safe limit
 _MAX_PARTS             = 10_000              # S3 limit per multipart upload
+_S5CMD_SENT_POLL       = 5                   # seconds between reads of s5cmd's byte counter
 
 
 def _is_precondition(exc: Exception) -> bool:
@@ -256,11 +257,28 @@ def _s5cmd_command(local_path: str, bucket: str, s3_key: str,
             f"{shlex.quote(local_path)} {shlex.quote(f's3://{bucket}/{s3_key}')}")
 
 
+def _bytes_written(pid: int) -> int | None:
+    """
+    Bytes a process has written so far (wchar in /proc/<pid>/io), or None where there is no /proc.
+    For s5cmd that is the data handed to the network. Not rchar: s5cmd reads each part twice
+    (checksum, then send), so bytes read run to twice the file size.
+    """
+    try:
+        with open(f"/proc/{pid}/io") as f:
+            for line in f:
+                if line.startswith("wchar:"):
+                    return int(line.split()[1])
+    except (OSError, ValueError):
+        pass
+    return None
+
+
 def _s5cmd_batch(files: list[tuple[str, str]], bucket: str, workers: int, on_success,
-                 part_size_mb: int | None = None, concurrency: int | None = None) -> dict[str, str]:
+                 part_size_mb: int | None = None, concurrency: int | None = None, on_sent=None) -> dict[str, str]:
     """
     Upload [(local_path, s3_key)] with one `s5cmd run`, `workers` files at a time.
     on_success(local_path) is called as each file finishes (from this thread).
+    on_sent(bytes_sent) is called every few seconds while s5cmd runs (from a watcher thread).
     Returns {local_path: error} for the files that did not upload; an error containing
     PreconditionFailed means the object is already on S3 (the proxy refuses overwrites).
     """
@@ -276,6 +294,17 @@ def _s5cmd_batch(files: list[tuple[str, str]], bucket: str, workers: int, on_suc
     stderr_lines: list[str] = []
     reader = threading.Thread(target=lambda: stderr_lines.extend(proc.stderr), daemon=True)
     reader.start()
+    stop = threading.Event()
+
+    def _watch():
+        while not stop.wait(_S5CMD_SENT_POLL):
+            n = _bytes_written(proc.pid)
+            if n is not None:
+                on_sent(n)
+
+    watcher = threading.Thread(target=_watch, daemon=True)
+    if on_sent:
+        watcher.start()
     done: set[str] = set()
     try:
         for line in proc.stdout:
@@ -293,6 +322,9 @@ def _s5cmd_batch(files: list[tuple[str, str]], bucket: str, workers: int, on_suc
         proc.wait()
         raise
     finally:
+        stop.set()
+        if on_sent:
+            watcher.join(timeout=5)
         reader.join(timeout=5)
         os.unlink(cmds.name)
 
@@ -324,7 +356,8 @@ def _upload_file_list_s5cmd(upload_files, sequencer_slug, on_progress, on_file_d
     s5cmd engine: data files go in parallel, then any .CHECKSUM manifest on its own, so the
     TRE trigger still arrives last. Failed files are sent again as a smaller batch, up to
     max_attempts times; s5cmd itself retries a rejected part a few times before giving up on a file.
-    Progress moves per finished file — s5cmd does not report bytes while a file is in flight.
+    s5cmd reports only finished files, so bytes in flight come from how much s5cmd has written to
+    the network (request headers add a little; never shown above the total).
     """
     workers      = max(1, get_setting_int("upload_s5cmd_workers", 4))
     concurrency  = max(1, get_setting_int("upload_s5cmd_concurrency", _MULTIPART_CONCURRENCY))
@@ -332,21 +365,34 @@ def _upload_file_list_s5cmd(upload_files, sequencer_slug, on_progress, on_file_d
     logger.info(f"[TRE upload] s5cmd workers={workers} concurrency={concurrency} part_size={part_size_mb} MB")
     total_files = len(upload_files)
     rel_of      = dict(upload_files)
-    state       = {"files": 0, "bytes": 0}
+    state       = {"files": 0, "bytes": 0, "shown": 0, "base": 0}
+    lock        = threading.Lock()
 
-    def _done(local_path):
-        try:
-            state["bytes"] += os.path.getsize(local_path)
-        except OSError:
-            pass
-        state["files"] += 1
-        if on_file_done:
-            on_file_done(local_path, rel_of[local_path])
+    def _report():
+        # shown never goes back: a failed part was already counted as sent
+        state["shown"] = min(max(state["shown"], state["bytes"]), total_bytes)
         if on_progress:
             try:
-                on_progress(state["files"], total_files, state["bytes"], total_bytes)
+                on_progress(state["files"], total_files, state["shown"], total_bytes)
             except Exception:
                 pass
+
+    def _done(local_path):
+        with lock:
+            try:
+                state["bytes"] += os.path.getsize(local_path)
+            except OSError:
+                pass
+            state["files"] += 1
+        if on_file_done:
+            on_file_done(local_path, rel_of[local_path])
+        with lock:
+            _report()
+
+    def _sent(n):
+        with lock:
+            state["shown"] = max(state["shown"], min(state["base"] + n, total_bytes))
+            _report()
 
     data      = [(lp, rp) for lp, rp in upload_files if not rp.endswith(".CHECKSUM")]
     manifests = [(lp, rp) for lp, rp in upload_files if rp.endswith(".CHECKSUM")]
@@ -355,7 +401,9 @@ def _upload_file_list_s5cmd(upload_files, sequencer_slug, on_progress, on_file_d
         for attempt in range(1, max_attempts + 1):
             if not pending:
                 break
-            errors = _s5cmd_batch(pending, S3_BUCKET, workers, _done, part_size_mb, concurrency)
+            with lock:
+                state["base"] = state["bytes"]   # a new s5cmd process counts from 0
+            errors = _s5cmd_batch(pending, S3_BUCKET, workers, _done, part_size_mb, concurrency, on_sent=_sent)
             for lp in [lp for lp, err in errors.items() if "PreconditionFailed" in err]:
                 logger.warning(f"[TRE upload] PreconditionFailed for {lp} — file already on S3, skipping")
                 errors.pop(lp)

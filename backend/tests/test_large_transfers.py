@@ -118,6 +118,22 @@ def test_progress_is_throttled_but_final_update_always_written(monkeypatch):
     assert [w[2] for w in writes] == [0, 700, 1000]
 
 
+def test_upload_progress_shows_file_count(db, monkeypatch):
+    """s5cmd moves progress per finished file — the file count shows movement the bytes may not."""
+    monkeypatch.setattr(worker, "SESSION_LOCAL", sessionmaker(bind=db.get_bind()))
+    run = Runs(name="R", sequencer_uuid=uuid4(), status="moving")
+    db.add(run)
+    db.commit()
+
+    worker._make_progress_callback(run.uuid, show_files=True)(3, 3, 3 * 1024 ** 3, 3 * 1024 ** 3)
+    db.refresh(run)
+    assert run.progress == "3 / 3 files · 3.0 GB / 3.0 GB"
+
+    worker._make_progress_callback(run.uuid)(3, 3, 1024, 1024)     # checksumming keeps bytes only
+    db.refresh(run)
+    assert run.progress == "1.0 KB / 1.0 KB"
+
+
 # ── TRE wait scales with run size ─────────────────────────────────────────────
 
 def verifying_run(db, total_bytes):

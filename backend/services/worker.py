@@ -83,11 +83,17 @@ def _throttled(write, min_interval: float = PROGRESS_MIN_INTERVAL):
     return callback
 
 
-def _make_progress_callback(run_uuid):
-    """Returns a (throttled) callback that writes checksum / upload progress to the run's progress column."""
+def _make_progress_callback(run_uuid, show_files: bool = False):
+    """
+    Returns a (throttled) callback that writes checksum / upload progress to the run's progress column.
+    show_files adds the file count — s5cmd only reports whole files, so for a run of a few large
+    files the byte count alone sits at 0 B for a long time.
+    """
     @_throttled
     def callback(done: int, total: int, bytes_done: int, total_bytes: int):
         text = f"{_fmt_bytes(bytes_done)} / {_fmt_bytes(total_bytes)}"
+        if show_files:
+            text = f"{done} / {total} files · {text}"
         db = SESSION_LOCAL()
         try:
             run = db.query(Runs).filter(Runs.uuid == run_uuid).first()
@@ -449,7 +455,7 @@ def handle_run_upload_requested(name: str, sequencer_uuid):
         run_folder = os.path.join(sequencer.location, name)
         if already:
             logger.info(f"[upload] '{name}': {len(already)} file(s) already sent — skipped if unchanged")
-        send_to_tre(run_name=name, sequencer_location=sequencer.location, sequencer_slug=sequencer.slug, exclusions=sequencer.exclusions or [], on_progress=_make_progress_callback(run.uuid), already_uploaded=already,
+        send_to_tre(run_name=name, sequencer_location=sequencer.location, sequencer_slug=sequencer.slug, exclusions=sequencer.exclusions or [], on_progress=_make_progress_callback(run.uuid, show_files=True), already_uploaded=already,
                     on_file_done=lambda local_path, _rel: mark_uploaded(run.uuid, os.path.relpath(local_path, run_folder).replace(os.sep, "/"), db))
         logger.info(f"run folder uploaded to S3 for run '{name}'")
 

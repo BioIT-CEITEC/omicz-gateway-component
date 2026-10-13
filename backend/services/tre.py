@@ -84,6 +84,14 @@ _MAX_PARTS             = 10_000              # S3 limit per multipart upload
 _S5CMD_SENT_POLL       = 5                   # seconds between reads of s5cmd's byte counter
 
 
+class UploadCancelled(BaseException):
+    """
+    The run was cancelled while uploading. A BaseException, like KeyboardInterrupt, so the
+    per-part and per-file retry handlers (except Exception) do not retry it; the multipart
+    cleanup (except BaseException) still aborts the unfinished upload.
+    """
+
+
 def _is_precondition(exc: Exception) -> bool:
     # the proxy refuses overwrites with PreconditionFailed; S3UploadFailedError only carries it in the text
     return (
@@ -274,11 +282,13 @@ def _bytes_written(pid: int) -> int | None:
 
 
 def _s5cmd_batch(files: list[tuple[str, str]], bucket: str, workers: int, on_success,
-                 part_size_mb: int | None = None, concurrency: int | None = None, on_sent=None) -> dict[str, str]:
+                 part_size_mb: int | None = None, concurrency: int | None = None, on_sent=None,
+                 should_stop=None) -> dict[str, str]:
     """
     Upload [(local_path, s3_key)] with one `s5cmd run`, `workers` files at a time.
     on_success(local_path) is called as each file finishes (from this thread).
     on_sent(bytes_sent) is called every few seconds while s5cmd runs (from a watcher thread).
+    should_stop() is checked as often; when it returns True s5cmd is killed and UploadCancelled raised.
     Returns {local_path: error} for the files that did not upload; an error containing
     PreconditionFailed means the object is already on S3 (the proxy refuses overwrites).
     """
@@ -294,16 +304,21 @@ def _s5cmd_batch(files: list[tuple[str, str]], bucket: str, workers: int, on_suc
     stderr_lines: list[str] = []
     reader = threading.Thread(target=lambda: stderr_lines.extend(proc.stderr), daemon=True)
     reader.start()
-    stop = threading.Event()
+    stop      = threading.Event()
+    cancelled = threading.Event()
 
     def _watch():
         while not stop.wait(_S5CMD_SENT_POLL):
-            n = _bytes_written(proc.pid)
+            if should_stop and should_stop():
+                cancelled.set()
+                proc.kill()     # ends the stdout loop below
+                return
+            n = _bytes_written(proc.pid) if on_sent else None
             if n is not None:
                 on_sent(n)
 
     watcher = threading.Thread(target=_watch, daemon=True)
-    if on_sent:
+    if on_sent or should_stop:
         watcher.start()
     done: set[str] = set()
     try:
@@ -317,13 +332,15 @@ def _s5cmd_batch(files: list[tuple[str, str]], bucket: str, workers: int, on_suc
                 done.add(lp)
                 on_success(lp)
         proc.wait()
+        if cancelled.is_set():
+            raise UploadCancelled()
     except BaseException:
         proc.kill()   # e.g. on_success found the file changed — stop sending the rest
         proc.wait()
         raise
     finally:
         stop.set()
-        if on_sent:
+        if on_sent or should_stop:
             watcher.join(timeout=5)
         reader.join(timeout=5)
         os.unlink(cmds.name)
@@ -351,7 +368,7 @@ def _s5cmd_batch(files: list[tuple[str, str]], bucket: str, workers: int, on_suc
 
 
 def _upload_file_list_s5cmd(upload_files, sequencer_slug, on_progress, on_file_done, total_bytes,
-                            max_attempts: int, backoff_max: int) -> None:
+                            max_attempts: int, backoff_max: int, should_stop=None) -> None:
     """
     s5cmd engine: data files go in parallel, then any .CHECKSUM manifest on its own, so the
     TRE trigger still arrives last. Failed files are sent again as a smaller batch, up to
@@ -403,7 +420,10 @@ def _upload_file_list_s5cmd(upload_files, sequencer_slug, on_progress, on_file_d
                 break
             with lock:
                 state["base"] = state["bytes"]   # a new s5cmd process counts from 0
-            errors = _s5cmd_batch(pending, S3_BUCKET, workers, _done, part_size_mb, concurrency, on_sent=_sent)
+            if should_stop and should_stop():
+                raise UploadCancelled()
+            errors = _s5cmd_batch(pending, S3_BUCKET, workers, _done, part_size_mb, concurrency, on_sent=_sent,
+                                  should_stop=should_stop)
             for lp in [lp for lp, err in errors.items() if "PreconditionFailed" in err]:
                 logger.warning(f"[TRE upload] PreconditionFailed for {lp} — file already on S3, skipping")
                 errors.pop(lp)
@@ -434,13 +454,16 @@ def upload_engine() -> str:
     return engine
 
 
-def upload_file_list(upload_files: list[tuple[str, str]], sequencer_slug: str, on_progress=None, on_file_done=None) -> None:
+def upload_file_list(upload_files: list[tuple[str, str]], sequencer_slug: str, on_progress=None, on_file_done=None,
+                     should_stop=None) -> None:
     """
     Upload the given files in order.
     upload_files: list of (local_path, path relative to the sequencer location) — the S3 key is
     S3_PREFIX/<slug>/<relative path>, so a directory sent early lands where a full-run upload would put it.
     on_progress(files_done, total_files, bytes_done, total_bytes) during the upload.
     on_file_done(local_path, relative_path) after each file is uploaded.
+    should_stop() is checked while uploading; when it returns True the upload stops with UploadCancelled
+    (s5cmd: within a few seconds; boto3: after the current part, or after the current file below 16 MB).
     Raises on failure.
     """
     max_attempts = get_setting_int("upload_max_attempts", 5)
@@ -471,16 +494,22 @@ def upload_file_list(upload_files: list[tuple[str, str]], sequencer_slug: str, o
     logger.info(f"[TRE upload] engine={engine} files={total_files} bytes={total_bytes}")
     if engine == "s5cmd":
         _upload_file_list_s5cmd(upload_files, sequencer_slug, on_progress, on_file_done, total_bytes,
-                                max_attempts, backoff_max)
+                                max_attempts, backoff_max, should_stop)
         return
 
     s3 = _upload_client()
     for local_path, relative_path in upload_files:
         s3_key = f"{S3_PREFIX}{sequencer_slug}/{relative_path}"
+        if should_stop and should_stop():
+            raise UploadCancelled()
 
         _file_bytes = [0]
+        # stop inside a file only in the multipart path, which aborts cleanly; a small file just finishes
+        _stop_in_file = should_stop if os.path.getsize(local_path) >= _MULTIPART_THRESHOLD else None
 
         def _chunk_done(n, _fd=files_done, _bd=bytes_done):
+            if _stop_in_file and _stop_in_file():
+                raise UploadCancelled()
             with _lock:
                 _file_bytes[0] += n
                 if on_progress:
@@ -511,7 +540,7 @@ def upload_file_list(upload_files: list[tuple[str, str]], sequencer_slug: str, o
 
 
 def send_to_tre(run_name: str, sequencer_location: str, sequencer_slug: str, exclusions: list[str] | None = None, on_progress=None,
-                already_uploaded: dict[str, tuple[int, int]] | None = None, on_file_done=None) -> bool:
+                already_uploaded: dict[str, tuple[int, int]] | None = None, on_file_done=None, should_stop=None) -> bool:
     """
     Upload the run folder to S3.
     Raises on failure so the caller can store the real error detail.
@@ -519,6 +548,7 @@ def send_to_tre(run_name: str, sequencer_location: str, sequencer_slug: str, exc
     already_uploaded {rel_to_run: (size, mtime_ns)}: files sent earlier (directory stability, or an
     upload that was interrupted) — skipped when their size and mtime are unchanged.
     on_file_done(local_path, relative_path) after each file is uploaded, so the caller can record it.
+    should_stop() → True stops the upload with UploadCancelled (see upload_file_list).
     """
     local_folder = os.path.join(sequencer_location, run_name)
     all_exclusions = _BUILTIN_EXCLUSIONS + (exclusions or [])
@@ -553,7 +583,8 @@ def send_to_tre(run_name: str, sequencer_location: str, sequencer_slug: str, exc
     logger.info(f"[TRE upload] starting — endpoint={S3_ENDPOINT} bucket={S3_BUCKET} prefix={S3_PREFIX} folder={local_folder} "
                 f"files={len(upload_files)} already_sent={skipped}")
 
-    upload_file_list([(lp, rp) for lp, rp, _ in upload_files], sequencer_slug, on_progress=on_progress, on_file_done=on_file_done)
+    upload_file_list([(lp, rp) for lp, rp, _ in upload_files], sequencer_slug, on_progress=on_progress, on_file_done=on_file_done,
+                     should_stop=should_stop)
 
     logger.info(f"[TRE upload] SUCCESS — all files uploaded for run '{run_name}'")
     return True

@@ -88,7 +88,7 @@ def test_send_to_tre_skips_files_already_sent(tmp_path, monkeypatch):
     sent, done_cb = [], []
     monkeypatch.setattr(tre, "_check_endpoint", lambda: None)
     monkeypatch.setattr(tre, "upload_file_list",
-                        lambda lst, slug, on_progress=None, on_file_done=None: (sent.extend(r for _, r in lst),
+                        lambda lst, slug, on_progress=None, on_file_done=None, should_stop=None: (sent.extend(r for _, r in lst),
                                                                                 [on_file_done(lp, rp) for lp, rp in lst]))
     tre.send_to_tre("RUN", str(tmp_path), "slug", already_uploaded=already, on_file_done=lambda lp, rp: done_cb.append(rp))
 

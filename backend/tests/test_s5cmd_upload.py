@@ -1,13 +1,15 @@
 """
 s5cmd upload engine: files go in one parallel batch, the .CHECKSUM manifest after them,
 failed files are sent again on their own, and each finished file is recorded at once.
-A fake s5cmd on PATH plays the binary, so no network is needed.
+A fake s5cmd on PATH plays the binary (commands on stdin, as `s5cmd run` reads them), so no
+network is needed.
 """
 import json
 import os
 import stat
 import sys
 import textwrap
+import threading
 
 import pytest
 
@@ -19,12 +21,10 @@ FAKE_S5CMD = textwrap.dedent('''\
     #!{python}
     import json, os, shlex, sys, time
     time.sleep(float(os.environ.get("FAKE_S5CMD_SLEEP", 0)))
-    args = sys.argv[1:]
-    run_file = args[args.index("run") + 1]
     state_path = os.environ["FAKE_S5CMD_STATE"]
     state = json.load(open(state_path))
     batch, failed = [], False
-    for line in open(run_file):
+    for line in iter(sys.stdin.readline, ""):       # like s5cmd run: each command starts as it arrives
         parts = shlex.split(line)
         src, dst = parts[-2], parts[-1]
         batch.append(dst)
@@ -179,7 +179,7 @@ def test_progress_follows_bytes_sent_and_never_goes_back(fake_s5cmd, run_files, 
     """A large file shows bytes moving before it finishes; a retry's new process counts from 0."""
     sent = iter([[15, 40, 999], [3]])       # first batch: headers push it past the total; manifest batch: small
 
-    def fake_batch(pending, bucket, workers, on_success, part_size_mb, concurrency, on_sent, should_stop=None):
+    def fake_batch(pending, bucket, workers, on_success, part_size_mb, concurrency, on_sent, should_stop=None, ready=None):
         for n in next(sent):
             on_sent(n)
         for lp, _ in pending:
@@ -228,3 +228,39 @@ def test_cancel_before_a_batch_sends_nothing(fake_s5cmd, run_files):
     with pytest.raises(tre.UploadCancelled):
         tre.upload_file_list(run_files, "slug", on_file_done=lambda lp, rp: done.append(rp), should_stop=lambda: True)
     assert fake_s5cmd.batches() == [] and done == []
+
+
+# ── ready: send each file once it may go (directory upload: once it is hashed) ────────
+
+def test_earlier_files_upload_while_a_later_one_waits_for_ready(fake_s5cmd, run_files):
+    first, second = run_files[0][0], run_files[1][0]
+    first_done = threading.Event()
+    done = []
+
+    def ready(lp):
+        if lp == second:
+            assert first_done.wait(5), "the first file was not sent while the second waited"
+
+    def on_file_done(lp, rp):
+        done.append(rp)
+        if lp == first:
+            first_done.set()
+
+    tre.upload_file_list(run_files, "slug", on_file_done=on_file_done, ready=ready)
+    assert sorted(done) == sorted(rp for _, rp in run_files)
+    assert len(fake_s5cmd.batches()) == 2           # still one data batch, then the manifest
+
+
+def test_error_from_ready_stops_the_upload(fake_s5cmd, run_files):
+    class HashFailed(Exception):
+        pass
+
+    def ready(lp):
+        if lp == run_files[1][0]:
+            raise HashFailed(lp)
+
+    done = []
+    with pytest.raises(HashFailed):
+        tre.upload_file_list(run_files, "slug", on_file_done=lambda lp, rp: done.append(rp), ready=ready)
+    assert run_files[1][1] not in done and "RUN/abc.CHECKSUM" not in done
+    assert len(fake_s5cmd.batches()) <= 1           # no retry, no manifest

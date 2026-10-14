@@ -17,7 +17,7 @@ from db.repositories.runs import create_run, update_run_status
 from db.repositories.runs_status_history import add_run_status_history
 import glob
 
-from services.checksum import create_checksum_file, find_file_by_hash, _fmt_bytes, _sha256
+from services.checksum import create_checksum_file, find_file_by_hash, _fmt_bytes, HashQueue
 from services.tre import send_to_tre, check_verify_status, find_checksum_filename_in_s3, upload_file_list, UploadCancelled
 from db.models.runs_status_history import RunsStatusHistory
 from sqlalchemy import func
@@ -191,21 +191,53 @@ class DirectoryConflict(Exception):
     pass
 
 
-def _dir_progress_callback(dir_uuid):
-    """Returns a (throttled) callback that writes upload progress to the directory's progress column."""
-    @_throttled
-    def callback(done: int, total: int, bytes_done: int, total_bytes: int):
+class _DirProgress:
+    """
+    Progress of a directory whose files are hashed and uploaded at the same time, written to its
+    progress column at most once per PROGRESS_MIN_INTERVAL (always when the upload finishes):
+      "hashed 120.0 GB / 363.4 GB · sent 12 / 170 files · 40.0 GB / 363.4 GB" — the hashed part goes once it is done.
+    The run page draws a bar for each part.
+    hashed(n) is called from the hashing threads, upload(...) is upload_file_list's on_progress.
+    """
+
+    def __init__(self, dir_uuid, total_files: int, total_bytes: int):
+        self.dir_uuid    = dir_uuid
+        self.total_bytes = total_bytes
+        self.hashed_     = 0
+        self.sent        = (0, total_files, 0, total_bytes)
+        self.lock        = threading.Lock()
+        self.last        = 0.0
+
+    def hashed(self, n: int):
+        with self.lock:
+            self.hashed_ += n
+        self._write()
+
+    def upload(self, done: int, total: int, bytes_done: int, total_bytes: int):
+        with self.lock:
+            self.sent = (done, total, bytes_done, total_bytes)
+        self._write(force=total and done >= total)
+
+    def _write(self, force: bool = False):
+        with self.lock:
+            now = time.monotonic()
+            if not force and self.last and now - self.last < PROGRESS_MIN_INTERVAL:
+                return
+            self.last = now
+            done, total, bytes_done, total_bytes = self.sent
+            text = f"sent {done} / {total} files · {_fmt_bytes(bytes_done)} / {_fmt_bytes(total_bytes)}"
+            if self.hashed_ < self.total_bytes:
+                text = f"hashed {_fmt_bytes(self.hashed_)} / {_fmt_bytes(self.total_bytes)} · {text}"
         db = SESSION_LOCAL()
         try:
-            row = db.query(RunDirectories).filter(RunDirectories.uuid == dir_uuid).first()
+            row = db.query(RunDirectories).filter(RunDirectories.uuid == self.dir_uuid).first()
             if row:
-                row.progress = f"{done} / {total} files · {_fmt_bytes(bytes_done)} / {_fmt_bytes(total_bytes)}"
+                row.progress = text
                 db.commit()
         except Exception as e:
-            logger.warning(f"failed to update progress for directory {dir_uuid}: {e}")
+            logger.warning(f"failed to update progress for directory {self.dir_uuid}: {e}")
         finally:
             db.close()
-    return callback
 
 
 def handle_run_directory_upload_requested(name: str, sequencer_uuid, directory: str):
@@ -245,18 +277,16 @@ def handle_run_directory_upload_requested(name: str, sequencer_uuid, directory: 
         pending = sorted(rel for rel in current if rel not in uploaded)
         logger.info(f"[dir upload] {name}/{directory}: {len(pending)} file(s) to send, {len(uploaded)} already sent")
 
-        # hash first; the digest is only trusted if the file is unchanged after the upload
-        hashed: dict[str, tuple[int, int, str]] = {}
-        for i, rel in enumerate(pending, 1):
-            size, mtime_ns = current[rel]
-            hashed[rel] = (size, mtime_ns, _sha256(os.path.join(run_folder, rel)))
-            if i % 100 == 0 or i == len(pending):
-                row.progress = f"hashing {i} / {len(pending)} files"
-                db.commit()
+        # each file is hashed before it is sent, and the upload starts on it right away, so the network
+        # does not wait for the whole directory; the digest is only trusted if the file is unchanged after the upload
+        paths    = [os.path.join(run_folder, rel) for rel in pending]
+        progress = _DirProgress(row.uuid, len(pending), sum(current[rel][0] for rel in pending))
+        hasher   = HashQueue(paths, on_bytes=progress.hashed)
 
         def _record(local_path, relative_path):
             rel = os.path.relpath(local_path, run_folder).replace(os.sep, "/")
-            size, mtime_ns, digest = hashed[rel]
+            size, mtime_ns = current[rel]
+            digest = hasher.wait(local_path)     # known: the file was only sent after it was hashed
             st = os.stat(local_path)
             if (st.st_size, st.st_mtime_ns) != (size, mtime_ns):
                 raise DirectoryConflict(dir_stability.conflict_detail(directory, [rel], []))
@@ -267,13 +297,17 @@ def handle_run_directory_upload_requested(name: str, sequencer_uuid, directory: 
             f.size, f.mtime_ns, f.sha256, f.uploaded = size, mtime_ns, digest, True
             db.commit()
 
-        if pending:
-            upload_file_list(
-                [(os.path.join(run_folder, rel), os.path.join(name, rel)) for rel in pending],
-                sequencer.slug,
-                on_progress=_dir_progress_callback(row.uuid),
-                on_file_done=_record,
-            )
+        try:
+            if pending:
+                upload_file_list(
+                    [(p, os.path.join(name, rel)) for p, rel in zip(paths, pending)],
+                    sequencer.slug,
+                    on_progress=progress.upload,
+                    on_file_done=_record,
+                    ready=hasher.wait,
+                )
+        finally:
+            hasher.abort()   # an upload that failed leaves nothing hashing in the background
 
         db.refresh(row)
         row.state    = dir_stability.SENT

@@ -2,6 +2,7 @@ import fnmatch
 import glob
 import hashlib
 import os
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Callable
 
@@ -54,6 +55,57 @@ def _sha256(file_path: str, chunk_callback: Callable | None = None) -> str:
             if chunk_callback:
                 chunk_callback(len(chunk))
     return h.hexdigest()
+
+
+class HashingAborted(Exception):
+    pass
+
+
+class HashQueue:
+    """
+    Hash files in a few threads, in the given order, so an upload can start on each file as soon
+    as its digest is known instead of after the last one (upload_file_list(ready=queue.wait)).
+    on_bytes(n) is called as data is read, from the hashing threads.
+    Call abort() when the upload ends early: files not hashed yet are skipped, and wait() on them
+    raises HashingAborted.
+    """
+
+    def __init__(self, paths: list[str], on_bytes: Callable | None = None, max_workers: int | None = None):
+        self._done     = {p: threading.Event() for p in paths}
+        self._digests: dict[str, str] = {}
+        self._errors: dict[str, BaseException] = {}
+        self._aborted  = threading.Event()
+        self._on_bytes = on_bytes
+        pool = ThreadPoolExecutor(max_workers=max_workers or min(4, os.cpu_count() or 1))
+        for p in paths:
+            pool.submit(self._hash, p)
+        pool.shutdown(wait=False)   # the queued files still run; nothing new is added
+
+    def _chunk(self, n: int):
+        if self._aborted.is_set():
+            raise HashingAborted()
+        if self._on_bytes:
+            self._on_bytes(n)
+
+    def _hash(self, path: str):
+        try:
+            if self._aborted.is_set():
+                raise HashingAborted()
+            self._digests[path] = _sha256(path, self._chunk)
+        except BaseException as e:
+            self._errors[path] = e
+        finally:
+            self._done[path].set()
+
+    def wait(self, path: str) -> str:
+        """The file's sha256 once it is hashed; raises what hashing it raised."""
+        self._done[path].wait()
+        if path in self._errors:
+            raise self._errors[path]
+        return self._digests[path]
+
+    def abort(self):
+        self._aborted.set()
 
 
 def _checksum_one(file_path: str, run_folder: str, exclusions: list[str], chunk_callback: Callable | None = None,
@@ -126,7 +178,6 @@ def create_checksum_file(
     total_files = len(file_paths)
     total_bytes = sum(os.path.getsize(p) for p in file_paths if os.path.isfile(p))
 
-    import threading
     _lock         = threading.Lock()
     _done_files   = [0]
     _done_bytes   = [0]

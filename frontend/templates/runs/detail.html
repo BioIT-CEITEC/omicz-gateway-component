@@ -775,6 +775,18 @@
     failed:    ['Failed',    'bg-red-50 text-red-600 border-red-100'],
     conflict:  ['Changed after send', 'bg-amber-50 text-amber-700 border-amber-200'],
   };
+  // 'uploading' covers scanning, hashing and sending — label it by what the progress says is happening
+  function uploadingState(progress) {
+    const p = String(progress || '');
+    if (/^scanning/i.test(p)) return ['Scanning', 'bg-blue-50 text-blue-600 border-blue-100'];
+    if (/^hash(ed|ing)/i.test(p)) {
+      const sent = p.match(/(\d+) \/ \d+ files · ([\d.]+) /);
+      return sent && (+sent[1] > 0 || +sent[2] > 0)
+        ? ['Hashing & sending', DIR_STATE.uploading[1]]
+        : ['Hashing', 'bg-yellow-50 text-yellow-700 border-yellow-200'];
+    }
+    return DIR_STATE.uploading;
+  }
   function esc(t) {
     return String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
@@ -827,7 +839,8 @@
     banner.classList.toggle('hidden', !conflicts.length);
     document.getElementById('directories-conflict-detail').textContent = conflicts.map(d => d.detail || d.name).join('\n\n');
     document.getElementById('directories-body').innerHTML = dirs.map(d => {
-      const [label, cls] = DIR_STATE[d.state] || [d.state, 'bg-gray-100 text-gray-500 border-gray-200'];
+      const [label, cls] = d.state === 'uploading' ? uploadingState(d.progress)
+                         : DIR_STATE[d.state] || [d.state, 'bg-gray-100 text-gray-500 border-gray-200'];
       const when = d.state === 'sent' && d.sent_at ? 'sent ' + formatLocalDT(d.sent_at)
                  : d.stable_since ? formatLocalDT(d.stable_since) : '—';
       const bars = d.state === 'uploading' && d.progress ? dirProgress(d.progress) : null;
@@ -839,7 +852,7 @@
            </form>` : '';
       return `<tr>
         <td class="px-5 py-2.5 font-mono text-gray-700">${esc(d.name)}${sub}</td>
-        <td class="px-3 py-2.5"><span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold border ${cls}">${label}</span></td>
+        <td class="px-3 py-2.5 whitespace-nowrap"><span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold border ${cls}">${label}</span></td>
         <td class="px-3 py-2.5 text-right tabular-nums text-gray-600">${d.file_count}</td>
         <td class="px-3 py-2.5 text-right tabular-nums text-gray-600 whitespace-nowrap">${fmtBytes(d.total_bytes)}</td>
         <td class="px-3 py-2.5 tabular-nums text-gray-400 whitespace-nowrap">${when}</td>

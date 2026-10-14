@@ -195,7 +195,8 @@ class _DirProgress:
     """
     Progress of a directory whose files are hashed and uploaded at the same time, written to its
     progress column at most once per PROGRESS_MIN_INTERVAL (always when the upload finishes):
-      "hashing 120.0 GB / 363.4 GB · 12 / 170 files · 40.0 GB / 363.4 GB" — the hashing part goes once it is done.
+      "hashed 120.0 GB / 363.4 GB · sent 12 / 170 files · 40.0 GB / 363.4 GB" — the hashed part goes once it is done.
+    The run page draws a bar for each part.
     hashed(n) is called from the hashing threads, upload(...) is upload_file_list's on_progress.
     """
 
@@ -224,9 +225,9 @@ class _DirProgress:
                 return
             self.last = now
             done, total, bytes_done, total_bytes = self.sent
-            text = f"{done} / {total} files · {_fmt_bytes(bytes_done)} / {_fmt_bytes(total_bytes)}"
+            text = f"sent {done} / {total} files · {_fmt_bytes(bytes_done)} / {_fmt_bytes(total_bytes)}"
             if self.hashed_ < self.total_bytes:
-                text = f"hashing {_fmt_bytes(self.hashed_)} / {_fmt_bytes(self.total_bytes)} · {text}"
+                text = f"hashed {_fmt_bytes(self.hashed_)} / {_fmt_bytes(self.total_bytes)} · {text}"
         db = SESSION_LOCAL()
         try:
             row = db.query(RunDirectories).filter(RunDirectories.uuid == self.dir_uuid).first()

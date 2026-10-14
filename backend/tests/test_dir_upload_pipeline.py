@@ -152,8 +152,8 @@ def test_progress_shows_hashing_until_everything_is_hashed(env, monkeypatch):
 
     p = worker._DirProgress(env.row.uuid, 2, 2048)
     p.hashed(1024)
-    assert progress_text() == "hashing 1.0 KB / 2.0 KB · 0 / 2 files · 0.0 B / 2.0 KB"
+    assert progress_text() == "hashed 1.0 KB / 2.0 KB · sent 0 / 2 files · 0.0 B / 2.0 KB"
     p.upload(1, 2, 1024, 2048)
-    assert progress_text() == "hashing 1.0 KB / 2.0 KB · 1 / 2 files · 1.0 KB / 2.0 KB"
+    assert progress_text() == "hashed 1.0 KB / 2.0 KB · sent 1 / 2 files · 1.0 KB / 2.0 KB"
     p.hashed(1024)
-    assert progress_text() == "1 / 2 files · 1.0 KB / 2.0 KB"
+    assert progress_text() == "sent 1 / 2 files · 1.0 KB / 2.0 KB"

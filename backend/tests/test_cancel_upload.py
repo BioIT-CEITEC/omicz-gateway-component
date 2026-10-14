@@ -62,6 +62,17 @@ def test_cancel_before_a_file_sends_nothing(boto3_engine):
     assert s3.calls == []
 
 
+def test_boto3_waits_for_ready_before_each_file(boto3_engine):
+    s3, files = boto3_engine
+
+    def ready(lp):
+        raise RuntimeError("not hashed")
+
+    with pytest.raises(RuntimeError, match="not hashed"):
+        tre.upload_file_list(files, "slug", ready=ready)
+    assert s3.calls == []
+
+
 # ── worker ────────────────────────────────────────────────────────────────────
 
 @pytest.fixture
@@ -146,3 +157,4 @@ def test_upload_without_cancel_still_goes_to_verifying(db, monkeypatch):
 
     db.expire_all()
     assert status_of(db, run) == "verifying"
+

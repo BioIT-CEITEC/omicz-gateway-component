@@ -7,7 +7,6 @@ import os
 import shlex
 import shutil
 import subprocess
-import tempfile
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -283,27 +282,51 @@ def _bytes_written(pid: int) -> int | None:
 
 def _s5cmd_batch(files: list[tuple[str, str]], bucket: str, workers: int, on_success,
                  part_size_mb: int | None = None, concurrency: int | None = None, on_sent=None,
-                 should_stop=None) -> dict[str, str]:
+                 should_stop=None, ready=None) -> dict[str, str]:
     """
     Upload [(local_path, s3_key)] with one `s5cmd run`, `workers` files at a time.
     on_success(local_path) is called as each file finishes (from this thread).
     on_sent(bytes_sent) is called every few seconds while s5cmd runs (from a watcher thread).
     should_stop() is checked as often; when it returns True s5cmd is killed and UploadCancelled raised.
+    ready(local_path) blocks until a file may be sent; the commands go to s5cmd's stdin one by one,
+    and s5cmd starts each as it arrives, so earlier files upload while a later one waits.
+    An error from ready() stops s5cmd and is raised here.
     Returns {local_path: error} for the files that did not upload; an error containing
     PreconditionFailed means the object is already on S3 (the proxy refuses overwrites).
     """
     by_dest = {f"s3://{bucket}/{key}": lp for lp, key in files}
-    with tempfile.NamedTemporaryFile("w", suffix=".s5cmd", delete=False) as cmds:
-        for lp, key in files:
-            cmds.write(_s5cmd_command(lp, bucket, key, part_size_mb, concurrency) + "\n")
     env = {**os.environ, "AWS_ACCESS_KEY_ID": S3_ACCESS_KEY or "", "AWS_SECRET_ACCESS_KEY": S3_SECRET_KEY or "",
            "AWS_REGION": S3_REGION or ""}
-    proc = subprocess.Popen(["s5cmd", "--json", "--endpoint-url", S3_ENDPOINT, "--numworkers", str(workers),
-                             "run", cmds.name],
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
+    proc = subprocess.Popen(["s5cmd", "--json", "--endpoint-url", S3_ENDPOINT, "--numworkers", str(workers), "run"],
+                            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env)
     stderr_lines: list[str] = []
     reader = threading.Thread(target=lambda: stderr_lines.extend(proc.stderr), daemon=True)
     reader.start()
+    feed_error: list[BaseException] = []
+
+    def _feed():
+        try:
+            for lp, key in files:
+                try:
+                    if ready:
+                        ready(lp)
+                    line = _s5cmd_command(lp, bucket, key, part_size_mb, concurrency)
+                except BaseException as e:
+                    feed_error.append(e)
+                    proc.kill()
+                    return
+                proc.stdin.write(line + "\n")
+                proc.stdin.flush()
+        except OSError:
+            pass    # s5cmd has exited — files it never got are reported as failed below
+        finally:
+            try:
+                proc.stdin.close()
+            except OSError:
+                pass
+
+    # daemon, not joined: after a kill it may still sit in ready() until the caller ends that
+    threading.Thread(target=_feed, daemon=True).start()
     stop      = threading.Event()
     cancelled = threading.Event()
 
@@ -334,6 +357,8 @@ def _s5cmd_batch(files: list[tuple[str, str]], bucket: str, workers: int, on_suc
         proc.wait()
         if cancelled.is_set():
             raise UploadCancelled()
+        if feed_error:
+            raise feed_error[0]
     except BaseException:
         proc.kill()   # e.g. on_success found the file changed — stop sending the rest
         proc.wait()
@@ -343,7 +368,6 @@ def _s5cmd_batch(files: list[tuple[str, str]], bucket: str, workers: int, on_suc
         if on_sent or should_stop:
             watcher.join(timeout=5)
         reader.join(timeout=5)
-        os.unlink(cmds.name)
 
     # error lines name the command, not the file — match on the destination at its end
     errors: dict[str, str] = {}
@@ -368,7 +392,7 @@ def _s5cmd_batch(files: list[tuple[str, str]], bucket: str, workers: int, on_suc
 
 
 def _upload_file_list_s5cmd(upload_files, sequencer_slug, on_progress, on_file_done, total_bytes,
-                            max_attempts: int, backoff_max: int, should_stop=None) -> None:
+                            max_attempts: int, backoff_max: int, should_stop=None, ready=None) -> None:
     """
     s5cmd engine: data files go in parallel, then any .CHECKSUM manifest on its own, so the
     TRE trigger still arrives last. Failed files are sent again as a smaller batch, up to
@@ -423,7 +447,7 @@ def _upload_file_list_s5cmd(upload_files, sequencer_slug, on_progress, on_file_d
             if should_stop and should_stop():
                 raise UploadCancelled()
             errors = _s5cmd_batch(pending, S3_BUCKET, workers, _done, part_size_mb, concurrency, on_sent=_sent,
-                                  should_stop=should_stop)
+                                  should_stop=should_stop, ready=ready)
             for lp in [lp for lp, err in errors.items() if "PreconditionFailed" in err]:
                 logger.warning(f"[TRE upload] PreconditionFailed for {lp} — file already on S3, skipping")
                 errors.pop(lp)
@@ -455,7 +479,7 @@ def upload_engine() -> str:
 
 
 def upload_file_list(upload_files: list[tuple[str, str]], sequencer_slug: str, on_progress=None, on_file_done=None,
-                     should_stop=None) -> None:
+                     should_stop=None, ready=None) -> None:
     """
     Upload the given files in order.
     upload_files: list of (local_path, path relative to the sequencer location) — the S3 key is
@@ -464,6 +488,8 @@ def upload_file_list(upload_files: list[tuple[str, str]], sequencer_slug: str, o
     on_file_done(local_path, relative_path) after each file is uploaded.
     should_stop() is checked while uploading; when it returns True the upload stops with UploadCancelled
     (s5cmd: within a few seconds; boto3: after the current part, or after the current file below 16 MB).
+    ready(local_path), if given, blocks until a file may be sent (e.g. until it is hashed); the files
+    before it upload meanwhile. An error it raises stops the upload and is raised here.
     Raises on failure.
     """
     max_attempts = get_setting_int("upload_max_attempts", 5)
@@ -494,7 +520,7 @@ def upload_file_list(upload_files: list[tuple[str, str]], sequencer_slug: str, o
     logger.info(f"[TRE upload] engine={engine} files={total_files} bytes={total_bytes}")
     if engine == "s5cmd":
         _upload_file_list_s5cmd(upload_files, sequencer_slug, on_progress, on_file_done, total_bytes,
-                                max_attempts, backoff_max, should_stop)
+                                max_attempts, backoff_max, should_stop, ready)
         return
 
     s3 = _upload_client()
@@ -502,6 +528,8 @@ def upload_file_list(upload_files: list[tuple[str, str]], sequencer_slug: str, o
         s3_key = f"{S3_PREFIX}{sequencer_slug}/{relative_path}"
         if should_stop and should_stop():
             raise UploadCancelled()
+        if ready:
+            ready(local_path)
 
         _file_bytes = [0]
         # stop inside a file only in the multipart path, which aborts cleanly; a small file just finishes

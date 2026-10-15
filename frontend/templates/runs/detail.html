@@ -640,7 +640,9 @@
         if (byteMatch) {
           const done  = parseFloat(byteMatch[1]) * (UNITS[byteMatch[2].toLowerCase()] || 1);
           const total = parseFloat(byteMatch[3]) * (UNITS[byteMatch[4].toLowerCase()] || 1);
-          bar.style.width = Math.min(100, total > 0 ? Math.round(done / total * 100) : 0) + '%';
+          // all bytes written but S3 has not confirmed every file yet: not done
+          const cap = filesMatch && +filesMatch[1] < +filesMatch[2] ? 99 : 100;
+          bar.style.width = Math.min(cap, total > 0 ? Math.round(done / total * 100) : 0) + '%';
         } else if (filesMatch) {
           bar.style.width = Math.min(100, Math.round(parseInt(filesMatch[1]) / parseInt(filesMatch[2]) * 100)) + '%';
         }
@@ -807,8 +809,8 @@
     const hashed = progress.match(new RegExp(`hashed ${SIZE} / ${SIZE}`));
     const sent   = progress.match(new RegExp(`(\\d+) / (\\d+) files · ${SIZE} / ${SIZE}`));
     if (!sent) return null;
-    const row = (label, done, total, text, labelCls, track, fill) => {
-      const pct = total > 0 ? Math.min(100, Math.round(done / total * 100)) : 100;
+    const row = (label, done, total, text, labelCls, track, fill, cap = 100) => {
+      const pct = total > 0 ? Math.min(cap, Math.round(done / total * 100)) : 100;
       return `<div class="flex items-center gap-2">
           <span class="w-16 shrink-0 text-[9px] font-semibold uppercase tracking-wide ${labelCls}">${label}</span>
           <div class="w-28 shrink-0 h-1.5 rounded-full ${track}"><div class="h-1.5 rounded-full ${fill} transition-all duration-500" style="width:${pct}%"></div></div>
@@ -820,9 +822,11 @@
       ? row('Hashing', parseSize(hashed[1]), parseSize(hashed[2]), `${hashed[1]} / ${hashed[2]}`,
             'text-yellow-700', 'bg-yellow-100', 'bg-yellow-400')
       : row('Hashing', 1, 1, 'done', 'text-yellow-700', 'bg-yellow-100', 'bg-yellow-400');
+    const finishing = progress.match(/S3 finishing \d+ files?/);
     const sendRow = row('Uploading', parseSize(sent[3]), parseSize(sent[4]),
-                        `${sent[1]} / ${sent[2]} files · ${sent[3]} / ${sent[4]}`,
-                        'text-indigo-700', 'bg-indigo-100', 'bg-indigo-400');
+                        `${sent[1]} / ${sent[2]} files · ${sent[3]} / ${sent[4]}` + (finishing ? ` · ${finishing[0]}` : ''),
+                        'text-indigo-700', 'bg-indigo-100', 'bg-indigo-400',
+                        +sent[1] < +sent[2] ? 99 : 100);   // bytes all out, files not all confirmed: not done
     return `<div class="space-y-1 text-[10px]">${hashRow}${sendRow}</div>`;
   }
   function renderDirectories(dirs, status) {

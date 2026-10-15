@@ -185,3 +185,11 @@ def test_requeue_keeps_extra_fields(monkeypatch):
     worker._requeue(_body("RUN_A", "run_directory_upload_requested", directory="DIR1"))
     assert sent == [("run_directory_upload_requested", "RUN_A", "s-1", {"directory": "DIR1"})]
 
+
+def test_upload_text_says_when_s3_is_still_finishing_files():
+    gb = 1024 ** 3
+    assert worker._upload_text(1, 4, 1 * gb, 4 * gb) == "1 / 4 files · 1.0 GB / 4.0 GB"
+    # every byte written, two files not confirmed by S3 yet
+    assert worker._upload_text(2, 4, 4 * gb, 4 * gb) == "2 / 4 files · 4.0 GB / 4.0 GB · S3 finishing 2 files"
+    assert worker._upload_text(3, 4, 4 * gb, 4 * gb).endswith("S3 finishing 1 file")
+    assert worker._upload_text(4, 4, 4 * gb, 4 * gb) == "4 / 4 files · 4.0 GB / 4.0 GB"

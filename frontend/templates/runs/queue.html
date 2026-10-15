@@ -404,7 +404,10 @@
     if (byteMatch) {
       const done  = parseFloat(byteMatch[1]) * (UNITS[byteMatch[2].toLowerCase()] || 1);
       const total = parseFloat(byteMatch[3]) * (UNITS[byteMatch[4].toLowerCase()] || 1);
-      return total > 0 ? Math.min(100, Math.round(done / total * 100)) : 0;
+      // all bytes written but S3 has not confirmed every file yet: not done
+      const files = str.match(/(\d+)\s*\/\s*(\d+)\s*files/);
+      const cap = files && +files[1] < +files[2] ? 99 : 100;
+      return total > 0 ? Math.min(cap, Math.round(done / total * 100)) : 0;
     }
     if (filesMatch) return Math.min(100, Math.round(parseInt(filesMatch[1]) / parseInt(filesMatch[2]) * 100));
     if (pctMatch)   return Math.min(100, parseFloat(pctMatch[1]));

@@ -83,6 +83,19 @@ def _throttled(write, min_interval: float = PROGRESS_MIN_INTERVAL):
     return callback
 
 
+def _upload_text(done: int, total: int, bytes_done: int, total_bytes: int) -> str:
+    """
+    "12 / 170 files · 40.0 GB / 363.4 GB". s5cmd counts bytes as they are written to the network,
+    and a file counts only once S3 has confirmed it, so every byte can be out while S3 is still
+    storing the last files (or finishing a large multipart file); say so instead of showing "done".
+    """
+    text = f"{done} / {total} files · {_fmt_bytes(bytes_done)} / {_fmt_bytes(total_bytes)}"
+    if total and done < total and bytes_done >= total_bytes:
+        left = total - done
+        text += f" · S3 finishing {left} file{'s' if left != 1 else ''}"
+    return text
+
+
 def _make_progress_callback(run_uuid, show_files: bool = False):
     """
     Returns a (throttled) callback that writes checksum / upload progress to the run's progress column.
@@ -91,9 +104,10 @@ def _make_progress_callback(run_uuid, show_files: bool = False):
     """
     @_throttled
     def callback(done: int, total: int, bytes_done: int, total_bytes: int):
-        text = f"{_fmt_bytes(bytes_done)} / {_fmt_bytes(total_bytes)}"
         if show_files:
-            text = f"{done} / {total} files · {text}"
+            text = _upload_text(done, total, bytes_done, total_bytes)
+        else:
+            text = f"{_fmt_bytes(bytes_done)} / {_fmt_bytes(total_bytes)}"
         db = SESSION_LOCAL()
         try:
             run = db.query(Runs).filter(Runs.uuid == run_uuid).first()
@@ -225,7 +239,7 @@ class _DirProgress:
                 return
             self.last = now
             done, total, bytes_done, total_bytes = self.sent
-            text = f"sent {done} / {total} files · {_fmt_bytes(bytes_done)} / {_fmt_bytes(total_bytes)}"
+            text = "sent " + _upload_text(done, total, bytes_done, total_bytes)
             if self.hashed_ < self.total_bytes:
                 text = f"hashed {_fmt_bytes(self.hashed_)} / {_fmt_bytes(self.total_bytes)} · {text}"
         db = SESSION_LOCAL()

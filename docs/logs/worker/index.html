@@ -298,23 +298,17 @@
         </a>
       
     
-  </nav>
-
-  
-  <div class="px-2 pb-2 shrink-0">
-    <button type="button" onclick="toggleTheme()"
-       class="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-all">
-      <svg data-theme-icon="moon" class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z"/></svg>
-      <svg data-theme-icon="sun" class="hidden w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z"/></svg>
-      <span id="theme-toggle-label">Dark mode</span>
-    </button>
+    
     <a href="https://github.com/BioIT-CEITEC/omicz-gateway-component/issues" target="_blank" rel="noopener noreferrer"
-       class="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-all">
+       class="flex items-center gap-2.5 px-3 py-2 mb-0.5 rounded-md text-sm text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-all">
       <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z"/></svg>
       Support
       <svg class="w-3 h-3 ml-auto opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
     </a>
+  </nav>
 
+  
+  <div class="px-2 pb-2 shrink-0">
     
     
     <div class="mt-2 mx-1 p-2.5 rounded-xl border border-gray-100 bg-gray-50">
@@ -474,12 +468,12 @@
 
       <pre id="log-box"
            class="flex-1 bg-gray-900 text-gray-100 text-xs rounded-xl p-4 overflow-y-auto font-mono whitespace-pre-wrap break-all leading-5"
-           style="min-height: 500px; max-height: calc(100vh - 220px);">2026-10-15 12:10:00 | INFO     | checksum:137 | checksumming 4180 files (112.7 GB) using 4 threads
-2026-10-15 12:20:00 | INFO     | worker:540 | [upload] &#39;261014_VH01237_0092_AAFGK7CM5&#39;: 4180 files, engine boto3, part size 16 MiB
-2026-10-15 14:30:00 | WARNING  | worker:311 | [upload] UploadPart rejected (HTTP 400, no error code) — retrying part 1873 of 2410 (attempt 2/5)
-2026-10-15 14:31:00 | INFO     | worker:318 | [upload] part 1873 accepted on attempt 2
-2026-10-15 16:06:00 | INFO     | worker:173 | [dir-upload] &#39;20261015_0347_P2S-01234-A_PAW41502_5d2c8b71/fastq_pass&#39;: 1388 files
-2026-10-15 16:28:00 | DEBUG    | worker:633 | [verifier] &#39;261014_LH00419_0214_A22KM4LT3&#39; pending (1140s / 7980s)
+           style="min-height: 500px; max-height: calc(100vh - 220px);">2026-10-15 12:16:00 | INFO     | checksum:137 | checksumming 4180 files (112.7 GB) using 4 threads
+2026-10-15 12:26:00 | INFO     | worker:540 | [upload] &#39;261014_VH01237_0092_AAFGK7CM5&#39;: 4180 files, engine boto3, part size 16 MiB
+2026-10-15 14:36:00 | WARNING  | worker:311 | [upload] UploadPart rejected (HTTP 400, no error code) — retrying part 1873 of 2410 (attempt 2/5)
+2026-10-15 14:37:00 | INFO     | worker:318 | [upload] part 1873 accepted on attempt 2
+2026-10-15 16:12:00 | INFO     | worker:173 | [dir-upload] &#39;20261015_0347_P2S-01234-A_PAW41502_5d2c8b71/fastq_pass&#39;: 1388 files
+2026-10-15 16:34:00 | DEBUG    | worker:633 | [verifier] &#39;261014_LH00419_0214_A22KM4LT3&#39; pending (1140s / 7980s)
 </pre>
     </div>
   </div>
@@ -581,15 +575,19 @@
 
 
     <script>
-      // Theme toggle (sidebar). Without a saved choice the page follows the system setting.
-      function setTheme(dark, save) {
+      // Theme: 'light' or 'dark' saved per browser; without a saved choice the page follows the system.
+      function savedTheme() {
+        try { return localStorage.getItem('theme'); } catch (e) { return null; }
+      }
+      function setTheme(dark) {
         document.documentElement.classList.toggle('dark', dark);
-        if (save) { try { localStorage.setItem('theme', dark ? 'dark' : 'light'); } catch (e) {} }
-        var label = document.getElementById('theme-toggle-label');
-        if (label) label.textContent = dark ? 'Light mode' : 'Dark mode';
-        document.querySelectorAll('[data-theme-icon]').forEach(function (el) {
-          el.classList.toggle('hidden', el.dataset.themeIcon !== (dark ? 'sun' : 'moon'));
-        });
+      }
+      // Settings → Appearance. choice: 'light', 'dark' or 'system'
+      function chooseTheme(choice) {
+        try {
+          if (choice === 'system') localStorage.removeItem('theme'); else localStorage.setItem('theme', choice);
+        } catch (e) {}
+        location.reload();  // charts read the theme when they are drawn
       }
       // Sidebar as a slide-in menu on small screens
       function openSidebar() {
@@ -601,15 +599,8 @@
         document.getElementById('sidebar-backdrop').classList.add('hidden');
       }
       document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeSidebar(); });
-      function toggleTheme() {
-        setTheme(!document.documentElement.classList.contains('dark'), true);
-        location.reload();  // charts read the theme when they are drawn
-      }
-      setTheme(document.documentElement.classList.contains('dark'), false);
       window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) {
-        var saved = null;
-        try { saved = localStorage.getItem('theme'); } catch (err) {}
-        if (!saved) setTheme(e.matches, false);
+        if (!savedTheme()) setTheme(e.matches);
       });
     </script>
 

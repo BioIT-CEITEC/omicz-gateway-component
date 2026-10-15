@@ -298,23 +298,17 @@
         </a>
       
     
-  </nav>
-
-  
-  <div class="px-2 pb-2 shrink-0">
-    <button type="button" onclick="toggleTheme()"
-       class="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-all">
-      <svg data-theme-icon="moon" class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z"/></svg>
-      <svg data-theme-icon="sun" class="hidden w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z"/></svg>
-      <span id="theme-toggle-label">Dark mode</span>
-    </button>
+    
     <a href="https://github.com/BioIT-CEITEC/omicz-gateway-component/issues" target="_blank" rel="noopener noreferrer"
-       class="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-all">
+       class="flex items-center gap-2.5 px-3 py-2 mb-0.5 rounded-md text-sm text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-all">
       <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z"/></svg>
       Support
       <svg class="w-3 h-3 ml-auto opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
     </a>
+  </nav>
 
+  
+  <div class="px-2 pb-2 shrink-0">
     
     
     <div class="mt-2 mx-1 p-2.5 rounded-xl border border-gray-100 bg-gray-50">
@@ -411,7 +405,7 @@
     </div>
     <div class="px-6 py-4">
       <p class="text-[11px] text-gray-400 font-semibold uppercase tracking-wide mb-1.5">Registered</p>
-      <p class="text-sm text-gray-700 tabular-nums">2026-08-16 16:30</p>
+      <p class="text-sm text-gray-700 tabular-nums">2026-08-16 16:36</p>
     </div>
   </div>
 
@@ -489,15 +483,19 @@
     
 
     <script>
-      // Theme toggle (sidebar). Without a saved choice the page follows the system setting.
-      function setTheme(dark, save) {
+      // Theme: 'light' or 'dark' saved per browser; without a saved choice the page follows the system.
+      function savedTheme() {
+        try { return localStorage.getItem('theme'); } catch (e) { return null; }
+      }
+      function setTheme(dark) {
         document.documentElement.classList.toggle('dark', dark);
-        if (save) { try { localStorage.setItem('theme', dark ? 'dark' : 'light'); } catch (e) {} }
-        var label = document.getElementById('theme-toggle-label');
-        if (label) label.textContent = dark ? 'Light mode' : 'Dark mode';
-        document.querySelectorAll('[data-theme-icon]').forEach(function (el) {
-          el.classList.toggle('hidden', el.dataset.themeIcon !== (dark ? 'sun' : 'moon'));
-        });
+      }
+      // Settings → Appearance. choice: 'light', 'dark' or 'system'
+      function chooseTheme(choice) {
+        try {
+          if (choice === 'system') localStorage.removeItem('theme'); else localStorage.setItem('theme', choice);
+        } catch (e) {}
+        location.reload();  // charts read the theme when they are drawn
       }
       // Sidebar as a slide-in menu on small screens
       function openSidebar() {
@@ -509,15 +507,8 @@
         document.getElementById('sidebar-backdrop').classList.add('hidden');
       }
       document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeSidebar(); });
-      function toggleTheme() {
-        setTheme(!document.documentElement.classList.contains('dark'), true);
-        location.reload();  // charts read the theme when they are drawn
-      }
-      setTheme(document.documentElement.classList.contains('dark'), false);
       window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) {
-        var saved = null;
-        try { saved = localStorage.getItem('theme'); } catch (err) {}
-        if (!saved) setTheme(e.matches, false);
+        if (!savedTheme()) setTheme(e.matches);
       });
     </script>
 

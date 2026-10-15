@@ -60,7 +60,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/png" href="../../static/images/fav.png" />
-    <title>20261006_0347_P2S-01234-A_PAW41502_5d2c8b71</title>
+    <title>20261015_0347_P2S-01234-A_PAW41502_5d2c8b71</title>
     <script>
       // Apply the theme before first paint: saved choice, otherwise the system setting.
       (function () {
@@ -343,7 +343,7 @@
 
 <div class="flex items-start justify-between mb-6">
   <div>
-    <h1 class="text-2xl font-bold text-gray-900">20261006_0347_P2S-01234-A_PAW41502_5d2c8b71</h1>
+    <h1 class="text-2xl font-bold text-gray-900">20261015_0347_P2S-01234-A_PAW41502_5d2c8b71</h1>
     <p class="text-xs text-gray-400 mt-1 font-mono">bf3b3b98-8ee9-520f-89fc-906c11f5cd65</p>
     <div id="status-badge" class="mt-2">
   
@@ -422,14 +422,14 @@
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/></svg>
             Started
           </p>
-          <p class="text-sm text-gray-700 mt-1 tabular-nums">2026-10-06 04:40</p>
+          <p class="text-sm text-gray-700 mt-1 tabular-nums">2026-10-15 05:15</p>
         </div>
         <div class="px-5 py-4">
           <p class="text-[11px] text-gray-400 font-medium uppercase tracking-wide flex items-center gap-1">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
             Last Updated
           </p>
-          <p class="text-sm text-gray-700 mt-1 tabular-nums">2026-10-06 04:40</p>
+          <p class="text-sm text-gray-700 mt-1 tabular-nums">2026-10-15 05:15</p>
         </div>
         <div class="px-5 py-4">
           <p class="text-[11px] text-gray-400 font-medium uppercase tracking-wide flex items-center gap-1">
@@ -611,7 +611,7 @@
       <div class="overflow-x-auto">
       <table class="w-full text-xs min-w-[520px]">
         <thead>
-          <tr class="text-left text-[10px] text-gray-400 uppercase tracking-wide">
+          <tr class="text-left text-[10px] text-gray-400 uppercase tracking-wide whitespace-nowrap">
             <th class="px-5 py-2 font-semibold">Directory</th>
             <th class="px-3 py-2 font-semibold">State</th>
             <th class="px-3 py-2 font-semibold text-right">Files</th>
@@ -674,7 +674,7 @@
                 Data Acquisition
                 
               </p>
-              <p class="text-[11px] text-gray-400 mt-0.5 tabular-nums">2026-10-06 04:40</p>
+              <p class="text-[11px] text-gray-400 mt-0.5 tabular-nums">2026-10-15 05:15</p>
               
             </div>
 
@@ -895,7 +895,9 @@
         if (byteMatch) {
           const done  = parseFloat(byteMatch[1]) * (UNITS[byteMatch[2].toLowerCase()] || 1);
           const total = parseFloat(byteMatch[3]) * (UNITS[byteMatch[4].toLowerCase()] || 1);
-          bar.style.width = Math.min(100, total > 0 ? Math.round(done / total * 100) : 0) + '%';
+          // all bytes written but S3 has not confirmed every file yet: not done
+          const cap = filesMatch && +filesMatch[1] < +filesMatch[2] ? 99 : 100;
+          bar.style.width = Math.min(cap, total > 0 ? Math.round(done / total * 100) : 0) + '%';
         } else if (filesMatch) {
           bar.style.width = Math.min(100, Math.round(parseInt(filesMatch[1]) / parseInt(filesMatch[2]) * 100)) + '%';
         }
@@ -978,7 +980,7 @@
         `${base} border-gray-200 text-gray-500 bg-white hover:border-gray-400 hover:text-gray-700`, CANCEL_SVG, 'Cancel Upload');
     if (status === 'running_finished')
       return SENT_TO_TRE === 'auto'
-        ? `<span class="inline-flex items-center gap-1.5 text-xs text-purple-600 bg-purple-50 px-3 py-1.5 rounded-lg border border-purple-100"><span class="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse inline-block"></span>Automatic Transfer queued — waiting for worker…</span>`
+        ? `<span class="inline-flex items-center gap-1.5 text-xs text-purple-600 bg-purple-50 px-3 py-1.5 rounded-lg border border-purple-100"><span class="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse inline-block"></span>Automatic Transfer queued — checksumming starts when a checksum slot is free…</span>`
         : makeForm('start-upload', 'Transfer to TRE?',
             `${base} border-[#0C2461] text-[#0C2461] bg-white hover:bg-[#0C2461] hover:text-white`, UPLOAD_SVG, 'Transfer to TRE');
     if (status === 'move_failed')
@@ -1030,6 +1032,18 @@
     failed:    ['Failed',    'bg-red-50 text-red-600 border-red-100'],
     conflict:  ['Changed after send', 'bg-amber-50 text-amber-700 border-amber-200'],
   };
+  // 'uploading' covers scanning, hashing and sending — label it by what the progress says is happening
+  function uploadingState(progress) {
+    const p = String(progress || '');
+    if (/^scanning/i.test(p)) return ['Scanning', 'bg-blue-50 text-blue-600 border-blue-100'];
+    if (/^hash(ed|ing)/i.test(p)) {
+      const sent = p.match(/(\d+) \/ \d+ files · ([\d.]+) /);
+      return sent && (+sent[1] > 0 || +sent[2] > 0)
+        ? ['Hashing & sending', DIR_STATE.uploading[1]]
+        : ['Hashing', 'bg-yellow-50 text-yellow-700 border-yellow-200'];
+    }
+    return DIR_STATE.uploading;
+  }
   function esc(t) {
     return String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
@@ -1037,6 +1051,38 @@
     const u = ['B','KB','MB','GB','TB','PB']; let i = 0; n = Number(n) || 0;
     while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
     return n.toFixed(1) + ' ' + u[i];
+  }
+  function parseSize(s) {
+    const m = String(s).match(/([\d.]+)\s*(PB|TB|GB|MB|KB|B)/i);
+    return m ? parseFloat(m[1]) * 1024 ** ['B','KB','MB','GB','TB','PB'].indexOf(m[2].toUpperCase()) : 0;
+  }
+  // "hashed 120.0 GB / 363.4 GB · sent 12 / 170 files · 40.0 GB / 363.4 GB" → one labelled bar per part,
+  // or null for other text ("scanning files…"). A file is hashed, then sent, so both run at once;
+  // "hashed" is gone once every file is hashed.
+  function dirProgress(progress) {
+    const SIZE   = '([\\d.]+ [KMGTP]?B)';
+    const hashed = progress.match(new RegExp(`hashed ${SIZE} / ${SIZE}`));
+    const sent   = progress.match(new RegExp(`(\\d+) / (\\d+) files · ${SIZE} / ${SIZE}`));
+    if (!sent) return null;
+    const row = (label, done, total, text, labelCls, track, fill, cap = 100) => {
+      const pct = total > 0 ? Math.min(cap, Math.round(done / total * 100)) : 100;
+      return `<div class="flex items-center gap-2">
+          <span class="w-16 shrink-0 text-[9px] font-semibold uppercase tracking-wide ${labelCls}">${label}</span>
+          <div class="w-28 shrink-0 h-1.5 rounded-full ${track}"><div class="h-1.5 rounded-full ${fill} transition-all duration-500" style="width:${pct}%"></div></div>
+          <span class="w-8 shrink-0 text-right tabular-nums text-gray-500">${pct}%</span>
+          <span class="font-mono text-gray-400 whitespace-nowrap">${esc(text)}</span>
+        </div>`;
+    };
+    const hashRow = hashed
+      ? row('Hashing', parseSize(hashed[1]), parseSize(hashed[2]), `${hashed[1]} / ${hashed[2]}`,
+            'text-yellow-700', 'bg-yellow-100', 'bg-yellow-400')
+      : row('Hashing', 1, 1, 'done', 'text-yellow-700', 'bg-yellow-100', 'bg-yellow-400');
+    const finishing = progress.match(/S3 finishing \d+ files?/);
+    const sendRow = row('Uploading', parseSize(sent[3]), parseSize(sent[4]),
+                        `${sent[1]} / ${sent[2]} files · ${sent[3]} / ${sent[4]}` + (finishing ? ` · ${finishing[0]}` : ''),
+                        'text-indigo-700', 'bg-indigo-100', 'bg-indigo-400',
+                        +sent[1] < +sent[2] ? 99 : 100);   // bytes all out, files not all confirmed: not done
+    return `<div class="space-y-1 text-[10px]">${hashRow}${sendRow}</div>`;
   }
   function renderDirectories(dirs, status) {
     const card = document.getElementById('directories-card');
@@ -1052,10 +1098,12 @@
     banner.classList.toggle('hidden', !conflicts.length);
     document.getElementById('directories-conflict-detail').textContent = conflicts.map(d => d.detail || d.name).join('\n\n');
     document.getElementById('directories-body').innerHTML = dirs.map(d => {
-      const [label, cls] = DIR_STATE[d.state] || [d.state, 'bg-gray-100 text-gray-500 border-gray-200'];
+      const [label, cls] = d.state === 'uploading' ? uploadingState(d.progress)
+                         : DIR_STATE[d.state] || [d.state, 'bg-gray-100 text-gray-500 border-gray-200'];
       const when = d.state === 'sent' && d.sent_at ? 'sent ' + formatLocalDT(d.sent_at)
                  : d.stable_since ? formatLocalDT(d.stable_since) : '—';
-      const sub = d.state === 'uploading' && d.progress ? `<p class="text-[10px] text-indigo-500 font-mono mt-0.5">${esc(d.progress)}</p>`
+      const bars = d.state === 'uploading' && d.progress ? dirProgress(d.progress) : null;
+      const sub = d.state === 'uploading' && d.progress && !bars ? `<p class="text-[10px] text-indigo-500 font-mono mt-0.5">${esc(d.progress)}</p>`
                 : d.state === 'failed' && d.detail ? `<p class="text-[10px] text-red-500 mt-0.5 break-all">${esc(d.detail)}</p>` : '';
       const retry = d.state === 'failed' && status === 'running'
         ? `<form method="POST" action="#" data-demo-path="/acquisition-runs/${RUN_UUID}/directories/${d.uuid}/retry">
@@ -1063,12 +1111,12 @@
            </form>` : '';
       return `<tr>
         <td class="px-5 py-2.5 font-mono text-gray-700">${esc(d.name)}${sub}</td>
-        <td class="px-3 py-2.5"><span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold border ${cls}">${label}</span></td>
+        <td class="px-3 py-2.5 whitespace-nowrap"><span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold border ${cls}">${label}</span></td>
         <td class="px-3 py-2.5 text-right tabular-nums text-gray-600">${d.file_count}</td>
-        <td class="px-3 py-2.5 text-right tabular-nums text-gray-600">${fmtBytes(d.total_bytes)}</td>
-        <td class="px-3 py-2.5 tabular-nums text-gray-400">${when}</td>
+        <td class="px-3 py-2.5 text-right tabular-nums text-gray-600 whitespace-nowrap">${fmtBytes(d.total_bytes)}</td>
+        <td class="px-3 py-2.5 tabular-nums text-gray-400 whitespace-nowrap">${when}</td>
         <td class="px-5 py-2.5 text-right">${retry}</td>
-      </tr>`;
+      </tr>` + (bars ? `<tr class="!border-t-0"><td colspan="6" class="px-5 pb-3 pt-0">${bars}</td></tr>` : '');
     }).join('');
   }
 
@@ -1127,8 +1175,8 @@
   }
   updateProgress("running", null);
   updateStepper("running");
-  updateActions("running", [{"created_at": "2026-10-06T02:40:00+00:00", "detail": null, "status": "running", "uuid": "1508b591-ac61-5978-a559-d328c0a2c624"}]);
-  renderDirectories([{"detail": null, "file_count": 212, "name": "fastq_fail", "progress": null, "sent_at": "2026-10-06T09:11:00+00:00", "stable_since": "2026-10-06T09:00:00+00:00", "state": "sent", "total_bytes": 3812000000, "uuid": "8ef21976-3032-5fdf-a2c8-c7c44a750436"}, {"detail": null, "file_count": 1388, "name": "fastq_pass", "progress": "512 / 1388 files \u00b7 15.4 GB / 38.4 GB", "sent_at": null, "stable_since": "2026-10-06T11:16:00+00:00", "state": "uploading", "total_bytes": 41200000000, "uuid": "0dfb3e76-59cb-5936-90b1-8c53ee99963d"}, {"detail": null, "file_count": 1840, "name": "pod5", "progress": null, "sent_at": null, "stable_since": null, "state": "waiting", "total_bytes": 402000000000, "uuid": "eb6a126c-06a8-5e65-9a6f-da72869b8935"}, {"detail": null, "file_count": 1, "name": "sequencing_summary", "progress": null, "sent_at": null, "stable_since": "2026-10-06T11:28:00+00:00", "state": "queued", "total_bytes": 1900000000, "uuid": "538ebdd3-aed2-5181-a38f-f92b4028f6b6"}], "running");
+  updateActions("running", [{"created_at": "2026-10-15T03:15:00+00:00", "detail": null, "status": "running", "uuid": "1508b591-ac61-5978-a559-d328c0a2c624"}]);
+  renderDirectories([{"detail": null, "file_count": 212, "name": "fastq_fail", "progress": null, "sent_at": "2026-10-15T09:46:00+00:00", "stable_since": "2026-10-15T09:35:00+00:00", "state": "sent", "total_bytes": 3812000000, "uuid": "8ef21976-3032-5fdf-a2c8-c7c44a750436"}, {"detail": null, "file_count": 1388, "name": "fastq_pass", "progress": "hashed 27.6 GB / 38.4 GB \u00b7 sent 512 / 1388 files \u00b7 15.4 GB / 38.4 GB", "sent_at": null, "stable_since": "2026-10-15T11:51:00+00:00", "state": "uploading", "total_bytes": 41200000000, "uuid": "0dfb3e76-59cb-5936-90b1-8c53ee99963d"}, {"detail": null, "file_count": 1840, "name": "pod5", "progress": null, "sent_at": null, "stable_since": null, "state": "waiting", "total_bytes": 402000000000, "uuid": "eb6a126c-06a8-5e65-9a6f-da72869b8935"}, {"detail": null, "file_count": 1, "name": "sequencing_summary", "progress": null, "sent_at": null, "stable_since": "2026-10-15T12:03:00+00:00", "state": "queued", "total_bytes": 1900000000, "uuid": "538ebdd3-aed2-5181-a38f-f92b4028f6b6"}], "running");
 
   // Scroll history to bottom on load; update fade on scroll
   scrollHistoryToBottom();
@@ -1138,7 +1186,7 @@
 
 
   // Live duration tickers for non-terminal runs
-  const startTime = new Date(asUTC("2026-10-06T02:40:00+00:00"));
+  const startTime = new Date(asUTC("2026-10-15T03:15:00+00:00"));
   function fmtDelta(sec) {
     if (sec < 60) return sec + 's';
     if (sec < 3600) { const m = Math.floor(sec/60), s = sec%60; return m+'m '+(s ? s+'s' : ''); }

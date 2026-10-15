@@ -515,11 +515,73 @@
     <div class="bg-white rounded-xl shadow divide-y divide-gray-100">
       
       
+      <div class="px-5 py-4" id="row-pipeline_parallel_checksums">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-800">Checksums at the same time</p>
+            <p class="text-xs text-gray-400 mt-0.5">How many finished runs are checksummed at once. Checksumming does not wait for uploads, so a run is hashed while others upload and its upload starts as soon as an upload slot is free. Hashing reads the instrument disks, like uploading</p>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            
+            <input
+              type="number"
+              id="input-pipeline_parallel_checksums"
+              value="1"
+              min="1"
+              max="8"
+              class="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#0C2461]"
+            />
+            
+            <span class="text-xs text-gray-400 w-14">runs</span>
+            <button
+              onclick="saveSetting('pipeline_parallel_checksums')"
+              class="bg-[#0C2461] text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#091B4D] transition"
+            >
+              Save
+            </button>
+            <span id="status-pipeline_parallel_checksums" class="text-xs w-16 text-center"></span>
+          </div>
+        </div>
+        
+      </div>
+      
+      
+      <div class="px-5 py-4" id="row-pipeline_parallel_runs">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-800">Uploads at the same time</p>
+            <p class="text-xs text-gray-400 mt-0.5">How many runs are uploaded at once. 1: one run at a time, others wait in the queue. 2: a finished run starts even while a large run is still uploading; the two share the network link</p>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            
+            <input
+              type="number"
+              id="input-pipeline_parallel_runs"
+              value="2"
+              min="1"
+              max="8"
+              class="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#0C2461]"
+            />
+            
+            <span class="text-xs text-gray-400 w-14">runs</span>
+            <button
+              onclick="saveSetting('pipeline_parallel_runs')"
+              class="bg-[#0C2461] text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#091B4D] transition"
+            >
+              Save
+            </button>
+            <span id="status-pipeline_parallel_runs" class="text-xs w-16 text-center"></span>
+          </div>
+        </div>
+        
+      </div>
+      
+      
       <div class="px-5 py-4" id="row-upload_engine">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           <div class="flex-1 min-w-0">
             <p class="text-sm font-medium text-gray-800">Upload engine</p>
-            <p class="text-xs text-gray-400 mt-0.5">boto3: one file at a time with live progress. s5cmd: several files at once (faster for runs with many files); progress moves per finished file. s5cmd must be in the images (after an update that adds it, run docker compose build &amp;&amp; docker compose up -d); until then boto3 is used</p>
+            <p class="text-xs text-gray-400 mt-0.5">boto3: one file at a time with live progress. s5cmd: several files at once (faster for runs with many files); progress counts bytes sent and files confirmed by S3. s5cmd must be in the images (after an update that adds it, run docker compose build &amp;&amp; docker compose up -d); until then boto3 is used</p>
           </div>
           <div class="flex items-center gap-2 flex-shrink-0">
             
@@ -543,6 +605,37 @@
               Save
             </button>
             <span id="status-upload_engine" class="text-xs w-16 text-center"></span>
+          </div>
+        </div>
+        
+      </div>
+      
+      
+      <div class="px-5 py-4" id="row-upload_fast_lane_mb">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-800">Send without waiting below</p>
+            <p class="text-xs text-gray-400 mt-0.5">After the checksum, a run with at most this much left to send is uploaded at once instead of waiting for an upload slot — e.g. a directory-stability run whose folders were already sent, so only root files and the .CHECKSUM remain. 0: always wait for a slot</p>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            
+            <input
+              type="number"
+              id="input-upload_fast_lane_mb"
+              value="256"
+              min="0"
+              max="102400"
+              class="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#0C2461]"
+            />
+            
+            <span class="text-xs text-gray-400 w-14">MB</span>
+            <button
+              onclick="saveSetting('upload_fast_lane_mb')"
+              class="bg-[#0C2461] text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#091B4D] transition"
+            >
+              Save
+            </button>
+            <span id="status-upload_fast_lane_mb" class="text-xs w-16 text-center"></span>
           </div>
         </div>
         
@@ -611,11 +704,73 @@
       </div>
       
       
+      <div class="px-5 py-4" id="row-upload_s5cmd_concurrency">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-800">s5cmd parts per file</p>
+            <p class="text-xs text-gray-400 mt-0.5">Parts of one large file uploaded at the same time when the upload engine is s5cmd; open connections = parallel files × this</p>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            
+            <input
+              type="number"
+              id="input-upload_s5cmd_concurrency"
+              value="4"
+              min="1"
+              max="64"
+              class="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#0C2461]"
+            />
+            
+            <span class="text-xs text-gray-400 w-14">parts</span>
+            <button
+              onclick="saveSetting('upload_s5cmd_concurrency')"
+              class="bg-[#0C2461] text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#091B4D] transition"
+            >
+              Save
+            </button>
+            <span id="status-upload_s5cmd_concurrency" class="text-xs w-16 text-center"></span>
+          </div>
+        </div>
+        
+      </div>
+      
+      
+      <div class="px-5 py-4" id="row-upload_s5cmd_part_size_mb">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-800">s5cmd part size</p>
+            <p class="text-xs text-gray-400 mt-0.5">Size of each part of a large file (5–5120 MB). Larger parts suit very large files; s5cmd holds about parallel files × parts per file × part size in memory</p>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            
+            <input
+              type="number"
+              id="input-upload_s5cmd_part_size_mb"
+              value="16"
+              min="5"
+              max="5120"
+              class="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#0C2461]"
+            />
+            
+            <span class="text-xs text-gray-400 w-14">MB</span>
+            <button
+              onclick="saveSetting('upload_s5cmd_part_size_mb')"
+              class="bg-[#0C2461] text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#091B4D] transition"
+            >
+              Save
+            </button>
+            <span id="status-upload_s5cmd_part_size_mb" class="text-xs w-16 text-center"></span>
+          </div>
+        </div>
+        
+      </div>
+      
+      
       <div class="px-5 py-4" id="row-upload_s5cmd_workers">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           <div class="flex-1 min-w-0">
             <p class="text-sm font-medium text-gray-800">s5cmd parallel files</p>
-            <p class="text-xs text-gray-400 mt-0.5">Files sent at the same time when the upload engine is s5cmd; each large file also uses 4 parallel parts</p>
+            <p class="text-xs text-gray-400 mt-0.5">Files sent at the same time when the upload engine is s5cmd; each large file is also split into parts sent in parallel (s5cmd parts per file)</p>
           </div>
           <div class="flex items-center gap-2 flex-shrink-0">
             
@@ -690,8 +845,8 @@
       <div class="px-5 py-4" id="row-verify_minutes_per_100gb">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium text-gray-800">verify_minutes_per_100gb</p>
-            <p class="text-xs text-gray-400 mt-0.5">Extra minutes of TRE wait per 100 GB of run data, on top of verify_retries × verify_interval (the TRE re-hashes all data before confirming). Default 24: 250 GB → 2 h, 1 TB → 5 h in total</p>
+            <p class="text-sm font-medium text-gray-800">Extra wait per 100 GB</p>
+            <p class="text-xs text-gray-400 mt-0.5">Added to the verification wait for every 100 GB of run data, because the TRE re-hashes all data before confirming. Default 24: 250 GB → 2 h, 1 TB → 5 h in total</p>
           </div>
           <div class="flex items-center gap-2 flex-shrink-0">
             
@@ -699,12 +854,12 @@
               type="number"
               id="input-verify_minutes_per_100gb"
               value="24"
-              min="1"
-              max="9999"
+              min="0"
+              max="600"
               class="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#0C2461]"
             />
             
-            <span class="text-xs text-gray-400 w-14"></span>
+            <span class="text-xs text-gray-400 w-14">minutes</span>
             <button
               onclick="saveSetting('verify_minutes_per_100gb')"
               class="bg-[#0C2461] text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#091B4D] transition"
@@ -768,8 +923,8 @@
       <div class="px-5 py-4" id="row-dir_stability_poll_interval">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium text-gray-800">dir_stability_poll_interval</p>
-            <p class="text-xs text-gray-400 mt-0.5">Seconds between directory stability checks. Each check walks every running run folder of instruments using the Directory Stability method</p>
+            <p class="text-sm font-medium text-gray-800">Directory stability check interval</p>
+            <p class="text-xs text-gray-400 mt-0.5">Seconds between directory stability checks; each check walks every running run folder of instruments that use directory stability</p>
           </div>
           <div class="flex items-center gap-2 flex-shrink-0">
             
@@ -777,12 +932,12 @@
               type="number"
               id="input-dir_stability_poll_interval"
               value="60"
-              min="1"
-              max="9999"
+              min="10"
+              max="3600"
               class="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#0C2461]"
             />
             
-            <span class="text-xs text-gray-400 w-14"></span>
+            <span class="text-xs text-gray-400 w-14">seconds</span>
             <button
               onclick="saveSetting('dir_stability_poll_interval')"
               class="bg-[#0C2461] text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#091B4D] transition"

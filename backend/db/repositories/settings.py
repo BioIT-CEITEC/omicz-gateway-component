@@ -50,6 +50,12 @@ DEFAULTS = [
         "description": "Finished runs the worker checksums at the same time. Checksumming has its own slots, so a run is hashed while others upload and its upload starts right away when an upload slot frees. The worker applies a change within 15 seconds",
     },
     {
+        "key": "upload_fast_lane_mb",
+        "value": "256",
+        "category": "upload",
+        "description": "After the checksum, a run with at most this many MB left to send is uploaded at once instead of waiting for an upload slot (e.g. a directory-stability run whose folders were sent during acquisition: only root files and the .CHECKSUM remain). 0 = always wait for a slot",
+    },
+    {
         "key": "upload_s5cmd_workers",
         "value": "4",
         "category": "upload",
@@ -163,6 +169,7 @@ CHOICES = {
 RANGES = {
     "pipeline_parallel_runs":    (1, 8),
     "pipeline_parallel_checksums": (1, 8),
+    "upload_fast_lane_mb":       (0, 102400),
     "upload_s5cmd_workers":      (1, 256),
     "upload_s5cmd_concurrency":  (1, 64),
     "upload_s5cmd_part_size_mb": (5, 5120),   # S3 multipart limits: 5 MiB to 5 GiB per part

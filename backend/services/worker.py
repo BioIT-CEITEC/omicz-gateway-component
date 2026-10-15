@@ -475,9 +475,8 @@ def handle_run_checksum_requested(name: str, sequencer_uuid):
             logger.info(f"stored checksum_file='{run_obj.checksum_file}' for run '{name}'")
         add_run_status_history(run_uuid=run.uuid, status="queued", db=db)
 
-        from services.publisher import publish
-        publish("run_upload_requested", name, sequencer_uuid)
-        logger.info(f"checksum done — published run_upload_requested for '{name}'")
+        _continue_after_checksum(name, sequencer_uuid, run.uuid, os.path.join(sequencer.location, name),
+                                 sequencer.exclusions or [], checksum_path, db)
 
     except Exception as e:
         logger.error(f"failed during checksum for run '{name}': {e}", exc_info=True)
@@ -488,6 +487,36 @@ def handle_run_checksum_requested(name: str, sequencer_uuid):
             pass
     finally:
         db.close()
+
+
+def _bytes_left_to_send(run_uuid, run_folder: str, exclusions: list[str], checksum_path: str, db) -> int:
+    """
+    Bytes a run still has to upload after its checksum: files not sent yet (or changed since),
+    plus the .CHECKSUM. Scans the folder instead of using the checksum step's digests, because
+    a retry reuses an existing .CHECKSUM and reports no files.
+    """
+    sent    = dir_stability.uploaded_files(run_uuid, db)
+    current = dir_stability.scan_tree(run_folder, exclusions)
+    left    = sum(size for rel, (size, mtime_ns) in current.items() if sent.get(rel) != (size, mtime_ns))
+    return left + os.path.getsize(checksum_path)
+
+
+def _continue_after_checksum(name: str, sequencer_uuid, run_uuid, run_folder: str, exclusions: list[str], checksum_path: str, db):
+    """
+    Hand a checksummed run to its upload. When little is left to send (directory stability sent
+    the folders already, so only root files and the .CHECKSUM remain), upload it here at once —
+    it does not need to wait hours for an upload slot behind another run's terabytes, and takes
+    the shared link for seconds. This holds the checksum slot while it uploads, which is why the
+    limit is small. Otherwise queue it for an upload slot.
+    """
+    limit = get_setting_int("upload_fast_lane_mb", 256) * 1024 * 1024
+    left  = _bytes_left_to_send(run_uuid, run_folder, exclusions, checksum_path, db)
+    if limit and left <= limit:
+        logger.info(f"'{name}': {_fmt_bytes(left)} left to send (limit {_fmt_bytes(limit)}) — uploading now, without waiting for an upload slot")
+        handle_run_upload_requested(name, sequencer_uuid)
+        return
+    _publish_after_job("run_upload_requested", name, sequencer_uuid)
+    logger.info(f"checksum done — {_fmt_bytes(left)} left to send, run_upload_requested for '{name}'")
 
 
 def handle_run_upload_requested(name: str, sequencer_uuid):
@@ -620,9 +649,7 @@ def handle_run_rechecksum_requested(name: str, sequencer_uuid):
             logger.info(f"stored checksum_file='{run_obj.checksum_file}' for run '{name}'")
         add_run_status_history(run_uuid=run.uuid, status="queued", db=db)
 
-        from services.publisher import publish
-        publish("run_upload_requested", name, sequencer_uuid)
-        logger.info(f"rechecksum done — published run_upload_requested for '{name}'")
+        _continue_after_checksum(name, sequencer_uuid, run.uuid, run_folder, sequencer.exclusions or [], checksum_path, db)
 
     except Exception as e:
         logger.error(f"failed during rechecksum for run '{name}': {e}", exc_info=True)
@@ -802,6 +829,21 @@ PARALLEL_RUNS_CHECK_INTERVAL = 15  # seconds between reads of pipeline_parallel_
 
 _busy_runs: set[tuple] = set()
 _busy_runs_lock = threading.Lock()
+_job = threading.local()   # .after: messages a running pipeline job sends once it has released its run
+
+
+def _publish_after_job(event: str, name: str, sequencer_uuid, **extra):
+    """
+    Publish the next step of a run. Inside a pipeline job it is sent only after the job has
+    released the run: sent earlier, the other consumer would find the run still busy and push
+    the next step to the back of its queue for BUSY_RUN_REQUEUE_DELAY.
+    """
+    from services.publisher import publish
+    after = getattr(_job, "after", None)
+    if after is None:
+        publish(event, name, sequencer_uuid, **extra)
+    else:
+        after.append((event, name, sequencer_uuid, extra))
 
 
 def _claim_run(key: tuple) -> bool:
@@ -900,10 +942,15 @@ def on_pipeline_message(channel, method, properties, body):
         done = _ack
         try:
             if _claim_run(key):
+                _job.after = []
                 try:
                     dispatch(body)
                 finally:
                     _release_run(key)
+                    after, _job.after = _job.after, None
+                    from services.publisher import publish
+                    for event, name, seq, extra in after:
+                        publish(event, name, seq, **extra)
             else:
                 logger.info(f"run '{key[0]}' is busy with another job — re-queuing in {BUSY_RUN_REQUEUE_DELAY}s")
                 time.sleep(BUSY_RUN_REQUEUE_DELAY)

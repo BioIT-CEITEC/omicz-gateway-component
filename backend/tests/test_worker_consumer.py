@@ -224,3 +224,67 @@ def test_upload_text_says_when_s3_is_still_finishing_files():
     assert worker._upload_text(2, 4, 4 * gb, 4 * gb) == "2 / 4 files · 4.0 GB / 4.0 GB · S3 finishing 2 files"
     assert worker._upload_text(3, 4, 4 * gb, 4 * gb).endswith("S3 finishing 1 file")
     assert worker._upload_text(4, 4, 4 * gb, 4 * gb) == "4 / 4 files · 4.0 GB / 4.0 GB"
+
+
+def _run_folder(tmp_path):
+    run = tmp_path / "RUN_D"
+    (run / "Data").mkdir(parents=True)
+    (run / "Data" / "a.bcl").write_bytes(b"x" * 5000)
+    (run / "RunInfo.xml").write_bytes(b"<r/>")
+    manifest = run / "abc.CHECKSUM"
+    manifest.write_bytes(b"d" * 65)
+    st = os.stat(run / "Data" / "a.bcl")
+    return run, manifest, {"Data/a.bcl": (st.st_size, st.st_mtime_ns)}
+
+
+def test_bytes_left_counts_unsent_files_and_the_manifest(tmp_path, monkeypatch):
+    run, manifest, sent = _run_folder(tmp_path)
+    monkeypatch.setattr(worker.dir_stability, "uploaded_files", lambda run_uuid, db: sent)
+    # Data/ went early (directory stability): only RunInfo.xml and the .CHECKSUM are left
+    assert worker._bytes_left_to_send("u", str(run), [], str(manifest), None) == 4 + 65
+    # nothing sent yet (signal rule, or a retry that reused the .CHECKSUM): everything is left
+    monkeypatch.setattr(worker.dir_stability, "uploaded_files", lambda run_uuid, db: {})
+    assert worker._bytes_left_to_send("u", str(run), [], str(manifest), None) == 5000 + 4 + 65
+
+
+@pytest.mark.parametrize("limit_mb,sent_early,expect", [
+    (1024, True,  "now"),     # only leftovers: upload at once, no waiting for a slot
+    (0,    True,  "queue"),   # fast lane switched off
+    (1024, False, "now"),     # a small run that fits under the limit
+])
+def test_after_checksum_small_leftovers_skip_the_upload_queue(tmp_path, monkeypatch, limit_mb, sent_early, expect):
+    run, manifest, sent = _run_folder(tmp_path)
+    monkeypatch.setattr(worker.dir_stability, "uploaded_files", lambda run_uuid, db: sent if sent_early else {})
+    monkeypatch.setattr(worker, "get_setting_int", lambda key, default: limit_mb if key == "upload_fast_lane_mb" else default)
+    calls = []
+    monkeypatch.setattr(worker, "handle_run_upload_requested", lambda name, seq: calls.append("now"))
+    import services.publisher as publisher
+    monkeypatch.setattr(publisher, "publish", lambda event, name, seq, **kw: calls.append("queue"))
+    worker._continue_after_checksum("RUN_D", "s-1", "u", str(run), [], str(manifest), None)
+    assert calls == [expect]
+
+
+def test_after_checksum_large_upload_waits_for_a_slot(tmp_path, monkeypatch):
+    run, manifest, _ = _run_folder(tmp_path)
+    monkeypatch.setattr(worker.dir_stability, "uploaded_files", lambda run_uuid, db: {})
+    monkeypatch.setattr(worker, "_bytes_left_to_send", lambda *a: 10 * 1024 ** 4)   # 10 TB
+    monkeypatch.setattr(worker, "get_setting_int", lambda key, default: 1024 if key == "upload_fast_lane_mb" else default)
+    calls = []
+    monkeypatch.setattr(worker, "handle_run_upload_requested", lambda name, seq: calls.append("now"))
+    import services.publisher as publisher
+    monkeypatch.setattr(publisher, "publish", lambda event, name, seq, **kw: calls.append(event))
+    worker._continue_after_checksum("RUN_D", "s-1", "u", str(run), [], str(manifest), None)
+    assert calls == ["run_upload_requested"]
+
+
+def test_next_step_is_sent_after_the_run_is_released(monkeypatch):
+    """The upload published by a checksum job must not find its own run still busy."""
+    seen = []
+    import services.publisher as publisher
+    monkeypatch.setattr(publisher, "publish",
+                        lambda event, name, seq, **kw: seen.append((event, worker._claim_run((name, seq)))) or worker._release_run((name, seq)))
+    monkeypatch.setattr(worker, "dispatch", lambda body: worker._publish_after_job("run_upload_requested", "RUN_N", "s-1"))
+    ch = FakeChannel()
+    worker.on_pipeline_message(ch, SimpleNamespace(delivery_tag=1), None, _body("RUN_N"))
+    assert ch.scheduled.wait(5)
+    assert seen == [("run_upload_requested", True)]     # sent once, with the run already free

@@ -150,8 +150,9 @@ _run(_ilmn(2, "VH01237", 91, "AAFGK5CM5"), "NextSeq-2000-01", "completed", _ago(
 # Runs in the pipeline right now
 _run(_ilmn(1, "LH00419", 214, "A22KM4LT3"), "NovaSeq-X-01", "verifying", _ago(days=1, hours=8), 25, [1, 33, 1, 158])
 _run(_ilmn(1, "VH01237", 92, "AAFGK7CM5"), "NextSeq-2000-01", "moving", _ago(days=1, hours=2), 22, [1, 6, 1],
-     progress="38.2 GB / 112.7 GB")
-_run(_ms(0, "Plasma_cohort_B15"), "Orbitrap-Exploris-480", "running_finished", _ago(hours=5), 3)
+     progress="418 / 1206 files · 38.2 GB / 112.7 GB")
+_run(_ms(0, "Plasma_cohort_B15"), "Orbitrap-Exploris-480", "checksumming", _ago(hours=5), 3, [1],
+     progress="1.9 GB / 4.6 GB")
 _run(_ms(0, "HeLa_QC_02"), "Orbitrap-Exploris-480", "running", _ago(minutes=50), 0)
 ont_live = _run(_ont(0, "0347", "P2S-01234-A", "PAW41502", "5d2c8b71"), "PromethION-24", "running", _ago(hours=9), 0)
 _run(_ilmn(0, "LH00419", 215, "A22KN2LT3"), "NovaSeq-X-01", "running", _ago(hours=14), 0)
@@ -168,7 +169,7 @@ DIRECTORIES[ont_live] = [
      "sent_at": _iso(_ago(hours=2, minutes=29)), "progress": None, "detail": None},
     {"uuid": _uuid("dir/live/fastq_pass"), "name": "fastq_pass", "state": "uploading", "file_count": 1388,
      "total_bytes": 41_200_000_000, "stable_since": _iso(_ago(minutes=24)), "sent_at": None,
-     "progress": "512 / 1388 files · 15.4 GB / 38.4 GB", "detail": None},
+     "progress": "hashed 27.6 GB / 38.4 GB · sent 512 / 1388 files · 15.4 GB / 38.4 GB", "detail": None},
     {"uuid": _uuid("dir/live/pod5"), "name": "pod5", "state": "waiting", "file_count": 1840,
      "total_bytes": 402_000_000_000, "stable_since": None, "sent_at": None, "progress": None, "detail": None},
     {"uuid": _uuid("dir/live/sequencing_summary"), "name": "sequencing_summary", "state": "queued", "file_count": 1,
@@ -205,6 +206,19 @@ def runs_page(params: dict) -> dict:
     return {"total": len(rows), "skip": skip, "limit": limit, "results": rows[skip:skip + limit]}
 
 
+def queue_directories() -> list:
+    """Directory-stability folders being sent or waiting, as GET /runs/queue/directories returns them."""
+    rows = []
+    for run_uuid, dirs in DIRECTORIES.items():
+        run = R[run_uuid]
+        for d in dirs:
+            if d["state"] in ("uploading", "queued"):
+                rows.append({"run_uuid": run_uuid, "run_name": run["name"], "sequencer_name": run["sequencer_name"],
+                             "name": d["name"], "state": d["state"], "file_count": d["file_count"],
+                             "total_bytes": d["total_bytes"], "progress": d["progress"], "updated_at": d["stable_since"]})
+    return sorted(rows, key=lambda r: r["state"] != "uploading")
+
+
 def queue_page() -> dict:
     order = {"moving": 0, "checksumming": 0, "verifying": 1, "queued": 2}
     rows = sorted((r for r in RUNS if r["status"] in QUEUE_STATES), key=lambda r: order[r["status"]])
@@ -221,6 +235,8 @@ def _settings() -> list:
                 r["updated_at"] = None
                 if r["key"] == "pagination_page_size":
                     r["value"] = "50"   # one page per list in the static demo
+                if r["key"] == "pipeline_parallel_runs":
+                    r["value"] = "2"    # the sample data has a folder and a run uploading at once
             return rows
     return []
 

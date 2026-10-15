@@ -61,6 +61,8 @@ def mock_backend(method: str, url: str, params=None, **_):
             return _json(200, D.runs_page(p))
         if rest == ["queue"]:
             return _json(200, D.queue_page())
+        if rest == ["queue", "directories"]:
+            return _json(200, D.queue_directories())
         if rest == ["failed"]:
             return _json(200, [r for r in D.RUNS if r["status"] in D.FAILED_STATES])
         if rest == ["active-transfers"]:

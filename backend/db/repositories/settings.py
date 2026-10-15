@@ -83,7 +83,7 @@ DEFAULTS = [
         "key": "upload_retry_backoff_max",
         "value": "60",
         "category": "upload",
-        "description": "Maximum wait time (seconds) between consecutive upload retry attempts (exponential backoff capped here)",
+        "description": "Maximum wait time (seconds) between consecutive upload retry attempts; the wait grows by 5 s per attempt up to this cap",
     },
     # ── Verification ──────────────────────────────────────────────────────────
     {

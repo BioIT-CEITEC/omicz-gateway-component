@@ -8,6 +8,8 @@ import sys
 import threading
 from types import SimpleNamespace
 
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from services import worker
@@ -91,15 +93,15 @@ def _body(name, event="run_checksum_requested", **extra):
     return json.dumps({"event": event, "name": name, "sequencer_uuid": "s-1", **extra}).encode()
 
 
-def test_prefetch_follows_parallel_runs_setting_while_slots_are_busy(monkeypatch):
+@pytest.mark.parametrize("setting", ["pipeline_parallel_runs", "pipeline_parallel_checksums"])
+def test_limit_follows_setting_while_slots_are_busy(monkeypatch, setting):
     """The setting is re-read on a timer, not only when a message arrives (none arrives while all slots are busy)."""
     value = {"n": 1}
-    monkeypatch.setattr(worker, "get_setting_int", lambda key, default: value["n"] if key == "pipeline_parallel_runs" else default)
+    monkeypatch.setattr(worker, "get_setting_int", lambda key, default: value["n"] if key == setting else default)
     timers = []
     connection = SimpleNamespace(call_later=lambda delay, cb: timers.append((delay, cb)))
     ch = FakeChannel()
-    worker._watch_parallel_runs(connection, ch)
-    assert ch.prefetch == 1
+    worker._watch_limit(connection, ch, setting)
     assert timers[-1][0] == worker.PARALLEL_RUNS_CHECK_INTERVAL
     # a channel-wide limit: RabbitMQ applies it at once and counts every task running on the channel
     assert ch.calls == [("qos", 1, True)]
@@ -110,6 +112,35 @@ def test_prefetch_follows_parallel_runs_setting_while_slots_are_busy(monkeypatch
     assert ch.prefetch == 2
     assert ch.calls[1:] == [("qos", 2, True)]
     assert len(timers) == 3              # and schedules the next check
+
+
+def test_checksums_have_their_own_queue():
+    """A finished run is hashed while other runs upload; only its upload waits in the pipeline queue."""
+    from services import publisher
+    assert publisher._EVENT_QUEUES["run_checksum_requested"] == worker.QUEUE_CHECKSUM
+    assert publisher._EVENT_QUEUES["run_rechecksum_requested"] == worker.QUEUE_CHECKSUM
+    for event in ("run_upload_requested", "run_verify_requested", "run_directory_upload_requested"):
+        assert publisher._EVENT_QUEUES[event] == worker.QUEUE_PIPELINE
+    assert publisher.QUEUE_CHECKSUM == worker.QUEUE_CHECKSUM
+
+
+def test_guard_spans_both_queues(monkeypatch):
+    """A run's checksum (checksum queue) waits while one of its folders uploads (pipeline queue)."""
+    release = threading.Event()
+    requeued = []
+    monkeypatch.setattr(worker, "dispatch", lambda body: release.wait(5))
+    monkeypatch.setattr(worker, "BUSY_RUN_REQUEUE_DELAY", 0)
+    monkeypatch.setattr(worker, "_requeue", lambda body: requeued.append(json.loads(body)["event"]))
+    upload_ch, checksum_ch = FakeChannel(), FakeChannel()   # two connections, one process
+    worker.on_pipeline_message(upload_ch, SimpleNamespace(delivery_tag=1), None,
+                               _body("RUN_X", "run_directory_upload_requested", directory="Data"))
+    try:
+        worker.on_pipeline_message(checksum_ch, SimpleNamespace(delivery_tag=1), None, _body("RUN_X"))
+        assert checksum_ch.scheduled.wait(5)
+        assert requeued == ["run_checksum_requested"]
+    finally:
+        release.set()
+    assert upload_ch.scheduled.wait(5)
 
 
 def test_two_runs_run_at_the_same_time(monkeypatch):

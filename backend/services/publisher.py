@@ -12,15 +12,16 @@ RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
 # This ensures run_created/run_completed are always processed immediately,
 # even when the worker is busy with a multi-hour upload.
 QUEUE_EVENTS   = "runs_events"    # run_created, run_completed
-QUEUE_PIPELINE = "runs_pipeline"  # checksum, upload, verify
+QUEUE_PIPELINE = "runs_pipeline"  # upload, verify, directory uploads
+QUEUE_CHECKSUM = "runs_checksum"  # checksum — runs next to uploads, so a run is hashed while others upload
 
 _EVENT_QUEUES = {
     "run_created":              QUEUE_EVENTS,
     "run_completed":            QUEUE_EVENTS,
-    "run_checksum_requested":   QUEUE_PIPELINE,
+    "run_checksum_requested":   QUEUE_CHECKSUM,
     "run_upload_requested":     QUEUE_PIPELINE,
     "run_verify_requested":     QUEUE_PIPELINE,
-    "run_rechecksum_requested": QUEUE_PIPELINE,
+    "run_rechecksum_requested": QUEUE_CHECKSUM,
     "run_directory_upload_requested": QUEUE_PIPELINE,
 }
 

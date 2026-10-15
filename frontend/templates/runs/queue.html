@@ -194,7 +194,7 @@
       {# Name + sequencer #}
       <div class="flex-1 min-w-0">
         <a href="/acquisition-runs/{{ run.uuid }}" class="text-sm font-medium text-gray-700 hover:text-[#0C2461] transition truncate block">{{ run.name }}</a>
-        <p class="text-xs text-gray-400 mt-0.5">{{ run.sequencer_name or (run.sequencer_uuid | string)[:8] ~ '…' }}{% if run.status == 'running_finished' %} · {{ lang.status_running_finished | lower }}, checksumming starts when the worker is free{% endif %}</p>
+        <p class="text-xs text-gray-400 mt-0.5">{{ run.sequencer_name or (run.sequencer_uuid | string)[:8] ~ '…' }}{% if run.status == 'running_finished' %} · {{ lang.status_running_finished | lower }}, checksumming starts when a checksum slot is free{% endif %}</p>
       </div>
 
       {# Queued since #}

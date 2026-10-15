@@ -41,7 +41,13 @@ DEFAULTS = [
         "key": "pipeline_parallel_runs",
         "value": "1",
         "category": "upload",
-        "description": "Runs the worker checksums and uploads at the same time. 1 = one run at a time; 2 lets a small run start while a large one is still uploading (they share the network link). The worker applies a change within 15 seconds",
+        "description": "Runs the worker uploads at the same time. 1 = one run at a time; 2 lets a small run start while a large one is still uploading (they share the network link). Checksumming has its own setting. The worker applies a change within 15 seconds",
+    },
+    {
+        "key": "pipeline_parallel_checksums",
+        "value": "1",
+        "category": "upload",
+        "description": "Finished runs the worker checksums at the same time. Checksumming has its own slots, so a run is hashed while others upload and its upload starts right away when an upload slot frees. The worker applies a change within 15 seconds",
     },
     {
         "key": "upload_s5cmd_workers",
@@ -156,6 +162,7 @@ CHOICES = {
 # numeric settings with hard limits (inclusive) — values outside are refused
 RANGES = {
     "pipeline_parallel_runs":    (1, 8),
+    "pipeline_parallel_checksums": (1, 8),
     "upload_s5cmd_workers":      (1, 256),
     "upload_s5cmd_concurrency":  (1, 64),
     "upload_s5cmd_part_size_mb": (5, 5120),   # S3 multipart limits: 5 MiB to 5 GiB per part

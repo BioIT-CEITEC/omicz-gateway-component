@@ -50,6 +50,36 @@ def get_queue(skip: int = Query(default=0, ge=0), limit: int = Query(default=20,
     )
 
 
+@router.get("/queue/directories")
+def get_queue_directories(db: Session = Depends(get_db)):
+    """
+    Directory-stability folders being sent, or waiting to be sent, while their run is
+    still acquiring data. Their run stays 'running', so the run queue above does not list them.
+    """
+    rows = (
+        db.query(RunDirectories, Runs.name, Sequencers.name)
+        .join(Runs, Runs.uuid == RunDirectories.run_uuid)
+        .outerjoin(Sequencers, Sequencers.uuid == Runs.sequencer_uuid)
+        .filter(RunDirectories.state.in_(["uploading", "queued"]), Runs.is_deleted == False)
+        .order_by((RunDirectories.state != "uploading"), RunDirectories.updated_at.asc())
+        .all()
+    )
+    return [
+        {
+            "run_uuid":       str(d.run_uuid),
+            "run_name":       run_name,
+            "sequencer_name": sequencer_name,
+            "name":           d.name,
+            "state":          d.state,
+            "file_count":     d.file_count,
+            "total_bytes":    d.total_bytes,
+            "progress":       d.progress,
+            "updated_at":     d.updated_at.isoformat() if d.updated_at else None,
+        }
+        for d, run_name, sequencer_name in rows
+    ]
+
+
 @router.get("/active-transfers")
 def active_transfers(db: Session = Depends(get_db)):
     """

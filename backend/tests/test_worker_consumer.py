@@ -2,6 +2,7 @@
 The pipeline consumer must not block pika's connection thread: long tasks run
 in their own thread and the ack is handed back via add_callback_threadsafe.
 """
+import json
 import os
 import sys
 import threading
@@ -16,6 +17,9 @@ class FakeChannel:
     def __init__(self):
         self.is_open = True
         self.acked = []
+        self.nacked = []
+        self.prefetch = None
+        self.calls = []
         self.scheduled = threading.Event()
         self.connection = SimpleNamespace(add_callback_threadsafe=self._schedule)
         self._callback = None
@@ -30,6 +34,13 @@ class FakeChannel:
 
     def basic_ack(self, delivery_tag):
         self.acked.append(delivery_tag)
+
+    def basic_nack(self, delivery_tag, requeue):
+        self.nacked.append((delivery_tag, requeue))
+
+    def basic_qos(self, prefetch_count, global_qos=False):
+        self.prefetch = prefetch_count
+        self.calls.append(("qos", prefetch_count, global_qos))
 
 
 def test_pipeline_task_runs_off_thread_and_acks_after(monkeypatch):
@@ -74,3 +85,103 @@ def test_no_ack_on_closed_channel(monkeypatch):
     ch.is_open = False
     ch.run_scheduled()
     assert ch.acked == []
+
+
+def _body(name, event="run_checksum_requested", **extra):
+    return json.dumps({"event": event, "name": name, "sequencer_uuid": "s-1", **extra}).encode()
+
+
+def test_prefetch_follows_parallel_runs_setting_while_slots_are_busy(monkeypatch):
+    """The setting is re-read on a timer, not only when a message arrives (none arrives while all slots are busy)."""
+    value = {"n": 1}
+    monkeypatch.setattr(worker, "get_setting_int", lambda key, default: value["n"] if key == "pipeline_parallel_runs" else default)
+    timers = []
+    connection = SimpleNamespace(call_later=lambda delay, cb: timers.append((delay, cb)))
+    ch = FakeChannel()
+    worker._watch_parallel_runs(connection, ch)
+    assert ch.prefetch == 1
+    assert timers[-1][0] == worker.PARALLEL_RUNS_CHECK_INTERVAL
+    # a channel-wide limit: RabbitMQ applies it at once and counts every task running on the channel
+    assert ch.calls == [("qos", 1, True)]
+    timers[-1][1]()                      # unchanged: not sent again
+    assert len(ch.calls) == 1
+    value["n"] = 2
+    timers[-1][1]()                      # the timer fires on the connection thread
+    assert ch.prefetch == 2
+    assert ch.calls[1:] == [("qos", 2, True)]
+    assert len(timers) == 3              # and schedules the next check
+
+
+def test_two_runs_run_at_the_same_time(monkeypatch):
+    """With two slots, a second run starts while the first is still running."""
+    started = {name: threading.Event() for name in ("RUN_A", "RUN_B")}
+    release = threading.Event()
+
+    def blocking_dispatch(body):
+        started[json.loads(body)["name"]].set()
+        release.wait(5)
+
+    monkeypatch.setattr(worker, "dispatch", blocking_dispatch)
+    ch_a, ch_b = FakeChannel(), FakeChannel()
+    worker.on_pipeline_message(ch_a, SimpleNamespace(delivery_tag=1), None, _body("RUN_A"))
+    worker.on_pipeline_message(ch_b, SimpleNamespace(delivery_tag=2), None, _body("RUN_B"))
+    try:
+        assert started["RUN_A"].wait(5)
+        assert started["RUN_B"].wait(5)
+    finally:
+        release.set()
+    assert ch_a.scheduled.wait(5) and ch_b.scheduled.wait(5)
+
+
+def test_second_job_of_a_busy_run_goes_to_the_back_of_the_queue(monkeypatch):
+    """The final checksum must not start while a directory of the same run is still uploading."""
+    release = threading.Event()
+    calls, requeued = [], []
+
+    def dispatch(body):
+        calls.append(json.loads(body)["event"])
+        release.wait(5)
+
+    monkeypatch.setattr(worker, "dispatch", dispatch)
+    monkeypatch.setattr(worker, "BUSY_RUN_REQUEUE_DELAY", 0)
+    monkeypatch.setattr(worker, "_requeue", lambda body: requeued.append(json.loads(body)))
+    ch_dir, ch_sum = FakeChannel(), FakeChannel()
+    worker.on_pipeline_message(ch_dir, SimpleNamespace(delivery_tag=1), None,
+                               _body("RUN_A", "run_directory_upload_requested", directory="DIR1"))
+    try:
+        worker.on_pipeline_message(ch_sum, SimpleNamespace(delivery_tag=2), None, _body("RUN_A"))
+        assert ch_sum.scheduled.wait(5)
+        ch_sum.run_scheduled()
+        assert ch_sum.acked == [2]                       # slot freed for other runs
+        assert [m["event"] for m in requeued] == ["run_checksum_requested"]
+        assert calls == ["run_directory_upload_requested"]
+    finally:
+        release.set()
+    assert ch_dir.scheduled.wait(5)
+    ch_dir.run_scheduled()
+    assert worker._claim_run(("RUN_A", "s-1"))           # released after the job ended
+    worker._release_run(("RUN_A", "s-1"))
+
+
+def test_failed_requeue_hands_the_message_back(monkeypatch):
+    monkeypatch.setattr(worker, "BUSY_RUN_REQUEUE_DELAY", 0)
+    monkeypatch.setattr(worker, "_requeue", lambda body: (_ for _ in ()).throw(ConnectionError("down")))
+    key = ("RUN_C", "s-1")
+    assert worker._claim_run(key)
+    try:
+        ch = FakeChannel()
+        worker.on_pipeline_message(ch, SimpleNamespace(delivery_tag=5), None, _body("RUN_C"))
+        assert ch.scheduled.wait(5)
+        ch.run_scheduled()
+        assert ch.acked == [] and ch.nacked == [(5, True)]
+    finally:
+        worker._release_run(key)
+
+
+def test_requeue_keeps_extra_fields(monkeypatch):
+    sent = []
+    import services.publisher as publisher
+    monkeypatch.setattr(publisher, "publish", lambda event, name, seq, **extra: sent.append((event, name, seq, extra)))
+    worker._requeue(_body("RUN_A", "run_directory_upload_requested", directory="DIR1"))
+    assert sent == [("run_directory_upload_requested", "RUN_A", "s-1", {"directory": "DIR1"})]
+

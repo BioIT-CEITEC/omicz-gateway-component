@@ -723,7 +723,7 @@
         `${base} border-gray-200 text-gray-500 bg-white hover:border-gray-400 hover:text-gray-700`, CANCEL_SVG, 'Cancel Upload');
     if (status === 'running_finished')
       return SENT_TO_TRE === 'auto'
-        ? `<span class="inline-flex items-center gap-1.5 text-xs text-purple-600 bg-purple-50 px-3 py-1.5 rounded-lg border border-purple-100"><span class="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse inline-block"></span>{{ lang.automatic_transfer }} queued — waiting for worker…</span>`
+        ? `<span class="inline-flex items-center gap-1.5 text-xs text-purple-600 bg-purple-50 px-3 py-1.5 rounded-lg border border-purple-100"><span class="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse inline-block"></span>{{ lang.automatic_transfer }} queued — checksumming starts when the worker is free…</span>`
         : makeForm('start-upload', '{{ lang.transfer_to_tre }}?',
             `${base} border-[#0C2461] text-[#0C2461] bg-white hover:bg-[#0C2461] hover:text-white`, UPLOAD_SVG, '{{ lang.transfer_to_tre }}');
     if (status === 'move_failed')

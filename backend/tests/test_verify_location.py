@@ -23,7 +23,7 @@ class FakeS3:
 
 def use(monkeypatch, objects, bucket, prefix):
     fake = FakeS3(objects)
-    monkeypatch.setattr(tre.boto3, "client", lambda *a, **kw: fake)
+    monkeypatch.setattr(tre, "_s3_client", lambda config: fake)
     monkeypatch.setattr(tre, "S3_CHECKSUM_BUCKET", bucket)
     monkeypatch.setattr(tre, "S3_CHECKSUM_PREFIX", prefix)
     return fake

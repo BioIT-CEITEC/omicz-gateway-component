@@ -32,7 +32,7 @@ logger = get_logger("worker")
 
 RABBITMQ_URL   = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
 QUEUE_EVENTS   = "runs_events"    # run_created, run_completed  — fast, always processed immediately
-QUEUE_PIPELINE = "runs_pipeline"  # checksum, upload, verify    — slow, one at a time
+QUEUE_PIPELINE = "runs_pipeline"  # checksum, upload, verify    — slow, pipeline_parallel_runs at a time
 
 
 def resolve_verify_detail(tre_error: str | None, run_folder: str, retries: int) -> str:
@@ -365,8 +365,8 @@ def handle_run_completed(name: str, sequencer_uuid):
     Completion signal detected by the watcher.
     Sets status to running_finished, then checks the sequencer's
     sent_to_tre setting:
-      - auto   → immediately publish run_upload_requested so the worker
-                 continues the pipeline without waiting
+      - auto   → publish run_checksum_requested; it waits in the pipeline queue
+                 behind any job the worker is running (e.g. another run's directory upload)
       - manual → stop here; a button in the UI will trigger the next step
     """
     logger.info(f"run_completed → name={name} sequencer_uuid={sequencer_uuid}")
@@ -782,6 +782,70 @@ def on_message(channel, method, properties, body):
         channel.basic_ack(delivery_tag=method.delivery_tag)
 
 
+BUSY_RUN_REQUEUE_DELAY = 30        # seconds a job of a busy run waits before it goes back to the queue
+PARALLEL_RUNS_CHECK_INTERVAL = 15  # seconds between reads of pipeline_parallel_runs
+
+_busy_runs: set[tuple] = set()
+_busy_runs_lock = threading.Lock()
+
+
+def _claim_run(key: tuple) -> bool:
+    """Mark a run as busy; False if another pipeline job of the same run is running."""
+    with _busy_runs_lock:
+        if key in _busy_runs:
+            return False
+        _busy_runs.add(key)
+        return True
+
+
+def _release_run(key: tuple):
+    with _busy_runs_lock:
+        _busy_runs.discard(key)
+
+
+def _run_key(body: bytes) -> tuple:
+    try:
+        message = json.loads(body)
+        return (message.get("name"), message.get("sequencer_uuid"))
+    except Exception:
+        return (None, None)
+
+
+def _requeue(body: bytes):
+    """Send a message to the back of its queue, so jobs of other runs go first."""
+    from services.publisher import publish
+    message = json.loads(body)
+    publish(message.pop("event"), message.pop("name"), message.pop("sequencer_uuid"), **message)
+
+
+def _apply_parallel_runs(channel):
+    """
+    Set the pipeline channel's prefetch_count from pipeline_parallel_runs; called on the
+    connection thread. global_qos=True makes it a limit for the whole channel, which RabbitMQ
+    applies at once and which counts every unacknowledged task on the channel. (A per-consumer
+    limit only takes effect for consumers created after the change.)
+    """
+    wanted = max(1, get_setting_int("pipeline_parallel_runs", 1))
+    if getattr(channel, "_omicz_prefetch", None) == wanted:
+        return
+    channel.basic_qos(prefetch_count=wanted, global_qos=True)
+    channel._omicz_prefetch = wanted
+    logger.info(f"pipeline: up to {wanted} run(s) at the same time")
+
+
+def _watch_parallel_runs(connection, channel):
+    """
+    Apply pipeline_parallel_runs now and again every PARALLEL_RUNS_CHECK_INTERVAL. Re-reading it
+    only when a message arrives would not work: while every slot is busy nothing is delivered, so
+    raising 1 → 2 during a long upload would wait for that upload to end.
+    """
+    try:
+        _apply_parallel_runs(channel)
+    except Exception as e:
+        logger.error(f"could not apply pipeline_parallel_runs: {e}")
+    connection.call_later(PARALLEL_RUNS_CHECK_INTERVAL, lambda: _watch_parallel_runs(connection, channel))
+
+
 def on_pipeline_message(channel, method, properties, body):
     """
     Pipeline queue: checksum / upload / verify can take hours. Running them inside
@@ -791,12 +855,17 @@ def on_pipeline_message(channel, method, properties, body):
 
     Instead the task runs in its own thread while start_consuming() keeps the
     connection alive. The ack is handed back to the connection thread with
-    add_callback_threadsafe (pika channels are not thread-safe). prefetch_count=1
-    means no new pipeline message is delivered until this ack, so tasks still run
-    one at a time.
+    add_callback_threadsafe (pika channels are not thread-safe). prefetch_count is
+    pipeline_parallel_runs, so that many tasks run at the same time; RabbitMQ
+    delivers the next message only after an ack frees a slot.
+
+    Two jobs of the same run never run together (e.g. its final checksum while one
+    of its directories is still uploading): such a job waits BUSY_RUN_REQUEUE_DELAY
+    and goes to the back of the queue, so its slot is free for other runs.
     """
     connection = channel.connection
     delivery_tag = method.delivery_tag
+    key = _run_key(body)
 
     def _ack():
         if channel.is_open:
@@ -804,14 +873,32 @@ def on_pipeline_message(channel, method, properties, body):
         else:
             logger.warning(f"channel closed before ack (delivery_tag={delivery_tag}) — message will be redelivered")
 
+    def _nack():
+        # the copy could not be published: hand the message back to RabbitMQ instead of dropping it
+        if channel.is_open:
+            channel.basic_nack(delivery_tag=delivery_tag, requeue=True)
+
     def _run():
+        done = _ack
         try:
-            dispatch(body)
+            if _claim_run(key):
+                try:
+                    dispatch(body)
+                finally:
+                    _release_run(key)
+            else:
+                logger.info(f"run '{key[0]}' is busy with another job — re-queuing in {BUSY_RUN_REQUEUE_DELAY}s")
+                time.sleep(BUSY_RUN_REQUEUE_DELAY)
+                try:
+                    _requeue(body)
+                except Exception as e:
+                    logger.error(f"could not re-queue job of run '{key[0]}': {e}")
+                    done = _nack
         except Exception as e:
             logger.error(f"pipeline task crashed: {e}", exc_info=True)
         finally:
             try:
-                connection.add_callback_threadsafe(_ack)
+                connection.add_callback_threadsafe(done)
             except Exception as e:
                 logger.error(f"could not schedule ack (delivery_tag={delivery_tag}): {e}")
 
@@ -941,9 +1028,9 @@ def start():
     channel    = connection.channel()
     channel.queue_declare(queue=QUEUE_PIPELINE, durable=True)
 
-    # prefetch_count=1: process one pipeline task at a time — prevents
-    # concurrent uploads which would overwhelm the network and storage.
-    channel.basic_qos(prefetch_count=1)
+    # prefetch_count = pipeline_parallel_runs: how many pipeline tasks run at once.
+    # 1 keeps uploads to one run at a time, so they do not share the network link.
+    _watch_parallel_runs(connection, channel)
     channel.basic_consume(queue=QUEUE_PIPELINE, on_message_callback=on_pipeline_message)
 
     logger.info(f"waiting for messages on queues '{QUEUE_EVENTS}' (thread) and '{QUEUE_PIPELINE}' (main). press Ctrl+C to stop.")

@@ -38,6 +38,12 @@ DEFAULTS = [
         "description": "Library that uploads run files to S3: boto3 (Python, one file at a time, live byte progress) or s5cmd (Go binary, several files at once, progress per finished file)",
     },
     {
+        "key": "pipeline_parallel_runs",
+        "value": "1",
+        "category": "upload",
+        "description": "Runs the worker checksums and uploads at the same time. 1 = one run at a time; 2 lets a small run start while a large one is still uploading (they share the network link). The worker applies a change within 15 seconds",
+    },
+    {
         "key": "upload_s5cmd_workers",
         "value": "4",
         "category": "upload",
@@ -149,6 +155,7 @@ CHOICES = {
 
 # numeric settings with hard limits (inclusive) — values outside are refused
 RANGES = {
+    "pipeline_parallel_runs":    (1, 8),
     "upload_s5cmd_workers":      (1, 256),
     "upload_s5cmd_concurrency":  (1, 64),
     "upload_s5cmd_part_size_mb": (5, 5120),   # S3 multipart limits: 5 MiB to 5 GiB per part

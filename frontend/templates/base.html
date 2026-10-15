@@ -38,15 +38,19 @@
     {% block scripts %}{% endblock %}
 
     <script>
-      // Theme toggle (sidebar). Without a saved choice the page follows the system setting.
-      function setTheme(dark, save) {
+      // Theme: 'light' or 'dark' saved per browser; without a saved choice the page follows the system.
+      function savedTheme() {
+        try { return localStorage.getItem('theme'); } catch (e) { return null; }
+      }
+      function setTheme(dark) {
         document.documentElement.classList.toggle('dark', dark);
-        if (save) { try { localStorage.setItem('theme', dark ? 'dark' : 'light'); } catch (e) {} }
-        var label = document.getElementById('theme-toggle-label');
-        if (label) label.textContent = dark ? 'Light mode' : 'Dark mode';
-        document.querySelectorAll('[data-theme-icon]').forEach(function (el) {
-          el.classList.toggle('hidden', el.dataset.themeIcon !== (dark ? 'sun' : 'moon'));
-        });
+      }
+      // Settings → Appearance. choice: 'light', 'dark' or 'system'
+      function chooseTheme(choice) {
+        try {
+          if (choice === 'system') localStorage.removeItem('theme'); else localStorage.setItem('theme', choice);
+        } catch (e) {}
+        location.reload();  // charts read the theme when they are drawn
       }
       // Sidebar as a slide-in menu on small screens
       function openSidebar() {
@@ -58,15 +62,8 @@
         document.getElementById('sidebar-backdrop').classList.add('hidden');
       }
       document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeSidebar(); });
-      function toggleTheme() {
-        setTheme(!document.documentElement.classList.contains('dark'), true);
-        location.reload();  // charts read the theme when they are drawn
-      }
-      setTheme(document.documentElement.classList.contains('dark'), false);
       window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) {
-        var saved = null;
-        try { saved = localStorage.getItem('theme'); } catch (err) {}
-        if (!saved) setTheme(e.matches, false);
+        if (!savedTheme()) setTheme(e.matches);
       });
     </script>
 

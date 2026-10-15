@@ -288,3 +288,31 @@ def test_next_step_is_sent_after_the_run_is_released(monkeypatch):
     worker.on_pipeline_message(ch, SimpleNamespace(delivery_tag=1), None, _body("RUN_N"))
     assert ch.scheduled.wait(5)
     assert seen == [("run_upload_requested", True)]     # sent once, with the run already free
+
+
+def test_background_consumer_reconnects_after_any_disconnect(monkeypatch):
+    """A RabbitMQ restart or a long outage must not end the events/checksum consumer for good."""
+    attempts, setups = [], []
+
+    class Chan:
+        def start_consuming(self):
+            raise ConnectionError("broker forced connection closure")   # RabbitMQ restarted
+
+    class Conn:
+        def channel(self):
+            return Chan()
+
+    def connect(label):
+        attempts.append(label)
+        if len(attempts) == 1:
+            raise SystemExit(1)          # _connect_rabbitmq gave up after its retries
+        if len(attempts) == 4:
+            raise KeyboardInterrupt      # end the test
+        return Conn()
+
+    monkeypatch.setattr(worker, "_connect_rabbitmq", connect)
+    monkeypatch.setattr(worker.time, "sleep", lambda s: None)
+    with pytest.raises(KeyboardInterrupt):
+        worker._consume_forever("events", lambda conn, ch: setups.append(conn))
+    assert attempts == ["events"] * 4    # kept trying after SystemExit and after each lost connection
+    assert len(setups) == 2              # the queue and callback are set up again on every new connection

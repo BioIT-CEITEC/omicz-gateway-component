@@ -1057,42 +1057,66 @@ def _connect_rabbitmq(label: str):
     sys.exit(1)
 
 
-def _start_events_consumer():
+CONSUMER_RECONNECT_DELAY = 5  # seconds between reconnect attempts of a background consumer
+
+
+def _consume_forever(label: str, setup):
     """
-    Consumes from runs_events in a daemon thread.
-    Handles run_created and run_completed — fast DB operations that must
-    never be blocked by a long upload on the pipeline queue.
+    Run a background consumer and reconnect whenever its connection ends (RabbitMQ restarted,
+    network lost), so it never stops quietly while the rest of the worker keeps running.
+    setup(connection, channel) declares the queue and registers the callback. SystemExit from
+    _connect_rabbitmq is caught too: in a thread it would end only this thread, not the worker.
     """
-    connection = _connect_rabbitmq("events")
-    channel    = connection.channel()
+    while True:
+        try:
+            connection = _connect_rabbitmq(label)
+            channel    = connection.channel()
+            setup(connection, channel)
+            channel.start_consuming()
+            logger.warning(f"{label} consumer stopped consuming — reconnecting in {CONSUMER_RECONNECT_DELAY}s")
+        except (Exception, SystemExit) as e:
+            logger.error(f"{label} consumer stopped: {e} — reconnecting in {CONSUMER_RECONNECT_DELAY}s")
+        time.sleep(CONSUMER_RECONNECT_DELAY)
+
+
+def _setup_events(connection, channel):
     channel.queue_declare(queue=QUEUE_EVENTS, durable=True)
     channel.basic_qos(prefetch_count=1)
     channel.basic_consume(queue=QUEUE_EVENTS, on_message_callback=on_message)
     logger.info(f"events consumer ready on queue '{QUEUE_EVENTS}'")
-    try:
-        channel.start_consuming()
-    except Exception as e:
-        logger.error(f"events consumer crashed: {e}", exc_info=True)
+
+
+def _setup_checksum(connection, channel):
+    channel.queue_declare(queue=QUEUE_CHECKSUM, durable=True)
+    _watch_limit(connection, channel, "pipeline_parallel_checksums")
+    channel.basic_consume(queue=QUEUE_CHECKSUM, on_message_callback=on_pipeline_message)
+    logger.info(f"checksum consumer ready on queue '{QUEUE_CHECKSUM}'")
+
+
+def _setup_pipeline(connection, channel):
+    channel.queue_declare(queue=QUEUE_PIPELINE, durable=True)
+    # prefetch_count = pipeline_parallel_runs: how many pipeline tasks run at once.
+    # 1 keeps uploads to one run at a time, so they do not share the network link.
+    _watch_limit(connection, channel, "pipeline_parallel_runs")
+    channel.basic_consume(queue=QUEUE_PIPELINE, on_message_callback=on_pipeline_message)
+    logger.info(f"pipeline consumer ready on queue '{QUEUE_PIPELINE}'")
+
+
+def _start_events_consumer():
+    """
+    Consumes runs_events in a daemon thread: run_created and run_completed, fast DB operations
+    that must never be blocked by a long upload on the pipeline queue.
+    """
+    _consume_forever("events", _setup_events)
 
 
 def _start_checksum_consumer():
     """
     Consumes runs_checksum in a daemon thread with its own connection (pika connections are
     not thread-safe), so a finished run is hashed while other runs upload; its upload then
-    waits in runs_pipeline. Reconnects if the connection drops, so checksums never stop quietly.
+    waits in runs_pipeline.
     """
-    while True:
-        try:
-            connection = _connect_rabbitmq("checksum")
-            channel    = connection.channel()
-            channel.queue_declare(queue=QUEUE_CHECKSUM, durable=True)
-            _watch_limit(connection, channel, "pipeline_parallel_checksums")
-            channel.basic_consume(queue=QUEUE_CHECKSUM, on_message_callback=on_pipeline_message)
-            logger.info(f"checksum consumer ready on queue '{QUEUE_CHECKSUM}'")
-            channel.start_consuming()
-        except Exception as e:
-            logger.error(f"checksum consumer stopped: {e} — reconnecting in 5s", exc_info=True)
-            time.sleep(5)
+    _consume_forever("checksum", _setup_checksum)
 
 
 def start():
@@ -1110,23 +1134,12 @@ def start():
 
     threading.Thread(target=_start_checksum_consumer, daemon=True, name="checksum-consumer").start()
 
-    logger.info("connecting to RabbitMQ (pipeline)...")
-    connection = _connect_rabbitmq("pipeline")
-    channel    = connection.channel()
-    channel.queue_declare(queue=QUEUE_PIPELINE, durable=True)
-
-    # prefetch_count = pipeline_parallel_runs: how many pipeline tasks run at once.
-    # 1 keeps uploads to one run at a time, so they do not share the network link.
-    _watch_limit(connection, channel, "pipeline_parallel_runs")
-    channel.basic_consume(queue=QUEUE_PIPELINE, on_message_callback=on_pipeline_message)
-
+    # The pipeline queue is consumed here, in the main thread. If the connection ends (RabbitMQ
+    # restarted), reconnect instead of exiting: tasks already running keep going in their own
+    # threads; their ack fails on the old channel, RabbitMQ delivers them again, and the per-run
+    # guard and the handlers' status checks discard the duplicate.
     logger.info(f"waiting for messages on queues '{QUEUE_EVENTS}', '{QUEUE_CHECKSUM}' (threads) and '{QUEUE_PIPELINE}' (main). press Ctrl+C to stop.")
-    try:
-        channel.start_consuming()
-    except KeyboardInterrupt:
-        channel.stop_consuming()
-
-    connection.close()
+    _consume_forever("pipeline", _setup_pipeline)
 
 
 if __name__ == "__main__":

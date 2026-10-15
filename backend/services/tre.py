@@ -225,14 +225,22 @@ def _upload_file(s3, local_path: str, bucket: str, s3_key: str,
                 raise
 
 
-def _upload_client():
-    return boto3.client(
+def _s3_client(config):
+    # a session per client: boto3.client() shares one default session, which is not thread-safe,
+    # and several runs can upload at the same time (pipeline_parallel_runs)
+    return boto3.session.Session().client(
         "s3",
         endpoint_url=S3_ENDPOINT,
         aws_access_key_id=S3_ACCESS_KEY,
         aws_secret_access_key=S3_SECRET_KEY,
         region_name=S3_REGION,
-        config=boto3.session.Config(
+        config=config,
+    )
+
+
+def _upload_client():
+    return _s3_client(
+        boto3.session.Config(
             s3={"addressing_style": "path"},
             connect_timeout=10,
             read_timeout=600,
@@ -624,14 +632,7 @@ def find_checksum_filename_in_s3(run_name: str, sequencer_slug: str) -> str | No
     in the S3 upload bucket by listing the run's prefix.
     Returns just the filename (e.g. "abc123.CHECKSUM") or None if not found.
     """
-    s3 = boto3.client(
-        "s3",
-        endpoint_url=S3_ENDPOINT,
-        aws_access_key_id=S3_ACCESS_KEY,
-        aws_secret_access_key=S3_SECRET_KEY,
-        region_name=S3_REGION,
-        config=boto3.session.Config(s3={"addressing_style": "path"}),
-    )
+    s3 = _s3_client(boto3.session.Config(s3={"addressing_style": "path"}))
     prefix = f"{S3_PREFIX}{sequencer_slug}/{run_name}/"
     try:
         resp = s3.list_objects_v2(Bucket=S3_BUCKET, Prefix=prefix)
@@ -657,14 +658,7 @@ def check_verify_status(checksum_filename: str) -> dict:
       {"status": "failed", "detail": x}  — file has content = TRE reported an error
       {"status": "error",  "detail": x}  — unexpected S3/network error
     """
-    s3 = boto3.client(
-        "s3",
-        endpoint_url=S3_ENDPOINT,
-        aws_access_key_id=S3_ACCESS_KEY,
-        aws_secret_access_key=S3_SECRET_KEY,
-        region_name=S3_REGION,
-        config=boto3.session.Config(s3={"addressing_style": "path"}),
-    )
+    s3 = _s3_client(boto3.session.Config(s3={"addressing_style": "path"}))
     try:
         obj = s3.get_object(Bucket=S3_CHECKSUM_BUCKET, Key=f"{S3_CHECKSUM_PREFIX}{checksum_filename}")
         content = obj["Body"].read().decode("utf-8")

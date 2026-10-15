@@ -132,7 +132,9 @@ def queue_view(request: Request, skip: int = 0, limit: int | None = None):
     response = httpx.get(f"{BACKEND_URL}/runs/queue", params={"skip": skip, "limit": limit})
     data = safe_json(response, fallback={"total": 0, "skip": skip, "limit": limit, "results": []})
     failed = safe_json(httpx.get(f"{BACKEND_URL}/runs/failed"), fallback=[])
-    return templates.TemplateResponse(request, "runs/queue.html", {"data": data, "failed": failed})
+    # directory stability: folders sent while their run is still acquiring data
+    dirs = safe_json(httpx.get(f"{BACKEND_URL}/runs/queue/directories"), fallback=[])
+    return templates.TemplateResponse(request, "runs/queue.html", {"data": data, "failed": failed, "dirs": dirs})
 
 
 # ── START UPLOAD (manual trigger for sent_to_tre=manual)

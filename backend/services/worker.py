@@ -32,7 +32,8 @@ logger = get_logger("worker")
 
 RABBITMQ_URL   = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
 QUEUE_EVENTS   = "runs_events"    # run_created, run_completed  — fast, always processed immediately
-QUEUE_PIPELINE = "runs_pipeline"  # checksum, upload, verify    — slow, one at a time
+QUEUE_PIPELINE = "runs_pipeline"  # upload, verify, directory uploads — slow, pipeline_parallel_runs at a time
+QUEUE_CHECKSUM = "runs_checksum"  # checksum — slow, pipeline_parallel_checksums at a time, next to the uploads
 
 
 def resolve_verify_detail(tre_error: str | None, run_folder: str, retries: int) -> str:
@@ -83,6 +84,19 @@ def _throttled(write, min_interval: float = PROGRESS_MIN_INTERVAL):
     return callback
 
 
+def _upload_text(done: int, total: int, bytes_done: int, total_bytes: int) -> str:
+    """
+    "12 / 170 files · 40.0 GB / 363.4 GB". s5cmd counts bytes as they are written to the network,
+    and a file counts only once S3 has confirmed it, so every byte can be out while S3 is still
+    storing the last files (or finishing a large multipart file); say so instead of showing "done".
+    """
+    text = f"{done} / {total} files · {_fmt_bytes(bytes_done)} / {_fmt_bytes(total_bytes)}"
+    if total and done < total and bytes_done >= total_bytes:
+        left = total - done
+        text += f" · S3 finishing {left} file{'s' if left != 1 else ''}"
+    return text
+
+
 def _make_progress_callback(run_uuid, show_files: bool = False):
     """
     Returns a (throttled) callback that writes checksum / upload progress to the run's progress column.
@@ -91,9 +105,10 @@ def _make_progress_callback(run_uuid, show_files: bool = False):
     """
     @_throttled
     def callback(done: int, total: int, bytes_done: int, total_bytes: int):
-        text = f"{_fmt_bytes(bytes_done)} / {_fmt_bytes(total_bytes)}"
         if show_files:
-            text = f"{done} / {total} files · {text}"
+            text = _upload_text(done, total, bytes_done, total_bytes)
+        else:
+            text = f"{_fmt_bytes(bytes_done)} / {_fmt_bytes(total_bytes)}"
         db = SESSION_LOCAL()
         try:
             run = db.query(Runs).filter(Runs.uuid == run_uuid).first()
@@ -225,7 +240,7 @@ class _DirProgress:
                 return
             self.last = now
             done, total, bytes_done, total_bytes = self.sent
-            text = f"sent {done} / {total} files · {_fmt_bytes(bytes_done)} / {_fmt_bytes(total_bytes)}"
+            text = "sent " + _upload_text(done, total, bytes_done, total_bytes)
             if self.hashed_ < self.total_bytes:
                 text = f"hashed {_fmt_bytes(self.hashed_)} / {_fmt_bytes(self.total_bytes)} · {text}"
         db = SESSION_LOCAL()
@@ -365,8 +380,8 @@ def handle_run_completed(name: str, sequencer_uuid):
     Completion signal detected by the watcher.
     Sets status to running_finished, then checks the sequencer's
     sent_to_tre setting:
-      - auto   → immediately publish run_upload_requested so the worker
-                 continues the pipeline without waiting
+      - auto   → publish run_checksum_requested; it goes to the checksum queue, so the
+                 run is hashed even while other runs upload
       - manual → stop here; a button in the UI will trigger the next step
     """
     logger.info(f"run_completed → name={name} sequencer_uuid={sequencer_uuid}")
@@ -460,9 +475,8 @@ def handle_run_checksum_requested(name: str, sequencer_uuid):
             logger.info(f"stored checksum_file='{run_obj.checksum_file}' for run '{name}'")
         add_run_status_history(run_uuid=run.uuid, status="queued", db=db)
 
-        from services.publisher import publish
-        publish("run_upload_requested", name, sequencer_uuid)
-        logger.info(f"checksum done — published run_upload_requested for '{name}'")
+        _continue_after_checksum(name, sequencer_uuid, run.uuid, os.path.join(sequencer.location, name),
+                                 sequencer.exclusions or [], checksum_path, db)
 
     except Exception as e:
         logger.error(f"failed during checksum for run '{name}': {e}", exc_info=True)
@@ -473,6 +487,36 @@ def handle_run_checksum_requested(name: str, sequencer_uuid):
             pass
     finally:
         db.close()
+
+
+def _bytes_left_to_send(run_uuid, run_folder: str, exclusions: list[str], checksum_path: str, db) -> int:
+    """
+    Bytes a run still has to upload after its checksum: files not sent yet (or changed since),
+    plus the .CHECKSUM. Scans the folder instead of using the checksum step's digests, because
+    a retry reuses an existing .CHECKSUM and reports no files.
+    """
+    sent    = dir_stability.uploaded_files(run_uuid, db)
+    current = dir_stability.scan_tree(run_folder, exclusions)
+    left    = sum(size for rel, (size, mtime_ns) in current.items() if sent.get(rel) != (size, mtime_ns))
+    return left + os.path.getsize(checksum_path)
+
+
+def _continue_after_checksum(name: str, sequencer_uuid, run_uuid, run_folder: str, exclusions: list[str], checksum_path: str, db):
+    """
+    Hand a checksummed run to its upload. When little is left to send (directory stability sent
+    the folders already, so only root files and the .CHECKSUM remain), upload it here at once —
+    it does not need to wait hours for an upload slot behind another run's terabytes, and takes
+    the shared link for seconds. This holds the checksum slot while it uploads, which is why the
+    limit is small. Otherwise queue it for an upload slot.
+    """
+    limit = get_setting_int("upload_fast_lane_mb", 256) * 1024 * 1024
+    left  = _bytes_left_to_send(run_uuid, run_folder, exclusions, checksum_path, db)
+    if limit and left <= limit:
+        logger.info(f"'{name}': {_fmt_bytes(left)} left to send (limit {_fmt_bytes(limit)}) — uploading now, without waiting for an upload slot")
+        handle_run_upload_requested(name, sequencer_uuid)
+        return
+    _publish_after_job("run_upload_requested", name, sequencer_uuid)
+    logger.info(f"checksum done — {_fmt_bytes(left)} left to send, run_upload_requested for '{name}'")
 
 
 def handle_run_upload_requested(name: str, sequencer_uuid):
@@ -605,9 +649,7 @@ def handle_run_rechecksum_requested(name: str, sequencer_uuid):
             logger.info(f"stored checksum_file='{run_obj.checksum_file}' for run '{name}'")
         add_run_status_history(run_uuid=run.uuid, status="queued", db=db)
 
-        from services.publisher import publish
-        publish("run_upload_requested", name, sequencer_uuid)
-        logger.info(f"rechecksum done — published run_upload_requested for '{name}'")
+        _continue_after_checksum(name, sequencer_uuid, run.uuid, run_folder, sequencer.exclusions or [], checksum_path, db)
 
     except Exception as e:
         logger.error(f"failed during rechecksum for run '{name}': {e}", exc_info=True)
@@ -782,6 +824,86 @@ def on_message(channel, method, properties, body):
         channel.basic_ack(delivery_tag=method.delivery_tag)
 
 
+BUSY_RUN_REQUEUE_DELAY = 30        # seconds a job of a busy run waits before it goes back to the queue
+PARALLEL_RUNS_CHECK_INTERVAL = 15  # seconds between reads of pipeline_parallel_runs / pipeline_parallel_checksums
+
+_busy_runs: set[tuple] = set()
+_busy_runs_lock = threading.Lock()
+_job = threading.local()   # .after: messages a running pipeline job sends once it has released its run
+
+
+def _publish_after_job(event: str, name: str, sequencer_uuid, **extra):
+    """
+    Publish the next step of a run. Inside a pipeline job it is sent only after the job has
+    released the run: sent earlier, the other consumer would find the run still busy and push
+    the next step to the back of its queue for BUSY_RUN_REQUEUE_DELAY.
+    """
+    from services.publisher import publish
+    after = getattr(_job, "after", None)
+    if after is None:
+        publish(event, name, sequencer_uuid, **extra)
+    else:
+        after.append((event, name, sequencer_uuid, extra))
+
+
+def _claim_run(key: tuple) -> bool:
+    """Mark a run as busy; False if another pipeline job of the same run is running."""
+    with _busy_runs_lock:
+        if key in _busy_runs:
+            return False
+        _busy_runs.add(key)
+        return True
+
+
+def _release_run(key: tuple):
+    with _busy_runs_lock:
+        _busy_runs.discard(key)
+
+
+def _run_key(body: bytes) -> tuple:
+    try:
+        message = json.loads(body)
+        return (message.get("name"), message.get("sequencer_uuid"))
+    except Exception:
+        return (None, None)
+
+
+def _requeue(body: bytes):
+    """Send a message to the back of its queue, so jobs of other runs go first."""
+    from services.publisher import publish
+    message = json.loads(body)
+    publish(message.pop("event"), message.pop("name"), message.pop("sequencer_uuid"), **message)
+
+
+def _apply_limit(channel, setting: str):
+    """
+    Set a pipeline channel's prefetch_count from a setting (pipeline_parallel_runs or
+    pipeline_parallel_checksums); called on the connection thread. global_qos=True makes it a
+    limit for the whole channel, which RabbitMQ applies at once and which counts every
+    unacknowledged task on the channel. (A per-consumer limit only takes effect for consumers
+    created after the change.)
+    """
+    wanted = max(1, get_setting_int(setting, 1))
+    if getattr(channel, "_omicz_prefetch", None) == wanted:
+        return
+    channel.basic_qos(prefetch_count=wanted, global_qos=True)
+    channel._omicz_prefetch = wanted
+    logger.info(f"{setting} = {wanted}: up to {wanted} task(s) at the same time")
+
+
+def _watch_limit(connection, channel, setting: str):
+    """
+    Apply the setting now and again every PARALLEL_RUNS_CHECK_INTERVAL. Re-reading it only when
+    a message arrives would not work: while every slot is busy nothing is delivered, so raising
+    1 → 2 during a long upload would wait for that upload to end.
+    """
+    try:
+        _apply_limit(channel, setting)
+    except Exception as e:
+        logger.error(f"could not apply {setting}: {e}")
+    connection.call_later(PARALLEL_RUNS_CHECK_INTERVAL, lambda: _watch_limit(connection, channel, setting))
+
+
 def on_pipeline_message(channel, method, properties, body):
     """
     Pipeline queue: checksum / upload / verify can take hours. Running them inside
@@ -791,12 +913,19 @@ def on_pipeline_message(channel, method, properties, body):
 
     Instead the task runs in its own thread while start_consuming() keeps the
     connection alive. The ack is handed back to the connection thread with
-    add_callback_threadsafe (pika channels are not thread-safe). prefetch_count=1
-    means no new pipeline message is delivered until this ack, so tasks still run
-    one at a time.
+    add_callback_threadsafe (pika channels are not thread-safe). prefetch_count is
+    pipeline_parallel_runs (pipeline queue) or pipeline_parallel_checksums (checksum
+    queue), so that many tasks run at the same time; RabbitMQ delivers the next
+    message only after an ack frees a slot.
+
+    Used for both the pipeline and the checksum queue. Two jobs of the same run never
+    run together, whichever queue they come from (e.g. its final checksum while one of
+    its directories is still uploading): such a job waits BUSY_RUN_REQUEUE_DELAY and
+    goes to the back of its queue, so its slot is free for other runs.
     """
     connection = channel.connection
     delivery_tag = method.delivery_tag
+    key = _run_key(body)
 
     def _ack():
         if channel.is_open:
@@ -804,14 +933,37 @@ def on_pipeline_message(channel, method, properties, body):
         else:
             logger.warning(f"channel closed before ack (delivery_tag={delivery_tag}) — message will be redelivered")
 
+    def _nack():
+        # the copy could not be published: hand the message back to RabbitMQ instead of dropping it
+        if channel.is_open:
+            channel.basic_nack(delivery_tag=delivery_tag, requeue=True)
+
     def _run():
+        done = _ack
         try:
-            dispatch(body)
+            if _claim_run(key):
+                _job.after = []
+                try:
+                    dispatch(body)
+                finally:
+                    _release_run(key)
+                    after, _job.after = _job.after, None
+                    from services.publisher import publish
+                    for event, name, seq, extra in after:
+                        publish(event, name, seq, **extra)
+            else:
+                logger.info(f"run '{key[0]}' is busy with another job — re-queuing in {BUSY_RUN_REQUEUE_DELAY}s")
+                time.sleep(BUSY_RUN_REQUEUE_DELAY)
+                try:
+                    _requeue(body)
+                except Exception as e:
+                    logger.error(f"could not re-queue job of run '{key[0]}': {e}")
+                    done = _nack
         except Exception as e:
             logger.error(f"pipeline task crashed: {e}", exc_info=True)
         finally:
             try:
-                connection.add_callback_threadsafe(_ack)
+                connection.add_callback_threadsafe(done)
             except Exception as e:
                 logger.error(f"could not schedule ack (delivery_tag={delivery_tag}): {e}")
 
@@ -923,6 +1075,26 @@ def _start_events_consumer():
         logger.error(f"events consumer crashed: {e}", exc_info=True)
 
 
+def _start_checksum_consumer():
+    """
+    Consumes runs_checksum in a daemon thread with its own connection (pika connections are
+    not thread-safe), so a finished run is hashed while other runs upload; its upload then
+    waits in runs_pipeline. Reconnects if the connection drops, so checksums never stop quietly.
+    """
+    while True:
+        try:
+            connection = _connect_rabbitmq("checksum")
+            channel    = connection.channel()
+            channel.queue_declare(queue=QUEUE_CHECKSUM, durable=True)
+            _watch_limit(connection, channel, "pipeline_parallel_checksums")
+            channel.basic_consume(queue=QUEUE_CHECKSUM, on_message_callback=on_pipeline_message)
+            logger.info(f"checksum consumer ready on queue '{QUEUE_CHECKSUM}'")
+            channel.start_consuming()
+        except Exception as e:
+            logger.error(f"checksum consumer stopped: {e} — reconnecting in 5s", exc_info=True)
+            time.sleep(5)
+
+
 def start():
     recover_stuck_runs()
     recover_auto_runs()
@@ -936,17 +1108,19 @@ def start():
     # waiting for the TRE does not block the next upload.
     threading.Thread(target=_verifier_loop, daemon=True, name="verifier").start()
 
+    threading.Thread(target=_start_checksum_consumer, daemon=True, name="checksum-consumer").start()
+
     logger.info("connecting to RabbitMQ (pipeline)...")
     connection = _connect_rabbitmq("pipeline")
     channel    = connection.channel()
     channel.queue_declare(queue=QUEUE_PIPELINE, durable=True)
 
-    # prefetch_count=1: process one pipeline task at a time — prevents
-    # concurrent uploads which would overwhelm the network and storage.
-    channel.basic_qos(prefetch_count=1)
+    # prefetch_count = pipeline_parallel_runs: how many pipeline tasks run at once.
+    # 1 keeps uploads to one run at a time, so they do not share the network link.
+    _watch_limit(connection, channel, "pipeline_parallel_runs")
     channel.basic_consume(queue=QUEUE_PIPELINE, on_message_callback=on_pipeline_message)
 
-    logger.info(f"waiting for messages on queues '{QUEUE_EVENTS}' (thread) and '{QUEUE_PIPELINE}' (main). press Ctrl+C to stop.")
+    logger.info(f"waiting for messages on queues '{QUEUE_EVENTS}', '{QUEUE_CHECKSUM}' (threads) and '{QUEUE_PIPELINE}' (main). press Ctrl+C to stop.")
     try:
         channel.start_consuming()
     except KeyboardInterrupt:

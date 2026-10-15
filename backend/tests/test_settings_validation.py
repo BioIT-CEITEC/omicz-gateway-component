@@ -12,6 +12,8 @@ from db.repositories.settings import InvalidSettingValue, validate_value
 @pytest.mark.parametrize("key,value", [
     ("upload_engine", "s5cmd"),
     ("upload_s5cmd_workers", "16"),
+    ("pipeline_parallel_runs", "2"),
+    ("pipeline_parallel_checksums", "8"),
     ("upload_s5cmd_concurrency", "1"),
     ("upload_s5cmd_part_size_mb", "5"),
     ("upload_s5cmd_part_size_mb", "5120"),
@@ -24,6 +26,9 @@ def test_valid_values_pass(key, value):
 @pytest.mark.parametrize("key,value", [
     ("upload_engine", "rclone"),
     ("upload_s5cmd_workers", "0"),
+    ("pipeline_parallel_runs", "0"),
+    ("pipeline_parallel_runs", "9"),
+    ("pipeline_parallel_checksums", "0"),
     ("upload_s5cmd_concurrency", "65"),
     ("upload_s5cmd_part_size_mb", "4"),
     ("upload_s5cmd_part_size_mb", "5121"),

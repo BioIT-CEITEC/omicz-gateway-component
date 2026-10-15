@@ -38,6 +38,24 @@ DEFAULTS = [
         "description": "Library that uploads run files to S3: boto3 (Python, one file at a time, live byte progress) or s5cmd (Go binary, several files at once, progress per finished file)",
     },
     {
+        "key": "pipeline_parallel_runs",
+        "value": "1",
+        "category": "upload",
+        "description": "Runs the worker uploads at the same time. 1 = one run at a time; 2 lets a small run start while a large one is still uploading (they share the network link). Checksumming has its own setting. The worker applies a change within 15 seconds",
+    },
+    {
+        "key": "pipeline_parallel_checksums",
+        "value": "1",
+        "category": "upload",
+        "description": "Finished runs the worker checksums at the same time. Checksumming has its own slots, so a run is hashed while others upload and its upload starts right away when an upload slot frees. The worker applies a change within 15 seconds",
+    },
+    {
+        "key": "upload_fast_lane_mb",
+        "value": "256",
+        "category": "upload",
+        "description": "After the checksum, a run with at most this many MB left to send is uploaded at once instead of waiting for an upload slot (e.g. a directory-stability run whose folders were sent during acquisition: only root files and the .CHECKSUM remain). 0 = always wait for a slot",
+    },
+    {
         "key": "upload_s5cmd_workers",
         "value": "4",
         "category": "upload",
@@ -149,6 +167,9 @@ CHOICES = {
 
 # numeric settings with hard limits (inclusive) — values outside are refused
 RANGES = {
+    "pipeline_parallel_runs":    (1, 8),
+    "pipeline_parallel_checksums": (1, 8),
+    "upload_fast_lane_mb":       (0, 102400),
     "upload_s5cmd_workers":      (1, 256),
     "upload_s5cmd_concurrency":  (1, 64),
     "upload_s5cmd_part_size_mb": (5, 5120),   # S3 multipart limits: 5 MiB to 5 GiB per part

@@ -57,6 +57,18 @@ def get_runs_by_sequencer(sequencer_uuid: UUID, db: Session):
 PIPELINE_STATUSES = ["queued", "checksumming", "moving", "verifying"]
 
 
+def _in_pipeline():
+    """Runs in the pipeline, plus finished runs of auto-transfer instruments whose checksum job is queued."""
+    from sqlalchemy import or_, and_, select
+    from db.models.sequencers import Sequencers
+    auto = select(Sequencers.uuid).where(Sequencers.sent_to_tre == "auto")
+    return and_(
+        Runs.is_deleted == False,
+        or_(Runs.status.in_(PIPELINE_STATUSES),
+            and_(Runs.status == "running_finished", Runs.sequencer_uuid.in_(auto))),
+    )
+
+
 def get_queued_runs(db: Session, skip: int = 0, limit: int = 20):
     """Returns paginated runs currently in the pipeline, active ones first then queued."""
     from sqlalchemy import case
@@ -69,7 +81,7 @@ def get_queued_runs(db: Session, skip: int = 0, limit: int = 20):
     )
     return (
         db.query(Runs)
-        .filter(Runs.status.in_(PIPELINE_STATUSES), Runs.is_deleted == False)
+        .filter(_in_pipeline())
         .order_by(status_order, Runs.updated_at.asc())
         .offset(skip)
         .limit(limit)
@@ -80,7 +92,7 @@ def get_queued_runs(db: Session, skip: int = 0, limit: int = 20):
 def count_queued_runs(db: Session) -> int:
     return (
         db.query(Runs)
-        .filter(Runs.status.in_(PIPELINE_STATUSES), Runs.is_deleted == False)
+        .filter(_in_pipeline())
         .count()
     )
 

@@ -6,14 +6,18 @@
 {% set runs = data.results %}
 {% set active_statuses = ['checksumming', 'moving', 'verifying'] %}
 {% set active  = runs | selectattr('status', 'in', active_statuses) | list %}
-{% set waiting = runs | selectattr('status', 'equalto', 'queued') | list %}
+{% set waiting = runs | selectattr('status', 'in', ['queued', 'running_finished']) | list %}
+{# directory stability: folders sent while their run is still acquiring data (run status stays 'running') #}
+{% set dirs = dirs or [] %}
+{% set dirs_active  = dirs | selectattr('state', 'equalto', 'uploading') | list %}
+{% set dirs_waiting = dirs | selectattr('state', 'equalto', 'queued') | list %}
 
 {# ── Header ── #}
 <div class="flex items-start justify-between mb-5">
   <div>
     <h1 class="text-2xl font-bold text-gray-900">{{ lang.transfer_queue }}</h1>
     <p class="text-sm text-gray-400 mt-0.5">
-      {{ active | length }} active · {{ waiting | length }} waiting
+      {{ active | length + dirs_active | length }} active · {{ waiting | length + dirs_waiting | length }} waiting
       {% if failed %} · <span class="text-red-400">{{ failed | length }} failed</span>{% endif %}
     </p>
   </div>
@@ -33,7 +37,7 @@
 </div>
 
 
-{% if not runs and not failed %}
+{% if not runs and not failed and not dirs %}
 {# ── Empty state ── #}
 <div class="bg-white rounded-xl border border-gray-100 p-14 text-center">
   <svg class="w-8 h-8 text-gray-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -47,7 +51,7 @@
 {# ── Active runs ── #}
 <div class="mb-6">
   <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-3">Active</p>
-  {% if not active %}
+  {% if not active and not dirs_active %}
   <div class="bg-white rounded-xl border border-gray-100 px-5 py-10 flex flex-col items-center gap-3">
     {# Idle animation: three dots #}
     <div class="flex items-center gap-2">
@@ -137,14 +141,50 @@
     </div>
 
     {% endfor %}
+
+    {% for d in dirs_active %}
+    {% set sent = d.progress.split('sent ')[-1] if d.progress else '' %}
+    <div class="bg-white rounded-xl border border-gray-100 px-5 py-4">
+      <div class="flex items-center gap-4">
+        <span class="relative flex shrink-0">
+          <span class="w-2.5 h-2.5 rounded-full bg-blue-400"></span>
+          <span class="absolute inset-0 rounded-full animate-ping opacity-50 bg-blue-400"></span>
+        </span>
+        <div class="flex-1 min-w-0">
+          <a href="/acquisition-runs/{{ d.run_uuid }}" class="text-sm font-semibold text-gray-900 hover:text-[#0C2461] transition truncate block">{{ d.run_name }} <span class="font-normal text-gray-400">/ {{ d.name }}</span></a>
+          <p class="text-xs text-gray-400 mt-0.5">{{ d.sequencer_name or '' }} · folder sent during {{ lang.status_running | lower }}</p>
+        </div>
+        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border shrink-0 bg-blue-50 text-blue-600 border-blue-100">
+          {% if d.progress and d.progress.startswith('hashed') %}Hashing and sending{% else %}Sending{% endif %}
+        </span>
+        {% if d.progress %}
+        <span class="text-xs text-gray-400 font-mono shrink-0 hidden sm:block">{{ d.progress }}</span>
+        {% endif %}
+        <a href="/acquisition-runs/{{ d.run_uuid }}"
+           class="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gray-100 text-gray-400 hover:bg-[#0C2461] hover:text-white transition shrink-0">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.964-7.178Z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
+          </svg>
+        </a>
+      </div>
+      {% if sent %}
+      <div class="mt-3">
+        <div class="w-full h-1.5 rounded-full bg-blue-100">
+          <div class="h-1.5 rounded-full transition-all duration-500 bg-blue-400" data-progress="{{ sent }}" style="width: 0%" data-bar></div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
   </div>
   {% endif %}
 </div>
 
 {# ── Waiting queue ── #}
-{% if waiting %}
+{% if waiting or dirs_waiting %}
 <div class="mb-6">
-  <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-3">Waiting · {{ waiting | length }}</p>
+  <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-3">Waiting · {{ waiting | length + dirs_waiting | length }}</p>
   <div class="bg-white rounded-xl border border-gray-100 divide-y divide-gray-50">
     {% for run in waiting %}
     <div class="flex items-center gap-4 px-5 py-3.5">
@@ -154,7 +194,7 @@
       {# Name + sequencer #}
       <div class="flex-1 min-w-0">
         <a href="/acquisition-runs/{{ run.uuid }}" class="text-sm font-medium text-gray-700 hover:text-[#0C2461] transition truncate block">{{ run.name }}</a>
-        <p class="text-xs text-gray-400 mt-0.5">{{ run.sequencer_name or (run.sequencer_uuid | string)[:8] ~ '…' }}</p>
+        <p class="text-xs text-gray-400 mt-0.5">{{ run.sequencer_name or (run.sequencer_uuid | string)[:8] ~ '…' }}{% if run.status == 'running_finished' %} · {{ lang.status_running_finished | lower }}, checksumming starts when a checksum slot is free{% endif %}</p>
       </div>
 
       {# Queued since #}
@@ -162,6 +202,23 @@
 
       {# Eye link #}
       <a href="/acquisition-runs/{{ run.uuid }}"
+         class="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gray-100 text-gray-400 hover:bg-[#0C2461] hover:text-white transition shrink-0">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.964-7.178Z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
+        </svg>
+      </a>
+    </div>
+    {% endfor %}
+    {% for d in dirs_waiting %}
+    <div class="flex items-center gap-4 px-5 py-3.5">
+      <span class="text-[11px] font-mono text-gray-300 w-5 shrink-0 text-right select-none">{{ waiting | length + loop.index }}</span>
+      <div class="flex-1 min-w-0">
+        <a href="/acquisition-runs/{{ d.run_uuid }}" class="text-sm font-medium text-gray-700 hover:text-[#0C2461] transition truncate block">{{ d.run_name }} <span class="font-normal text-gray-400">/ {{ d.name }}</span></a>
+        <p class="text-xs text-gray-400 mt-0.5">{{ d.sequencer_name or '' }} · folder, {{ d.file_count }} file{{ 's' if d.file_count != 1 }}</p>
+      </div>
+      <span class="text-xs text-gray-300 tabular-nums hidden md:block shrink-0">{{ d.updated_at | local_dt }}</span>
+      <a href="/acquisition-runs/{{ d.run_uuid }}"
          class="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gray-100 text-gray-400 hover:bg-[#0C2461] hover:text-white transition shrink-0">
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.964-7.178Z"/>
@@ -185,7 +242,7 @@
     {% if data.total > data.limit %}
     Showing {{ data.skip + 1 }}–{{ [data.skip + data.limit, data.total] | min }} of {{ data.total }}
     {% else %}
-    {{ data.total }} run{{ 's' if data.total != 1 }} in queue
+    {{ data.total }} run{{ 's' if data.total != 1 }}{% if dirs %} and {{ dirs | length }} folder{{ 's' if dirs | length != 1 }}{% endif %} in queue
     {% endif %}
   </p>
   <div class="flex gap-2">
@@ -347,7 +404,10 @@
     if (byteMatch) {
       const done  = parseFloat(byteMatch[1]) * (UNITS[byteMatch[2].toLowerCase()] || 1);
       const total = parseFloat(byteMatch[3]) * (UNITS[byteMatch[4].toLowerCase()] || 1);
-      return total > 0 ? Math.min(100, Math.round(done / total * 100)) : 0;
+      // all bytes written but S3 has not confirmed every file yet: not done
+      const files = str.match(/(\d+)\s*\/\s*(\d+)\s*files/);
+      const cap = files && +files[1] < +files[2] ? 99 : 100;
+      return total > 0 ? Math.min(cap, Math.round(done / total * 100)) : 0;
     }
     if (filesMatch) return Math.min(100, Math.round(parseInt(filesMatch[1]) / parseInt(filesMatch[2]) * 100));
     if (pctMatch)   return Math.min(100, parseFloat(pctMatch[1]));

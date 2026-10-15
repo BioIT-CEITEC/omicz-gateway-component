@@ -11,6 +11,7 @@ import subprocess
 import sys
 
 import pytest
+from types import SimpleNamespace
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -26,6 +27,10 @@ COMPOSE_V1 = """services:
       - ${MACHINE_1_PATH}:/runs/machine-1
 """
 
+
+
+ADMIN = SimpleNamespace(state=SimpleNamespace(user={"username": "admin", "is_admin": True}))
+USER  = SimpleNamespace(state=SimpleNamespace(user={"username": "bob", "is_admin": False}))
 
 def sh(cwd, *args):
     subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *args], cwd=cwd, check=True,
@@ -188,7 +193,7 @@ def test_asks_before_interrupting_transfers(system, monkeypatch):
     monkeypatch.setattr(system, "_active_transfers",
                         lambda: {"count": 1, "runs": [{"name": "RUN_1", "status": "moving"}], "directories": []})
     monkeypatch.setattr(system.updater, "pull_keeping_local_changes", lambda ws: pytest.fail("must not pull"))
-    code, data = body(system.do_update(force=False))
+    code, data = body(system.do_update(ADMIN, force=False))
     assert code == 409 and data["busy"] and "RUN_1 (moving)" in data["error"]
 
 
@@ -196,7 +201,7 @@ def test_force_updates_despite_transfers(system, monkeypatch):
     monkeypatch.setattr(system, "_active_transfers", lambda: pytest.fail("force skips the check"))
     monkeypatch.setattr(system.updater, "pull_keeping_local_changes", pulled(["VERSION"]))
     monkeypatch.setattr(system, "_run_migrations", lambda: (True, ""))
-    code, data = body(system.do_update(force=True))
+    code, data = body(system.do_update(ADMIN, force=True))
     assert code == 200 and data["success"]
 
 
@@ -205,7 +210,7 @@ def test_migrations_always_run_and_services_restart(system, monkeypatch):
     monkeypatch.setattr(system.updater, "pull_keeping_local_changes", pulled(["frontend/routers/x.py"]))  # no migration file
     ran = []
     monkeypatch.setattr(system, "_run_migrations", lambda: (ran.append(1), (True, "Running upgrade"))[1])
-    code, data = body(system.do_update(force=False))
+    code, data = body(system.do_update(ADMIN, force=False))
     assert ran == [1]
     assert system._restarted == ["fastapi_gateway_watcher", "fastapi_gateway_worker", "fastapi_gateway_backend"]
     assert data["warnings"] == []
@@ -215,7 +220,7 @@ def test_failed_migration_keeps_worker_on_old_version(system, monkeypatch):
     monkeypatch.setattr(system, "_active_transfers", lambda: {"count": 0})
     monkeypatch.setattr(system.updater, "pull_keeping_local_changes", pulled(["backend/alembic/versions/x.py"]))
     monkeypatch.setattr(system, "_run_migrations", lambda: (False, "sqlalchemy error"))
-    code, data = body(system.do_update(force=False))
+    code, data = body(system.do_update(ADMIN, force=False))
     assert data["success"] and system._restarted == []
     assert "migration FAILED" in data["warnings"][0]
 
@@ -224,7 +229,7 @@ def test_nothing_to_update_restarts_nothing(system, monkeypatch):
     monkeypatch.setattr(system, "_active_transfers", lambda: {"count": 0})
     monkeypatch.setattr(system.updater, "pull_keeping_local_changes", pulled([]))
     monkeypatch.setattr(system, "_run_migrations", lambda: pytest.fail("no migration when nothing changed"))
-    code, data = body(system.do_update(force=False))
+    code, data = body(system.do_update(ADMIN, force=False))
     assert data["success"] and system._restarted == []
 
 
@@ -232,7 +237,7 @@ def test_compose_change_is_reported(system, monkeypatch):
     monkeypatch.setattr(system, "_active_transfers", lambda: {"count": 0})
     monkeypatch.setattr(system.updater, "pull_keeping_local_changes", pulled(["docker-compose.yml", "backend/requirements.txt"]))
     monkeypatch.setattr(system, "_run_migrations", lambda: (True, ""))
-    code, data = body(system.do_update(force=False))
+    code, data = body(system.do_update(ADMIN, force=False))
     assert data["needs_compose_up"] and data["needs_rebuild"]
     assert any("docker compose up -d" in w for w in data["warnings"])
 
@@ -241,5 +246,13 @@ def test_failed_pull_is_reported_without_restarts(system, monkeypatch):
     monkeypatch.setattr(system, "_active_transfers", lambda: {"count": 0})
     monkeypatch.setattr(system.updater, "pull_keeping_local_changes",
                         lambda ws: {"ok": False, "error": "The update was NOT applied", "log": ["Local changes restored."]})
-    code, data = body(system.do_update(force=False))
+    code, data = body(system.do_update(ADMIN, force=False))
     assert code == 500 and "NOT applied" in data["error"] and system._restarted == []
+
+
+def test_update_is_for_administrators_only():
+    from fastapi import HTTPException
+    from routers import system
+    with pytest.raises(HTTPException) as e:
+        system.do_update(USER, force=False)
+    assert e.value.status_code == 403

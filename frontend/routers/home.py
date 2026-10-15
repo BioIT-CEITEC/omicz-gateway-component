@@ -1,5 +1,6 @@
 import os
 import httpx
+import backend_api
 from collections import Counter
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Request
@@ -12,7 +13,7 @@ BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 
 def _get(path: str, params: dict | None = None):
     try:
-        r = httpx.get(f"{BACKEND_URL}{path}", params=params, timeout=5)
+        r = backend_api.get(f"{BACKEND_URL}{path}", params=params, timeout=5)
         return r.json() if r.status_code == 200 else None
     except Exception:
         return None

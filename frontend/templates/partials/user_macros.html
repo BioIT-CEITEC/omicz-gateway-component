@@ -1,0 +1,7 @@
+{# A user's full name (or the username if no name is set) and two-letter initials. #}
+{% macro display_name(u) -%}
+{{ (((u.first_name or '') ~ ' ' ~ (u.last_name or '')) | trim) or u.username }}
+{%- endmacro %}
+{% macro initials(u) -%}
+{{ (((u.first_name or '')[:1] ~ (u.last_name or '')[:1]) | upper) or (u.username[:1] | upper) }}
+{%- endmacro %}

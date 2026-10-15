@@ -122,7 +122,8 @@
     </div>
     <div id="sidebar-backdrop" onclick="closeSidebar()" class="hidden lg:hidden fixed inset-0 bg-black/40 z-40"></div>
 
-    <aside id="sidebar" class="fixed top-0 left-0 h-screen w-48 bg-white border-r border-gray-100 flex flex-col z-50 shadow-sm -translate-x-full lg:translate-x-0 transition-transform duration-200">
+    
+<aside id="sidebar" class="fixed top-0 left-0 h-screen w-48 bg-white border-r border-gray-100 flex flex-col z-50 shadow-sm -translate-x-full lg:translate-x-0 transition-transform duration-200">
 
   
   <div class="px-4 pt-5 pb-3 border-b border-gray-100 shrink-0">
@@ -180,6 +181,7 @@
     
     
 
+    
     
     
     
@@ -312,6 +314,27 @@
       Support
       <svg class="w-3 h-3 ml-auto opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
     </a>
+
+    
+    
+    <div class="mt-2 mx-1 p-2.5 rounded-xl border border-gray-100 bg-gray-50">
+      <a href="../../account/index.html" title="@demo — account: name and password" class="flex items-center gap-2.5 group">
+        <span class="w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-[11px] font-bold
+                     bg-[#0C2461]/10 text-[#0C2461]">DU</span>
+        <span class="min-w-0">
+          <span class="block text-[13px] font-semibold leading-tight text-gray-800 break-words group-hover:text-[#0C2461]">Demo User</span>
+          <span class="block mt-0.5 text-[11px] text-gray-400">User</span>
+        </span>
+      </a>
+      <form method="POST" action="#" data-demo-path="/logout" class="mt-2.5">
+        <button type="submit"
+                class="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-medium text-gray-600 hover:border-red-300 hover:text-red-600 transition">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9"/></svg>
+          Log out
+        </button>
+      </form>
+    </div>
+    
   </div>
 
   
@@ -422,14 +445,14 @@
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/></svg>
             Started
           </p>
-          <p class="text-sm text-gray-700 mt-1 tabular-nums">2026-10-14 11:15</p>
+          <p class="text-sm text-gray-700 mt-1 tabular-nums">2026-10-14 13:30</p>
         </div>
         <div class="px-5 py-4">
           <p class="text-[11px] text-gray-400 font-medium uppercase tracking-wide flex items-center gap-1">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
             Last Updated
           </p>
-          <p class="text-sm text-gray-700 mt-1 tabular-nums">2026-10-15 13:16</p>
+          <p class="text-sm text-gray-700 mt-1 tabular-nums">2026-10-15 15:31</p>
         </div>
         <div class="px-5 py-4">
           <p class="text-[11px] text-gray-400 font-medium uppercase tracking-wide flex items-center gap-1">
@@ -673,7 +696,7 @@
                 Data Acquisition
                 
               </p>
-              <p class="text-[11px] text-gray-400 mt-0.5 tabular-nums">2026-10-14 11:15</p>
+              <p class="text-[11px] text-gray-400 mt-0.5 tabular-nums">2026-10-14 13:30</p>
               
             </div>
 
@@ -700,7 +723,7 @@
                 Acquisition Complete
                 
               </p>
-              <p class="text-[11px] text-gray-400 mt-0.5 tabular-nums">2026-10-15 13:15</p>
+              <p class="text-[11px] text-gray-400 mt-0.5 tabular-nums">2026-10-15 15:30</p>
               
             </div>
 
@@ -728,7 +751,7 @@
                 Queued
                 
               </p>
-              <p class="text-[11px] text-gray-400 mt-0.5 tabular-nums">2026-10-15 13:16</p>
+              <p class="text-[11px] text-gray-400 mt-0.5 tabular-nums">2026-10-15 15:31</p>
               
             </div>
 
@@ -1229,7 +1252,7 @@
   }
   updateProgress("queued", null);
   updateStepper("queued");
-  updateActions("queued", [{"created_at": "2026-10-14T09:15:00+00:00", "detail": null, "status": "running", "uuid": "c660cd58-f89a-537e-b651-890098b7c9e6"}, {"created_at": "2026-10-15T11:15:00+00:00", "detail": null, "status": "running_finished", "uuid": "de84a933-0ee8-5a4c-853f-e671bbc9d784"}, {"created_at": "2026-10-15T11:16:00+00:00", "detail": null, "status": "queued", "uuid": "0cd2ea75-f830-5b30-b972-1be849cf5071"}]);
+  updateActions("queued", [{"created_at": "2026-10-14T11:30:00+00:00", "detail": null, "status": "running", "uuid": "c660cd58-f89a-537e-b651-890098b7c9e6"}, {"created_at": "2026-10-15T13:30:00+00:00", "detail": null, "status": "running_finished", "uuid": "de84a933-0ee8-5a4c-853f-e671bbc9d784"}, {"created_at": "2026-10-15T13:31:00+00:00", "detail": null, "status": "queued", "uuid": "0cd2ea75-f830-5b30-b972-1be849cf5071"}]);
   renderDirectories([], "queued");
 
   // Scroll history to bottom on load; update fade on scroll
@@ -1240,7 +1263,7 @@
 
 
   // Live duration tickers for non-terminal runs
-  const startTime = new Date(asUTC("2026-10-14T09:15:00+00:00"));
+  const startTime = new Date(asUTC("2026-10-14T11:30:00+00:00"));
   function fmtDelta(sec) {
     if (sec < 60) return sec + 's';
     if (sec < 3600) { const m = Math.floor(sec/60), s = sec%60; return m+'m '+(s ? s+'s' : ''); }

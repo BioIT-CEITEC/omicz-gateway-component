@@ -1,1 +1,1 @@
-{"service": "frontend", "lines": ["2026-10-15 13:45:00 | INFO     | frontend:20 | GET / 200", "2026-10-15 14:10:00 | INFO     | frontend:20 | GET /acquisition-runs/ 200"]}
+{"service": "frontend", "lines": ["2026-10-15 16:00:00 | INFO     | frontend:20 | GET / 200", "2026-10-15 16:25:00 | INFO     | frontend:20 | GET /acquisition-runs/ 200"]}

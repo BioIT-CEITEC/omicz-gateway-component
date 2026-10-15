@@ -56,6 +56,13 @@ def mock_backend(method: str, url: str, params=None, **_):
     parts = path.strip("/").split("/")
     head, rest = parts[0], parts[1:]
 
+    if head == "auth":   # the demo is always logged in as a demo user without admin rights
+        if rest == ["status"]:
+            return _json(200, {"needs_setup": False})
+        if rest == ["me"]:
+            return _json(200, D.DEMO_USER)
+        return _json(403, {"detail": "Demo mode: changes are disabled"})
+
     if head == "runs":
         if not rest:
             return _json(200, D.runs_page(p))
@@ -123,6 +130,7 @@ r_logs._frontend_log_lines = lambda n: D.LOGS["frontend"][-n:]
 
 from fastapi.testclient import TestClient  # noqa: E402
 client = TestClient(app)
+client.cookies.set("omicz_access", "demo")   # passes the login check; /auth/me answers with D.DEMO_USER
 
 
 # ── Routes → files ────────────────────────────────────────────────────────────

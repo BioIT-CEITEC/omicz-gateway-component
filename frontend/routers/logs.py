@@ -1,5 +1,6 @@
 import os
 import httpx
+import backend_api
 from fastapi import APIRouter, Request, Query
 from routers.settings import get_setting_value
 
@@ -16,7 +17,7 @@ def _lines_count() -> int:
 
 def _backend_services() -> list[str]:
     try:
-        res = httpx.get(f"{BACKEND_URL}/logs/", timeout=5)
+        res = backend_api.get(f"{BACKEND_URL}/logs/", timeout=5)
         if res.status_code == 200:
             return res.json().get("services", [])
     except Exception:
@@ -26,7 +27,7 @@ def _backend_services() -> list[str]:
 
 def _backend_log_lines(service: str, lines: int) -> list[str]:
     try:
-        res = httpx.get(f"{BACKEND_URL}/logs/{service}", params={"lines": lines}, timeout=10)
+        res = backend_api.get(f"{BACKEND_URL}/logs/{service}", params={"lines": lines}, timeout=10)
         if res.status_code == 200:
             return res.json().get("lines", [])
     except Exception:

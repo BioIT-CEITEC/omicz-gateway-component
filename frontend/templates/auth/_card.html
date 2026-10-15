@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/static/images/fav.png" />
+    <title>{% block title %}OmiCZ GateWay{% endblock %}</title>
+    <script>
+      (function () {
+        var saved = null;
+        try { saved = localStorage.getItem('theme'); } catch (e) {}
+        var dark = saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.classList.toggle('dark', dark);
+      })();
+    </script>
+    <link rel="stylesheet" href="/static/css/dark.css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-[#F0F4FA] text-gray-800 min-h-screen flex items-center justify-center px-4 py-10">
+    <div class="w-full max-w-sm">
+      <div class="w-40 mx-auto mb-6">{% with logo_id = "auth" %}{% include "partials/logo.html" %}{% endwith %}</div>
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-6 py-6">
+        {% block card %}{% endblock %}
+      </div>
+    </div>
+  </body>
+</html>

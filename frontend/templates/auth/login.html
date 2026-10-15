@@ -1,0 +1,18 @@
+{% extends "auth/_card.html" %}
+{% block title %}Log in · OmiCZ GateWay{% endblock %}
+{% block card %}
+<h1 class="text-lg font-bold text-gray-900 mb-4">Log in</h1>
+{% include "auth/_messages.html" %}
+<form method="POST" action="/login" class="space-y-4">
+  <input type="hidden" name="next" value="{{ next }}" />
+  <div>
+    <label for="username" class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Username</label>
+    <input id="username" name="username" type="text" required autofocus autocomplete="username" value="{{ username or '' }}" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0C2461]" />
+  </div>
+  <div>
+    <label for="password" class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Password</label>
+    <input id="password" name="password" type="password" required autocomplete="current-password" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0C2461]" />
+  </div>
+  <button type="submit" class="w-full mt-2 px-4 py-2 rounded-lg bg-[#0C2461] text-white text-sm font-semibold hover:bg-[#0a1d4f] transition">Log in</button>
+</form>
+{% endblock %}

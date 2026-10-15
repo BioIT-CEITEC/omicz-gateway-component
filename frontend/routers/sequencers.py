@@ -1,5 +1,6 @@
 import os
 import httpx
+import backend_api
 from typing import List
 
 from fastapi import APIRouter, Request, Form
@@ -21,7 +22,7 @@ def safe_json(response: httpx.Response, fallback=None):
 
 def fetch_types() -> list:
     """Fetch all sequencer types from the backend — used to populate dropdowns."""
-    response = httpx.get(f"{BACKEND_URL}/sequencers-types/")
+    response = backend_api.get(f"{BACKEND_URL}/sequencers-types/")
     return safe_json(response, fallback={}).get("results", [])
 
 
@@ -29,9 +30,9 @@ def fetch_types() -> list:
 @router.get("/")
 def list_sequencers(request: Request, skip: int = 0, limit: int | None = None):
     if limit is None: limit = get_setting_value("pagination_page_size", 20)
-    response = httpx.get(f"{BACKEND_URL}/sequencers/", params={"skip": skip, "limit": limit})
+    response = backend_api.get(f"{BACKEND_URL}/sequencers/", params={"skip": skip, "limit": limit})
     data = safe_json(response, fallback={"total": 0, "skip": skip, "limit": limit, "results": []})
-    mount_res = httpx.get(f"{BACKEND_URL}/sequencers/mount-status")
+    mount_res = backend_api.get(f"{BACKEND_URL}/sequencers/mount-status")
     mount_data = safe_json(mount_res, fallback={"mounts": [], "all_accessible": True, "inaccessible_count": 0})
     # Build a lookup: uuid → accessible bool for use in the template
     mount_map = {m["uuid"]: m["accessible"] for m in mount_data.get("mounts", [])}
@@ -62,7 +63,7 @@ def create_sequencer(
     cleaned_exclusions = [e.strip() for e in exclusions if e.strip()]
     payload = {"name": name, "location": location, "status": status, "type_uuid": type_uuid,
                "sent_to_tre": sent_to_tre, "exclusions": cleaned_exclusions}
-    response = httpx.post(f"{BACKEND_URL}/sequencers/", json=payload)
+    response = backend_api.post(f"{BACKEND_URL}/sequencers/", json=payload)
 
     if response.status_code == 201:
         sequencer = safe_json(response, fallback={})
@@ -75,13 +76,13 @@ def create_sequencer(
 # ── DETAIL
 @router.get("/{uuid}")
 def detail_sequencer(request: Request, uuid: str):
-    response = httpx.get(f"{BACKEND_URL}/sequencers/{uuid}")
+    response = backend_api.get(f"{BACKEND_URL}/sequencers/{uuid}")
     if response.status_code == 404:
         return templates.TemplateResponse(request, "404.html", status_code=404)
     sequencer = safe_json(response, fallback={})
     type_name = None
     if sequencer.get("type_uuid"):
-        type_res = httpx.get(f"{BACKEND_URL}/sequencers-types/{sequencer['type_uuid']}")
+        type_res = backend_api.get(f"{BACKEND_URL}/sequencers-types/{sequencer['type_uuid']}")
         if type_res.status_code == 200:
             type_name = safe_json(type_res, fallback={}).get("name")
     return templates.TemplateResponse(request, "sequencers/detail.html", {"sequencer": sequencer, "type_name": type_name})
@@ -90,7 +91,7 @@ def detail_sequencer(request: Request, uuid: str):
 # ── EDIT — show form ──
 @router.get("/{uuid}/edit")
 def edit_sequencer_form(request: Request, uuid: str):
-    response = httpx.get(f"{BACKEND_URL}/sequencers/{uuid}")
+    response = backend_api.get(f"{BACKEND_URL}/sequencers/{uuid}")
     if response.status_code == 404:
         return templates.TemplateResponse(request, "404.html", status_code=404)
     sequencer = safe_json(response, fallback={})
@@ -112,7 +113,7 @@ def edit_sequencer(
     cleaned_exclusions = [e.strip() for e in exclusions if e.strip()]
     payload = {"name": name, "location": location, "status": status, "type_uuid": type_uuid,
                "sent_to_tre": sent_to_tre, "exclusions": cleaned_exclusions}
-    response = httpx.patch(f"{BACKEND_URL}/sequencers/{uuid}", json=payload)
+    response = backend_api.patch(f"{BACKEND_URL}/sequencers/{uuid}", json=payload)
 
     if response.status_code == 200:
         return RedirectResponse(url=f"/instruments/{uuid}", status_code=303)
@@ -126,12 +127,12 @@ def edit_sequencer(
 # ── TOGGLE STATUS
 @router.post("/{uuid}/toggle-status")
 def toggle_sequencer_status(request: Request, uuid: str):
-    httpx.post(f"{BACKEND_URL}/sequencers/{uuid}/toggle-status")
+    backend_api.post(f"{BACKEND_URL}/sequencers/{uuid}/toggle-status")
     return RedirectResponse(url="/instruments/", status_code=303)
 
 
 # ── DELETE
 @router.post("/{uuid}/delete")
 def delete_sequencer(request: Request, uuid: str):
-    httpx.delete(f"{BACKEND_URL}/sequencers/{uuid}")
+    backend_api.delete(f"{BACKEND_URL}/sequencers/{uuid}")
     return RedirectResponse(url="/instruments/", status_code=303)

@@ -1,5 +1,6 @@
 import os
 import httpx
+import backend_api
 from fastapi import APIRouter, Request, Form
 from fastapi.responses import RedirectResponse
 from typing import List, Optional
@@ -29,7 +30,7 @@ def _error_text(detail) -> str:
 @router.get("/")
 def list_sequencer_types(request: Request, skip: int = 0, limit: int | None = None):
     if limit is None: limit = get_setting_value("pagination_page_size", 20)
-    response = httpx.get(f"{BACKEND_URL}/sequencers-types/", params={"skip": skip, "limit": limit})
+    response = backend_api.get(f"{BACKEND_URL}/sequencers-types/", params={"skip": skip, "limit": limit})
     data = safe_json(response, fallback={"total": 0, "skip": skip, "limit": limit, "results": []})
     return templates.TemplateResponse(request, "sequencers-types/list.html", {"data": data})
 
@@ -64,7 +65,7 @@ def create_sequencer_type(
         "dir_stability_minutes": dir_stability_minutes,
         "run_stability_minutes": run_stability_minutes,
     }
-    response = httpx.post(f"{BACKEND_URL}/sequencers-types/", json=payload)
+    response = backend_api.post(f"{BACKEND_URL}/sequencers-types/", json=payload)
 
     if response.status_code == 201:
         st = safe_json(response, fallback={})
@@ -77,7 +78,7 @@ def create_sequencer_type(
 # ── DETAIL 
 @router.get("/{uuid}")
 def detail_sequencer_type(request: Request, uuid: str):
-    response = httpx.get(f"{BACKEND_URL}/sequencers-types/{uuid}")
+    response = backend_api.get(f"{BACKEND_URL}/sequencers-types/{uuid}")
     if response.status_code == 404:
         return templates.TemplateResponse(request, "404.html", status_code=404)
     st = safe_json(response, fallback={})
@@ -87,7 +88,7 @@ def detail_sequencer_type(request: Request, uuid: str):
 # ── EDIT — show form ──
 @router.get("/{uuid}/edit")
 def edit_sequencer_type_form(request: Request, uuid: str):
-    response = httpx.get(f"{BACKEND_URL}/sequencers-types/{uuid}")
+    response = backend_api.get(f"{BACKEND_URL}/sequencers-types/{uuid}")
     if response.status_code == 404:
         return templates.TemplateResponse(request, "404.html", status_code=404)
     st = safe_json(response, fallback={})
@@ -119,7 +120,7 @@ def edit_sequencer_type(
         "dir_stability_minutes": dir_stability_minutes,
         "run_stability_minutes": run_stability_minutes,
     }
-    response = httpx.patch(f"{BACKEND_URL}/sequencers-types/{uuid}", json=payload)
+    response = backend_api.patch(f"{BACKEND_URL}/sequencers-types/{uuid}", json=payload)
 
     if response.status_code == 200:
         return RedirectResponse(url=f"/instrument-models/{uuid}", status_code=303)
@@ -137,5 +138,5 @@ def edit_sequencer_type(
 # ── DELETE 
 @router.post("/{uuid}/delete")
 def delete_sequencer_type(request: Request, uuid: str):
-    httpx.delete(f"{BACKEND_URL}/sequencers-types/{uuid}")
+    backend_api.delete(f"{BACKEND_URL}/sequencers-types/{uuid}")
     return RedirectResponse(url="/instrument-models/", status_code=303)

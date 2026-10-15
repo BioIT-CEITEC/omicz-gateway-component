@@ -124,6 +124,13 @@ S3_PREFIX=raw_run_data/
 
 The database settings in this file can be left as-is — they match the database container defined in `docker-compose.yml`.
 
+Optionally, name the first administrator of the web interface here. Otherwise you create it on the setup page the first time you open the UI (Step 6):
+
+```env
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=choose-a-long-password
+```
+
 ---
 
 ### Step 4 — Build and start the containers
@@ -149,7 +156,7 @@ What this starts:
 | `fastapi_gateway_worker` | Processes run events — does checksumming and S3 upload |
 | `fastapi_gateway_watcher` | Watches the sequencer folders for new runs |
 | `fastapi_gateway_backup` | Backup service for the application |
-| `fastapi_gateway_adminer` | GUI for PostgreSQL |
+| `fastapi_gateway_adminer` | GUI for PostgreSQL — only started with `docker compose --profile admin up -d` |
 
 
 To check that all containers are running:
@@ -158,7 +165,7 @@ To check that all containers are running:
 docker ps
 ```
 
-All 8 containers should show `Up`. You can also check in Docker Desktop:
+All 7 containers should show `Up` (8 with the `admin` profile). You can also check in Docker Desktop:
 
 ![Docker Desktop containers](readme-images/ducker-desktop.png)
 
@@ -185,10 +192,18 @@ INFO  [alembic.runtime.migration] Running upgrade ...
 
 | Service | URL | Login |
 |---------|-----|-------|
-| **Frontend (main UI)** | http://localhost:8001 | — |
-| Backend API docs | http://localhost:8000/docs | — |
+| **Frontend (main UI)** | http://localhost:8001 | your user account |
+| Backend API docs | http://localhost:8000/docs | access token (see below) |
 | RabbitMQ management | http://localhost:15672 | guest / guest |
-| Adminer (database UI) | http://localhost:8090 | see below |
+| Adminer (database UI) | http://localhost:8090 | see below; only with `--profile admin` |
+
+Only the web UI (port 8001) is reachable from other computers. The API, RabbitMQ, the database and Adminer listen on `127.0.0.1`, so they can be opened only on the server itself (for example through an SSH tunnel).
+
+**Login.** The first time you open the UI it asks you to create the first administrator, unless `ADMIN_USERNAME` / `ADMIN_PASSWORD` were set in `backend/.env`. Administrators add further users and reset passwords under **Users**; everyone sets their first and last name and changes their password under **Account** (click your name in the sidebar, above **Log out**). Only administrators can restart containers and install updates.
+
+A login keeps you signed in for 7 days of inactivity: the browser holds a 15-minute access token and a 7-day refresh token in HttpOnly cookies, and the access token is renewed automatically. Changing a password or disabling a user ends that user's sessions. If the UI is served over HTTPS (for example behind a reverse proxy), the cookies are marked Secure automatically; set `COOKIE_SECURE=true` in the frontend environment to force it.
+
+**Forgot the only administrator password?** On the server, set a new `ADMIN_USERNAME` / `ADMIN_PASSWORD` in `backend/.env` and restart the backend (`docker restart fastapi_gateway_backend`): a new administrator with that name is created, and it can reset the old account under **Users**.
 
 **Adminer login:**
 - System: `PostgreSQL`
@@ -317,6 +332,7 @@ If a new sequencer machine is connected to this computer:
 
 - If transfers are running, you are asked first — the restart interrupts them (Retry resumes them without re-sending finished files).
 - If `requirements.txt`, a `Dockerfile`, or `docker-compose.yml` changed, the update log tells you to run `docker compose up -d --build` on the server once.
+- After the update that adds the login, the UI shows the setup page until the first administrator exists. Run `docker compose up -d` once so the new port settings (API, database and RabbitMQ on this host only) take effect, and remove the old Adminer container, which `up -d` leaves running: `docker rm -f fastapi_gateway_adminer`.
 
 ---
 

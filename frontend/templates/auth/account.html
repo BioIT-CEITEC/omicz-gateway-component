@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% from "partials/user_macros.html" import display_name %}
+{% block title %}Account{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold text-gray-900">Account</h1>
+<p class="text-sm text-gray-400 mt-0.5 mb-6">Logged in as <span class="font-semibold text-gray-600">{{ display_name(request.state.user) }}</span> (@{{ request.state.user.username }}){% if request.state.user.is_admin %} · administrator{% endif %}</p>
+{% include "auth/_messages.html" %}
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start max-w-4xl">
+<form method="POST" action="/account/name" class="min-w-0 bg-white rounded-xl border border-gray-100 px-5 py-5 space-y-4">
+  <h2 class="text-sm font-semibold text-gray-900">Name</h2>
+  <p class="text-xs text-gray-400 -mt-2">Shown in the sidebar and on the Users page.</p>
+  <div class="grid grid-cols-2 gap-3">
+    <div>
+      <label for="first_name" class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">First name</label>
+      <input id="first_name" name="first_name" type="text" required maxlength="100" autocomplete="given-name" value="{{ request.state.user.first_name or '' }}" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0C2461]" />
+    </div>
+    <div>
+      <label for="last_name" class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Last name</label>
+      <input id="last_name" name="last_name" type="text" required maxlength="100" autocomplete="family-name" value="{{ request.state.user.last_name or '' }}" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0C2461]" />
+    </div>
+  </div>
+  <button type="submit" class="px-4 py-2 rounded-lg bg-[#0C2461] text-white text-sm font-semibold hover:bg-[#0a1d4f] transition">Save name</button>
+</form>
+<form method="POST" action="/account/password" class="min-w-0 bg-white rounded-xl border border-gray-100 px-5 py-5 space-y-4">
+  <h2 class="text-sm font-semibold text-gray-900">Change password</h2>
+  <p class="text-xs text-gray-400 -mt-2">All your sessions end, and you log in again with the new password.</p>
+  <div>
+    <label for="current_password" class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Current password</label>
+    <input id="current_password" name="current_password" type="password" required autocomplete="current-password" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0C2461]" />
+  </div>
+  <div>
+    <label for="new_password" class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">New password (at least 8 characters)</label>
+    <input id="new_password" name="new_password" type="password" required minlength="8" autocomplete="new-password" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0C2461]" />
+  </div>
+  <div>
+    <label for="new_password2" class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Repeat new password</label>
+    <input id="new_password2" name="new_password2" type="password" required minlength="8" autocomplete="new-password" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0C2461]" />
+  </div>
+  <button type="submit" class="px-4 py-2 rounded-lg bg-[#0C2461] text-white text-sm font-semibold hover:bg-[#0a1d4f] transition">Change password</button>
+</form>
+</div>
+{% endblock %}

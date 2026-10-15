@@ -24,7 +24,8 @@ def all_users(db: Session = Depends(get_db), admin: Users = Depends(require_admi
 @router.post("/", response_model=ShowUser, status_code=status.HTTP_201_CREATED)
 def add_user(body: UserCreate, db: Session = Depends(get_db), admin: Users = Depends(require_admin)):
     try:
-        user = create_user(body.username, body.password, db, email=body.email, is_admin=body.is_admin)
+        user = create_user(body.username, body.password, db, email=body.email, is_admin=body.is_admin,
+                           first_name=body.first_name, last_name=body.last_name)
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A user with this name or email already exists")
@@ -44,6 +45,10 @@ def update_user(uuid: UUID, body: UserUpdate, db: Session = Depends(get_db), adm
         user.is_active = body.is_active
     if body.is_admin is not None:
         user.is_admin = body.is_admin
+    if body.first_name is not None:
+        user.first_name = body.first_name.strip() or None
+    if body.last_name is not None:
+        user.last_name = body.last_name.strip() or None
     db.commit()
     if body.is_active is False:
         revoke_all(user.uuid, db)

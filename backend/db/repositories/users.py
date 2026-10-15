@@ -37,8 +37,10 @@ def count_active_admins(db: Session) -> int:
     return db.query(Users).filter(Users.is_admin == True, Users.is_active == True, Users.is_deleted == False).count()
 
 
-def create_user(username: str, password: str, db: Session, email: str | None = None, is_admin: bool = False) -> Users:
+def create_user(username: str, password: str, db: Session, email: str | None = None, is_admin: bool = False,
+                first_name: str | None = None, last_name: str | None = None) -> Users:
     user = Users(username=username, email=email or None, hashed_password=hash_password(password),
+                 first_name=(first_name or '').strip() or None, last_name=(last_name or '').strip() or None,
                  is_active=True, is_admin=is_admin, created_at=datetime.now())
     db.add(user)
     db.commit()

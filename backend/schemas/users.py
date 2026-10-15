@@ -12,6 +12,8 @@ class LoginRequest(BaseModel):
 
 class SetupRequest(BaseModel):
     username: str = Field(min_length=3, max_length=64)
+    first_name: str | None = Field(default=None, max_length=100)
+    last_name: str | None = Field(default=None, max_length=100)
     password: str = Field(min_length=MIN_PASSWORD_LENGTH)
     email: str | None = None
 
@@ -34,12 +36,21 @@ class ChangePassword(BaseModel):
 
 class UserCreate(BaseModel):
     username: str = Field(min_length=3, max_length=64)
+    first_name: str | None = Field(default=None, max_length=100)
+    last_name: str | None = Field(default=None, max_length=100)
     password: str = Field(min_length=MIN_PASSWORD_LENGTH)
     email: str | None = None
     is_admin: bool = False
 
 
+class NameUpdate(BaseModel):
+    first_name: str | None = Field(default=None, max_length=100)
+    last_name: str | None = Field(default=None, max_length=100)
+
+
 class UserUpdate(BaseModel):
+    first_name: str | None = Field(default=None, max_length=100)
+    last_name: str | None = Field(default=None, max_length=100)
     is_active: bool | None = None
     is_admin: bool | None = None
     password: str | None = Field(default=None, min_length=MIN_PASSWORD_LENGTH)
@@ -48,6 +59,8 @@ class UserUpdate(BaseModel):
 class ShowUser(BaseModel):
     uuid: UUID
     username: str
+    first_name: str | None = None
+    last_name: str | None = None
     email: str | None = None
     is_active: bool
     is_admin: bool

@@ -11,7 +11,7 @@ from db.session import get_db
 from db.models.users import Users
 from db.repositories.users import (count_users, create_user, get_by_username, issue_refresh_token,
                                    rotate_refresh_token, revoke_refresh_token, set_password, TokenReused)
-from schemas.users import LoginRequest, SetupRequest, RefreshRequest, TokenPair, ChangePassword, ShowUser
+from schemas.users import LoginRequest, SetupRequest, RefreshRequest, TokenPair, ChangePassword, ShowUser, NameUpdate
 
 router = APIRouter()
 logger = get_logger("backend")
@@ -37,7 +37,8 @@ def setup(body: SetupRequest, db: Session = Depends(get_db)):
     """Create the first administrator. Works only while no account exists."""
     if count_users(db) > 0:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Setup is already done")
-    user = create_user(body.username, body.password, db, email=body.email, is_admin=True)
+    user = create_user(body.username, body.password, db, email=body.email, is_admin=True,
+                       first_name=body.first_name, last_name=body.last_name)
     logger.info(f"first administrator '{user.username}' created through the setup page")
     return _tokens(user, issue_refresh_token(user, db))
 
@@ -74,6 +75,16 @@ def logout(body: RefreshRequest, db: Session = Depends(get_db)):
 
 @router.get("/me", response_model=ShowUser)
 def me(user: Users = Depends(require_user)):
+    return user
+
+
+@router.patch("/me", response_model=ShowUser)
+def update_me(body: NameUpdate, user: Users = Depends(require_user), db: Session = Depends(get_db)):
+    """Change your own first and last name."""
+    user.first_name = (body.first_name or "").strip() or None
+    user.last_name = (body.last_name or "").strip() or None
+    db.commit()
+    db.refresh(user)
     return user
 
 

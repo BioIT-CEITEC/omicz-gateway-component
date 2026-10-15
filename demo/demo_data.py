@@ -226,7 +226,7 @@ def queue_page() -> dict:
 
 
 # ── Logged-in user shown in the sidebar ───────────────────────────────────────
-DEMO_USER = {"uuid": _uuid("user/demo"), "username": "demo", "email": None, "is_active": True, "is_admin": False}
+DEMO_USER = {"uuid": _uuid("user/demo"), "username": "demo", "first_name": "Demo", "last_name": "User", "email": None, "is_active": True, "is_admin": False}
 
 
 # ── Settings (the real defaults, read from the backend source) ────────────────

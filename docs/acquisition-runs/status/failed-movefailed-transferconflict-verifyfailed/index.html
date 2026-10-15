@@ -122,7 +122,8 @@
     </div>
     <div id="sidebar-backdrop" onclick="closeSidebar()" class="hidden lg:hidden fixed inset-0 bg-black/40 z-40"></div>
 
-    <aside id="sidebar" class="fixed top-0 left-0 h-screen w-48 bg-white border-r border-gray-100 flex flex-col z-50 shadow-sm -translate-x-full lg:translate-x-0 transition-transform duration-200">
+    
+<aside id="sidebar" class="fixed top-0 left-0 h-screen w-48 bg-white border-r border-gray-100 flex flex-col z-50 shadow-sm -translate-x-full lg:translate-x-0 transition-transform duration-200">
 
   
   <div class="px-4 pt-5 pb-3 border-b border-gray-100 shrink-0">
@@ -301,19 +302,6 @@
 
   
   <div class="px-2 pb-2 shrink-0">
-    
-    <div class="mx-1 mb-2 px-2 py-2 rounded-lg bg-gray-50 flex items-center gap-2">
-      <a href="../../../account/index.html" title="Account" class="flex-1 min-w-0 text-sm text-gray-600 hover:text-[#0C2461] truncate">
-        <span class="font-semibold">demo</span>
-      </a>
-      <form method="POST" action="#" data-demo-path="/logout">
-        <button type="submit" title="Log out" class="p-1 rounded text-gray-400 hover:text-[#C0392B]">
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9"/></svg>
-          <span class="sr-only">Log out</span>
-        </button>
-      </form>
-    </div>
-    
     <button type="button" onclick="toggleTheme()"
        class="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-all">
       <svg data-theme-icon="moon" class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z"/></svg>
@@ -326,6 +314,27 @@
       Support
       <svg class="w-3 h-3 ml-auto opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
     </a>
+
+    
+    
+    <div class="mt-2 mx-1 p-2.5 rounded-xl border border-gray-100 bg-gray-50">
+      <a href="../../../account/index.html" title="@demo — account: name and password" class="flex items-center gap-2.5 group">
+        <span class="w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-[11px] font-bold
+                     bg-[#0C2461]/10 text-[#0C2461]">DU</span>
+        <span class="min-w-0">
+          <span class="block text-[13px] font-semibold leading-tight text-gray-800 break-words group-hover:text-[#0C2461]">Demo User</span>
+          <span class="block mt-0.5 text-[11px] text-gray-400">User</span>
+        </span>
+      </a>
+      <form method="POST" action="#" data-demo-path="/logout" class="mt-2.5">
+        <button type="submit"
+                class="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-medium text-gray-600 hover:border-red-300 hover:text-red-600 transition">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9"/></svg>
+          Log out
+        </button>
+      </form>
+    </div>
+    
   </div>
 
   
@@ -611,14 +620,14 @@
         </td>
 
         <td class="py-3.5 px-5 hidden md:table-cell text-xs text-gray-500 tabular-nums">
-          2026-10-12 11:33
+          2026-10-12 12:30
         </td>
 
         <td class="py-3.5 px-5 hidden md:table-cell text-xs tabular-nums">
           
           
           
-          <span class="text-gray-500">2026-10-13 13:13</span>
+          <span class="text-gray-500">2026-10-13 14:10</span>
           
         </td>
 
@@ -671,14 +680,14 @@
         </td>
 
         <td class="py-3.5 px-5 hidden md:table-cell text-xs text-gray-500 tabular-nums">
-          2026-10-12 07:33
+          2026-10-12 08:30
         </td>
 
         <td class="py-3.5 px-5 hidden md:table-cell text-xs tabular-nums">
           
           
           
-          <span class="text-gray-500">2026-10-12 14:13</span>
+          <span class="text-gray-500">2026-10-12 15:10</span>
           
         </td>
 
@@ -731,14 +740,14 @@
         </td>
 
         <td class="py-3.5 px-5 hidden md:table-cell text-xs text-gray-500 tabular-nums">
-          2026-10-10 13:33
+          2026-10-10 14:30
         </td>
 
         <td class="py-3.5 px-5 hidden md:table-cell text-xs tabular-nums">
           
           
           
-          <span class="text-gray-500">2026-10-11 10:14</span>
+          <span class="text-gray-500">2026-10-11 11:11</span>
           
         </td>
 

@@ -188,7 +188,7 @@ def setup_page(request: Request):
 
 @router.post("/setup")
 def setup_submit(request: Request, username: str = Form(...), password: str = Form(...),
-                 password2: str = Form(...), email: str = Form("")):
+                 password2: str = Form(...), email: str = Form(""), first_name: str = Form(""), last_name: str = Form("")):
     if not needs_setup():
         return RedirectResponse("/login", status_code=303)
     error = None
@@ -196,11 +196,14 @@ def setup_submit(request: Request, username: str = Form(...), password: str = Fo
         error = "The two passwords differ."
     else:
         r = httpx.post(f"{BACKEND_URL}/auth/setup",
-                       json={"username": username, "password": password, "email": email or None}, timeout=10)
+                       json={"username": username, "password": password, "email": email or None,
+                             "first_name": first_name, "last_name": last_name}, timeout=10)
         if r.status_code != 200:
             error = _error_text(r)
     if error:
-        return templates.TemplateResponse(request, "auth/setup.html", {"error": error, "username": username, "email": email},
+        return templates.TemplateResponse(request, "auth/setup.html",
+                                          {"error": error, "username": username, "email": email,
+                                           "first_name": first_name, "last_name": last_name},
                                           status_code=400)
     response = RedirectResponse("/", status_code=303)
     set_session_cookies(response, r.json(), request)
@@ -221,8 +224,16 @@ def logout(request: Request):
 
 
 @router.get("/account")
-def account_page(request: Request, error: str | None = None):
-    return templates.TemplateResponse(request, "auth/account.html", {"error": error})
+def account_page(request: Request, error: str | None = None, info: str | None = None):
+    return templates.TemplateResponse(request, "auth/account.html", {"error": error, "info": info})
+
+
+@router.post("/account/name")
+def account_name(request: Request, first_name: str = Form(""), last_name: str = Form("")):
+    r = backend_api.patch(f"{BACKEND_URL}/auth/me", json={"first_name": first_name, "last_name": last_name}, timeout=10)
+    if r.status_code != 200:
+        return RedirectResponse("/account?error=" + quote(_error_text(r)), status_code=303)
+    return RedirectResponse("/account?info=" + quote("Name saved."), status_code=303)
 
 
 @router.post("/account/password")
@@ -249,10 +260,11 @@ def users_page(request: Request, error: str | None = None, info: str | None = No
 
 @router.post("/users/create")
 def users_create(request: Request, username: str = Form(...), password: str = Form(...),
-                 email: str = Form(""), is_admin: str = Form("")):
+                 email: str = Form(""), is_admin: str = Form(""), first_name: str = Form(""), last_name: str = Form("")):
     require_admin(request)
     r = backend_api.post(f"{BACKEND_URL}/users/", timeout=10,
-                         json={"username": username, "password": password, "email": email or None, "is_admin": bool(is_admin)})
+                         json={"username": username, "password": password, "email": email or None, "is_admin": bool(is_admin),
+                               "first_name": first_name, "last_name": last_name})
     if r.status_code != 201:
         return RedirectResponse("/users?error=" + quote(_error_text(r)), status_code=303)
     return RedirectResponse("/users?info=" + quote(f"User '{username}' added."), status_code=303)

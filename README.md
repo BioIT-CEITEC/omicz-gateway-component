@@ -199,7 +199,7 @@ INFO  [alembic.runtime.migration] Running upgrade ...
 
 Only the web UI (port 8001) is reachable from other computers. The API, RabbitMQ, the database and Adminer listen on `127.0.0.1`, so they can be opened only on the server itself (for example through an SSH tunnel).
 
-**Login.** The first time you open the UI it asks you to create the first administrator, unless `ADMIN_USERNAME` / `ADMIN_PASSWORD` were set in `backend/.env`. Administrators add further users and reset passwords under **Users**; everyone changes their own password under **Account** (click your name in the sidebar). Only administrators can restart containers and install updates.
+**Login.** The first time you open the UI it asks you to create the first administrator, unless `ADMIN_USERNAME` / `ADMIN_PASSWORD` were set in `backend/.env`. Administrators add further users and reset passwords under **Users**; everyone sets their first and last name and changes their password under **Account** (click your name in the sidebar, above **Log out**). Only administrators can restart containers and install updates.
 
 A login keeps you signed in for 7 days of inactivity: the browser holds a 15-minute access token and a 7-day refresh token in HttpOnly cookies, and the access token is renewed automatically. Changing a password or disabling a user ends that user's sessions. If the UI is served over HTTPS (for example behind a reverse proxy), the cookies are marked Secure automatically; set `COOKIE_SECURE=true` in the frontend environment to force it.
 

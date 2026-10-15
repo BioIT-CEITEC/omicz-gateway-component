@@ -122,7 +122,8 @@
     </div>
     <div id="sidebar-backdrop" onclick="closeSidebar()" class="hidden lg:hidden fixed inset-0 bg-black/40 z-40"></div>
 
-    <aside id="sidebar" class="fixed top-0 left-0 h-screen w-48 bg-white border-r border-gray-100 flex flex-col z-50 shadow-sm -translate-x-full lg:translate-x-0 transition-transform duration-200">
+    
+<aside id="sidebar" class="fixed top-0 left-0 h-screen w-48 bg-white border-r border-gray-100 flex flex-col z-50 shadow-sm -translate-x-full lg:translate-x-0 transition-transform duration-200">
 
   
   <div class="px-4 pt-5 pb-3 border-b border-gray-100 shrink-0">
@@ -301,19 +302,6 @@
 
   
   <div class="px-2 pb-2 shrink-0">
-    
-    <div class="mx-1 mb-2 px-2 py-2 rounded-lg bg-gray-50 flex items-center gap-2">
-      <a href="../../account/index.html" title="Account" class="flex-1 min-w-0 text-sm text-gray-600 hover:text-[#0C2461] truncate">
-        <span class="font-semibold">demo</span>
-      </a>
-      <form method="POST" action="#" data-demo-path="/logout">
-        <button type="submit" title="Log out" class="p-1 rounded text-gray-400 hover:text-[#C0392B]">
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9"/></svg>
-          <span class="sr-only">Log out</span>
-        </button>
-      </form>
-    </div>
-    
     <button type="button" onclick="toggleTheme()"
        class="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-all">
       <svg data-theme-icon="moon" class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z"/></svg>
@@ -326,6 +314,27 @@
       Support
       <svg class="w-3 h-3 ml-auto opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
     </a>
+
+    
+    
+    <div class="mt-2 mx-1 p-2.5 rounded-xl border border-gray-100 bg-gray-50">
+      <a href="../../account/index.html" title="@demo — account: name and password" class="flex items-center gap-2.5 group">
+        <span class="w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-[11px] font-bold
+                     bg-[#0C2461]/10 text-[#0C2461]">DU</span>
+        <span class="min-w-0">
+          <span class="block text-[13px] font-semibold leading-tight text-gray-800 break-words group-hover:text-[#0C2461]">Demo User</span>
+          <span class="block mt-0.5 text-[11px] text-gray-400">User</span>
+        </span>
+      </a>
+      <form method="POST" action="#" data-demo-path="/logout" class="mt-2.5">
+        <button type="submit"
+                class="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-medium text-gray-600 hover:border-red-300 hover:text-red-600 transition">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9"/></svg>
+          Log out
+        </button>
+      </form>
+    </div>
+    
   </div>
 
   
@@ -436,14 +445,14 @@
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/></svg>
             Started
           </p>
-          <p class="text-sm text-gray-700 mt-1 tabular-nums">2026-10-07 11:33</p>
+          <p class="text-sm text-gray-700 mt-1 tabular-nums">2026-10-07 12:30</p>
         </div>
         <div class="px-5 py-4">
           <p class="text-[11px] text-gray-400 font-medium uppercase tracking-wide flex items-center gap-1">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
             Last Updated
           </p>
-          <p class="text-sm text-gray-700 mt-1 tabular-nums">2026-10-07 13:42</p>
+          <p class="text-sm text-gray-700 mt-1 tabular-nums">2026-10-07 14:39</p>
         </div>
         <div class="px-5 py-4">
           <p class="text-[11px] text-gray-400 font-medium uppercase tracking-wide flex items-center gap-1">
@@ -693,7 +702,7 @@
                 Data Acquisition
                 
               </p>
-              <p class="text-[11px] text-gray-400 mt-0.5 tabular-nums">2026-10-07 11:33</p>
+              <p class="text-[11px] text-gray-400 mt-0.5 tabular-nums">2026-10-07 12:30</p>
               
             </div>
 
@@ -720,7 +729,7 @@
                 Acquisition Complete
                 
               </p>
-              <p class="text-[11px] text-gray-400 mt-0.5 tabular-nums">2026-10-07 13:33</p>
+              <p class="text-[11px] text-gray-400 mt-0.5 tabular-nums">2026-10-07 14:30</p>
               
             </div>
 
@@ -747,7 +756,7 @@
                 Queued
                 
               </p>
-              <p class="text-[11px] text-gray-400 mt-0.5 tabular-nums">2026-10-07 13:34</p>
+              <p class="text-[11px] text-gray-400 mt-0.5 tabular-nums">2026-10-07 14:31</p>
               
             </div>
 
@@ -774,7 +783,7 @@
                 Integrity Check
                 
               </p>
-              <p class="text-[11px] text-gray-400 mt-0.5 tabular-nums">2026-10-07 13:35</p>
+              <p class="text-[11px] text-gray-400 mt-0.5 tabular-nums">2026-10-07 14:32</p>
               
             </div>
 
@@ -801,7 +810,7 @@
                 Queued
                 
               </p>
-              <p class="text-[11px] text-gray-400 mt-0.5 tabular-nums">2026-10-07 13:36</p>
+              <p class="text-[11px] text-gray-400 mt-0.5 tabular-nums">2026-10-07 14:33</p>
               
             </div>
 
@@ -828,7 +837,7 @@
                 Data Transfer
                 
               </p>
-              <p class="text-[11px] text-gray-400 mt-0.5 tabular-nums">2026-10-07 13:38</p>
+              <p class="text-[11px] text-gray-400 mt-0.5 tabular-nums">2026-10-07 14:35</p>
               
             </div>
 
@@ -855,7 +864,7 @@
                 Transfer Validation
                 
               </p>
-              <p class="text-[11px] text-gray-400 mt-0.5 tabular-nums">2026-10-07 13:40</p>
+              <p class="text-[11px] text-gray-400 mt-0.5 tabular-nums">2026-10-07 14:37</p>
               
             </div>
 
@@ -881,7 +890,7 @@
                 Transfer Complete
                 
               </p>
-              <p class="text-[11px] text-gray-400 mt-0.5 tabular-nums">2026-10-07 13:42</p>
+              <p class="text-[11px] text-gray-400 mt-0.5 tabular-nums">2026-10-07 14:39</p>
               
             </div>
 
@@ -1382,7 +1391,7 @@
   }
   updateProgress("completed", null);
   updateStepper("completed");
-  updateActions("completed", [{"created_at": "2026-10-07T09:33:00+00:00", "detail": null, "status": "running", "uuid": "5f45c444-dcc9-5f01-8470-d9d002d822f3"}, {"created_at": "2026-10-07T11:33:00+00:00", "detail": null, "status": "running_finished", "uuid": "0795478a-b0b6-5c83-bcb1-52ddfbd3456e"}, {"created_at": "2026-10-07T11:34:00+00:00", "detail": null, "status": "queued", "uuid": "8ac7b550-a1bb-5de6-bc7c-84501bfa4313"}, {"created_at": "2026-10-07T11:35:00+00:00", "detail": null, "status": "checksumming", "uuid": "e9af6349-8548-50c9-8283-c566010de9bb"}, {"created_at": "2026-10-07T11:36:00+00:00", "detail": null, "status": "queued", "uuid": "29c537df-34d5-5a87-8bae-280ac3ed62d1"}, {"created_at": "2026-10-07T11:38:00+00:00", "detail": null, "status": "moving", "uuid": "d80c23cf-6875-5c5a-b7de-2f1bf8ea986c"}, {"created_at": "2026-10-07T11:40:00+00:00", "detail": null, "status": "verifying", "uuid": "d37bc379-ab93-5f0e-84ef-97b1cd378ba0"}, {"created_at": "2026-10-07T11:42:00+00:00", "detail": null, "status": "completed", "uuid": "e3856a58-514a-5255-af97-53ea5fa63504"}]);
+  updateActions("completed", [{"created_at": "2026-10-07T10:30:00+00:00", "detail": null, "status": "running", "uuid": "5f45c444-dcc9-5f01-8470-d9d002d822f3"}, {"created_at": "2026-10-07T12:30:00+00:00", "detail": null, "status": "running_finished", "uuid": "0795478a-b0b6-5c83-bcb1-52ddfbd3456e"}, {"created_at": "2026-10-07T12:31:00+00:00", "detail": null, "status": "queued", "uuid": "8ac7b550-a1bb-5de6-bc7c-84501bfa4313"}, {"created_at": "2026-10-07T12:32:00+00:00", "detail": null, "status": "checksumming", "uuid": "e9af6349-8548-50c9-8283-c566010de9bb"}, {"created_at": "2026-10-07T12:33:00+00:00", "detail": null, "status": "queued", "uuid": "29c537df-34d5-5a87-8bae-280ac3ed62d1"}, {"created_at": "2026-10-07T12:35:00+00:00", "detail": null, "status": "moving", "uuid": "d80c23cf-6875-5c5a-b7de-2f1bf8ea986c"}, {"created_at": "2026-10-07T12:37:00+00:00", "detail": null, "status": "verifying", "uuid": "d37bc379-ab93-5f0e-84ef-97b1cd378ba0"}, {"created_at": "2026-10-07T12:39:00+00:00", "detail": null, "status": "completed", "uuid": "e3856a58-514a-5255-af97-53ea5fa63504"}]);
   renderDirectories([], "completed");
 
   // Scroll history to bottom on load; update fade on scroll
@@ -1393,7 +1402,7 @@
 
 
   // Live duration tickers for non-terminal runs
-  const startTime = new Date(asUTC("2026-10-07T09:33:00+00:00"));
+  const startTime = new Date(asUTC("2026-10-07T10:30:00+00:00"));
   function fmtDelta(sec) {
     if (sec < 60) return sec + 's';
     if (sec < 3600) { const m = Math.floor(sec/60), s = sec%60; return m+'m '+(s ? s+'s' : ''); }

@@ -12,6 +12,8 @@ class Users(Base):
     uuid = Column(PG_UUID(as_uuid=True), unique=True, nullable=False, index=True, default=uuid_lib.uuid4)
     username = Column(String, unique=True, index=True, nullable=False)
     email = Column(String, unique=True, index=True, nullable=True)
+    first_name = Column(String, nullable=True)
+    last_name = Column(String, nullable=True)
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False, server_default="false", nullable=False)

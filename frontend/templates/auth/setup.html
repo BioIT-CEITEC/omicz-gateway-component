@@ -5,6 +5,16 @@
 <p class="text-sm text-gray-500 mt-1 mb-4">No account exists yet. The account created here can add further users. To create it from the server instead, set ADMIN_USERNAME and ADMIN_PASSWORD in backend/.env.</p>
 {% include "auth/_messages.html" %}
 <form method="POST" action="/setup" class="space-y-4">
+  <div class="grid grid-cols-2 gap-3">
+    <div>
+      <label for="first_name" class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">First name</label>
+      <input id="first_name" name="first_name" type="text" required maxlength="100" autocomplete="given-name" value="{{ first_name or '' }}" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0C2461]" />
+    </div>
+    <div>
+      <label for="last_name" class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Last name</label>
+      <input id="last_name" name="last_name" type="text" required maxlength="100" autocomplete="family-name" value="{{ last_name or '' }}" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0C2461]" />
+    </div>
+  </div>
   <div>
     <label for="username" class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Username</label>
     <input id="username" name="username" type="text" required minlength="3" autocomplete="username" value="{{ username or '' }}" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0C2461]" />

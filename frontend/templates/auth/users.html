@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "partials/user_macros.html" import display_name, initials %}
 {% block title %}Users{% endblock %}
 {% block content %}
 {% set me = request.state.user.username %}
@@ -21,13 +22,13 @@
       <div class="flex items-center gap-4">
         <div class="w-10 h-10 shrink-0 rounded-full flex items-center justify-center text-sm font-bold
              {% if u.is_admin %}bg-[#0C2461] text-white{% else %}bg-[#0C2461]/10 text-[#0C2461]{% endif %}">
-          {{ u.username[:1] | upper }}
+          {{ initials(u) }}
         </div>
         <div class="flex-1 min-w-0">
           <p class="text-sm font-semibold text-gray-900 truncate">
-            {{ u.username }}{% if u.username == me %}<span class="ml-1.5 text-xs font-normal text-gray-400">you</span>{% endif %}
+            {{ display_name(u) }}{% if u.username == me %}<span class="ml-1.5 text-xs font-normal text-gray-400">you</span>{% endif %}
           </p>
-          <p class="text-xs text-gray-400 truncate">{{ u.email or 'no email' }}{% if u.created_at %} · added {{ u.created_at[:10] }}{% endif %}</p>
+          <p class="text-xs text-gray-400 truncate">@{{ u.username }} · {{ u.email or 'no email' }}{% if u.created_at %} · added {{ u.created_at[:10] }}{% endif %}</p>
         </div>
         <div class="hidden sm:flex items-center gap-1.5 shrink-0">
           <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold border
@@ -81,6 +82,16 @@
       <div>
         <h2 class="text-sm font-semibold text-gray-900">Add user</h2>
         <p class="text-xs text-gray-400">They can change the password after logging in.</p>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label for="first_name" class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">First name</label>
+        <input id="first_name" name="first_name" type="text" required maxlength="100" autocomplete="given-name" value="{{ first_name or '' }}" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0C2461]" />
+      </div>
+      <div>
+        <label for="last_name" class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Last name</label>
+        <input id="last_name" name="last_name" type="text" required maxlength="100" autocomplete="family-name" value="{{ last_name or '' }}" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0C2461]" />
       </div>
     </div>
     <div>

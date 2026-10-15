@@ -7,3 +7,5 @@ from db.models.runs_status_history import RunsStatusHistory
 from db.models.run_directories import RunDirectories
 from db.models.run_files import RunFiles
 from db.models.settings import Settings
+from db.models.refresh_tokens import RefreshTokens
+from db.models.app_secrets import AppSecrets

@@ -1,5 +1,6 @@
 import os
 import httpx
+import backend_api
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -16,7 +17,7 @@ def _fetch_settings() -> dict:
     Falls back to empty dict on error.
     """
     try:
-        res = httpx.get(f"{BACKEND_URL}/settings/", timeout=5)
+        res = backend_api.get(f"{BACKEND_URL}/settings/", timeout=5)
         if res.status_code == 200:
             return {s["key"]: s for s in res.json()}
     except Exception:
@@ -27,7 +28,7 @@ def _fetch_settings() -> dict:
 def get_setting_value(key: str, default: int) -> int:
     """Fetch a single setting value as int for use in page renders."""
     try:
-        res = httpx.get(f"{BACKEND_URL}/settings/{key}", timeout=3)
+        res = backend_api.get(f"{BACKEND_URL}/settings/{key}", timeout=3)
         if res.status_code == 200:
             return int(res.json()["value"])
     except Exception:
@@ -48,7 +49,7 @@ class SettingValue(BaseModel):
 @router.put("/update/{key}")
 def update_setting(key: str, body: SettingValue):
     try:
-        res = httpx.put(f"{BACKEND_URL}/settings/{key}", json={"value": body.value}, timeout=5)
+        res = backend_api.put(f"{BACKEND_URL}/settings/{key}", json={"value": body.value}, timeout=5)
         return JSONResponse(status_code=res.status_code, content=res.json())
     except Exception as e:
         return JSONResponse(status_code=500, content={"detail": str(e)})

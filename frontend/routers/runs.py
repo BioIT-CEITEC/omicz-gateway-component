@@ -1,5 +1,6 @@
 import os
 import httpx
+import backend_api
 from datetime import datetime
 from fastapi import APIRouter, Request, Query
 from fastapi.responses import RedirectResponse
@@ -75,10 +76,10 @@ def list_runs(request: Request, skip: int = 0, limit: int | None = None, status:
         params["search"] = search
     if sequencer_uuid:
         params["sequencer_uuid"] = sequencer_uuid
-    response = httpx.get(f"{BACKEND_URL}/runs/", params=params)
+    response = backend_api.get(f"{BACKEND_URL}/runs/", params=params)
     data = safe_json(response, fallback={"total": 0, "skip": skip, "limit": limit, "results": []})
     # Fetch all sequencers for the machine filter dropdown
-    seq_list_resp = httpx.get(f"{BACKEND_URL}/sequencers/", params={"skip": 0, "limit": 200})
+    seq_list_resp = backend_api.get(f"{BACKEND_URL}/sequencers/", params={"skip": 0, "limit": 200})
     sequencers = safe_json(seq_list_resp, fallback={"results": []}).get("results", [])
     # Resolve name from uuid for the banner (use cached list first)
     sequencer_name = next((s["name"] for s in sequencers if str(s["uuid"]) == sequencer_uuid), None)
@@ -96,13 +97,13 @@ def list_runs(request: Request, skip: int = 0, limit: int | None = None, status:
 # ── DETAIL
 @router.get("/{uuid}")
 def detail_run(request: Request, uuid: str):
-    response = httpx.get(f"{BACKEND_URL}/runs/{uuid}")
+    response = backend_api.get(f"{BACKEND_URL}/runs/{uuid}")
     if response.status_code == 404:
         return templates.TemplateResponse(request, "404.html", status_code=404)
     run = safe_json(response, fallback={})
-    history_response = httpx.get(f"{BACKEND_URL}/runs/{uuid}/history")
+    history_response = backend_api.get(f"{BACKEND_URL}/runs/{uuid}/history")
     history = safe_json(history_response, fallback=[])
-    directories = safe_json(httpx.get(f"{BACKEND_URL}/runs/{uuid}/directories"), fallback=[])
+    directories = safe_json(backend_api.get(f"{BACKEND_URL}/runs/{uuid}/directories"), fallback=[])
     return templates.TemplateResponse(request, "runs/detail.html", {
         "run": run,
         "history": history,
@@ -117,11 +118,11 @@ def detail_run(request: Request, uuid: str):
 # ── HISTORY DATA (polled by JS on detail page)
 @router.get("/{uuid}/history-data")
 def history_data(uuid: str):
-    run_res     = httpx.get(f"{BACKEND_URL}/runs/{uuid}")
-    history_res = httpx.get(f"{BACKEND_URL}/runs/{uuid}/history")
+    run_res     = backend_api.get(f"{BACKEND_URL}/runs/{uuid}")
+    history_res = backend_api.get(f"{BACKEND_URL}/runs/{uuid}/history")
     run     = safe_json(run_res,     fallback={})
     history = safe_json(history_res, fallback=[])
-    directories = safe_json(httpx.get(f"{BACKEND_URL}/runs/{uuid}/directories"), fallback=[])
+    directories = safe_json(backend_api.get(f"{BACKEND_URL}/runs/{uuid}/directories"), fallback=[])
     return {"status": run.get("status"), "progress": run.get("progress"), "progress_updated_at": run.get("updated_at"), "history": history, "directories": directories}
 
 
@@ -129,44 +130,44 @@ def history_data(uuid: str):
 @router.get("/queue/view")
 def queue_view(request: Request, skip: int = 0, limit: int | None = None):
     if limit is None: limit = _page_size()
-    response = httpx.get(f"{BACKEND_URL}/runs/queue", params={"skip": skip, "limit": limit})
+    response = backend_api.get(f"{BACKEND_URL}/runs/queue", params={"skip": skip, "limit": limit})
     data = safe_json(response, fallback={"total": 0, "skip": skip, "limit": limit, "results": []})
-    failed = safe_json(httpx.get(f"{BACKEND_URL}/runs/failed"), fallback=[])
+    failed = safe_json(backend_api.get(f"{BACKEND_URL}/runs/failed"), fallback=[])
     # directory stability: folders sent while their run is still acquiring data
-    dirs = safe_json(httpx.get(f"{BACKEND_URL}/runs/queue/directories"), fallback=[])
+    dirs = safe_json(backend_api.get(f"{BACKEND_URL}/runs/queue/directories"), fallback=[])
     return templates.TemplateResponse(request, "runs/queue.html", {"data": data, "failed": failed, "dirs": dirs})
 
 
 # ── START UPLOAD (manual trigger for sent_to_tre=manual)
 @router.post("/{uuid}/start-upload")
 def start_upload(request: Request, uuid: str):
-    httpx.post(f"{BACKEND_URL}/runs/{uuid}/start-upload")
+    backend_api.post(f"{BACKEND_URL}/runs/{uuid}/start-upload")
     return RedirectResponse(url=f"/acquisition-runs/{uuid}", status_code=303)
 
 
 # ── CANCEL UPLOAD (force moving → move_failed)
 @router.post("/{uuid}/cancel-upload")
 def cancel_upload(request: Request, uuid: str):
-    httpx.post(f"{BACKEND_URL}/runs/{uuid}/cancel-upload")
+    backend_api.post(f"{BACKEND_URL}/runs/{uuid}/cancel-upload")
     return RedirectResponse(url=f"/acquisition-runs/{uuid}", status_code=303)
 
 
 # ── RECHECK (delete checksum + re-checksum + re-upload + re-verify)
 @router.post("/{uuid}/recheck")
 def recheck_run(request: Request, uuid: str):
-    httpx.post(f"{BACKEND_URL}/runs/{uuid}/recheck")
+    backend_api.post(f"{BACKEND_URL}/runs/{uuid}/recheck")
     return RedirectResponse(url=f"/acquisition-runs/{uuid}", status_code=303)
 
 
 # ── RETRY A FAILED DIRECTORY UPLOAD (directory stability)
 @router.post("/{uuid}/directories/{dir_uuid}/retry")
 def retry_directory(request: Request, uuid: str, dir_uuid: str):
-    httpx.post(f"{BACKEND_URL}/runs/directories/{dir_uuid}/retry")
+    backend_api.post(f"{BACKEND_URL}/runs/directories/{dir_uuid}/retry")
     return RedirectResponse(url=f"/acquisition-runs/{uuid}", status_code=303)
 
 
 # ── DELETE
 @router.post("/{uuid}/delete")
 def delete_run(request: Request, uuid: str, next: str = "/acquisition-runs/"):
-    httpx.delete(f"{BACKEND_URL}/runs/{uuid}")
+    backend_api.delete(f"{BACKEND_URL}/runs/{uuid}")
     return RedirectResponse(url=next, status_code=303)

@@ -1,3 +1,7 @@
+# Only the web interface (port 8001) is reachable from other machines. The database, RabbitMQ,
+# the backend API and Adminer listen on 127.0.0.1, i.e. on this host only; the containers reach
+# each other over the Compose network. Adminer starts only with: docker compose --profile admin up -d
+
 services:
   # ── Infrastructure ───────────────────────────────────────────────────────────
 
@@ -10,7 +14,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: fastapi_gateway_db
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -18,8 +22,9 @@ services:
     image: adminer
     container_name: fastapi_gateway_adminer
     restart: always
+    profiles: ["admin"]   # direct database access: off unless started with --profile admin
     ports:
-      - "8090:8080" # moved to 8090 — port 8080 is reserved for kubectl port-forward
+      - "127.0.0.1:8090:8080" # moved to 8090 — port 8080 is reserved for kubectl port-forward
     depends_on:
       - db
 
@@ -33,8 +38,8 @@ services:
       # crash the worker, so allow 7 days.
       RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "-rabbit consumer_timeout 604800000"
     ports:
-      - "5672:5672" # AMQP protocol (used by pika)
-      - "15672:15672" # Management UI → http://localhost:15672  (guest/guest)
+      - "127.0.0.1:5672:5672" # AMQP protocol (used by pika)
+      - "127.0.0.1:15672:15672" # Management UI → http://localhost:15672  (guest/guest), this host only
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
@@ -50,7 +55,7 @@ services:
     restart: always
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"   # API for the frontend; every endpoint except /auth needs a login token
     environment:
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432

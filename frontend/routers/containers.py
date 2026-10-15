@@ -3,6 +3,7 @@ import docker.errors
 from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
 from routers.settings import get_setting_value
+from auth import require_admin
 
 router = APIRouter()
 from shared_templates import templates
@@ -119,8 +120,9 @@ def containers_data():
 
 
 @router.post("/remount-restart")
-def remount_restart(next: str = "/"):
+def remount_restart(request: Request, next: str = "/"):
     """Force-recreate backend, worker and watcher to re-establish storage mounts."""
+    require_admin(request)
     client = _client()
     if client is None:
         return RedirectResponse(url=next, status_code=303)
@@ -143,10 +145,11 @@ def remount_restart(next: str = "/"):
 
 
 @router.post("/restart-all")
-def restart_all(next: str = "/containers/"):
+def restart_all(request: Request, next: str = "/containers/"):
     """Force-recreate all fastapi_gateway_* containers except the frontend itself.
     Infrastructure (rabbitmq) is stopped last and recreated first so dependents start in order.
     """
+    require_admin(request)
     client = _client()
     if client is None:
         return RedirectResponse(url=next, status_code=303)
@@ -179,7 +182,8 @@ def restart_all(next: str = "/containers/"):
 
 
 @router.post("/{name}/restart")
-def restart_container(name: str, next: str = "/containers/"):
+def restart_container(request: Request, name: str, next: str = "/containers/"):
+    require_admin(request)
     client = _client()
     if client is not None:
         try:

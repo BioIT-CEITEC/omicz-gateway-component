@@ -5,6 +5,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from shared_templates import templates
 
 from routers import home, sequencers, sequencers_type, runs, containers, settings, logs, changelog, system
+import auth
 from logger import get_logger
 
 logger = get_logger("frontend")
@@ -26,7 +27,11 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
 # static/css/style.css → http://localhost:8001/static/css/style.css
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# Every page needs a login, except /login, /setup and /logout (see auth.py)
+app.add_middleware(auth.AuthMiddleware)
+
 # Routers
+app.include_router(auth.router)
 app.include_router(home.router)
 
 app.include_router(sequencers.router, prefix="/instruments")

@@ -5,10 +5,12 @@ import time
 
 import docker
 import httpx
-from fastapi import APIRouter, Query
+import backend_api
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse
 
 import updater
+from auth import require_admin
 from logger import get_logger
 
 router = APIRouter()
@@ -83,7 +85,7 @@ def get_version(refresh: bool = Query(False)):
 def _active_transfers() -> dict | None:
     """Transfers a worker restart would interrupt, from the backend. None if the backend can't be asked."""
     try:
-        r = httpx.get(f"{BACKEND_URL}/runs/active-transfers", timeout=5)
+        r = backend_api.get(f"{BACKEND_URL}/runs/active-transfers", timeout=5)
         return r.json() if r.status_code == 200 else None
     except Exception:
         return None
@@ -101,7 +103,8 @@ def _run_migrations() -> tuple[bool, str]:
 
 
 @router.post("/update")
-def do_update(force: bool = Query(False)):
+def do_update(request: Request, force: bool = Query(False)):
+    require_admin(request)
     if not os.path.isdir(WORKSPACE):
         return JSONResponse(
             {

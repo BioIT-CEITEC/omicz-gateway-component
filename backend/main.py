@@ -5,6 +5,7 @@ from core.logger import get_logger
 from api.base import api_router
 from db.session import SESSION_LOCAL
 from db.repositories.settings import seed_defaults
+from db.repositories.users import ensure_admin_from_env
 import db.base  # registers all models so SQLAlchemy can resolve relationships
 
 logger = get_logger("backend")
@@ -28,6 +29,11 @@ def start_app():
             seed_defaults(db)
         except Exception as e:
             logger.warning(f"Could not seed settings defaults (table may not exist yet): {e}")
+            db.rollback()
+        try:
+            ensure_admin_from_env(db)
+        except Exception as e:
+            logger.warning(f"Could not create the admin account from .env (run the migrations?): {e}")
         finally:
             db.close()
 

@@ -401,28 +401,19 @@
               class="bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg text-xs font-medium hover:border-gray-400 hover:text-gray-800 transition">
               Check
             </button>
+            <button onclick="openUpdateHelp()"
+              class="bg-[#0C2461] text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-[#091B4D] transition">
+              How to update
+            </button>
           </div>
         </div>
 
         
         <div id="update-banner" class="hidden mt-4 p-4 bg-indigo-50 border border-indigo-200 rounded-xl">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <p class="text-sm font-semibold text-indigo-800">Update available</p>
-              <p class="text-xs text-indigo-600 mt-0.5">
-                Pulls the latest code from GitHub, then restarts backend / worker / watcher automatically.
-                Refresh this page after the update completes.
-              </p>
-            </div>
-            <button id="update-btn" onclick="runUpdate()"
-              class="shrink-0 bg-[#0C2461] text-white px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-[#091B4D] transition">
-              Update Now
-            </button>
-          </div>
-          
-          <div id="update-output" class="hidden mt-3">
-            <pre id="update-log" class="text-[11px] font-mono bg-gray-900 text-green-400 rounded-lg p-3 whitespace-pre-wrap break-all max-h-48 overflow-y-auto"></pre>
-          </div>
+          <p class="text-sm font-semibold text-indigo-800">Update available</p>
+          <p class="text-xs text-indigo-600 mt-0.5">
+            Click <b>How to update</b> for the commands to run on the server.
+          </p>
         </div>
 
         
@@ -434,6 +425,74 @@
         <div id="check-error" class="hidden mt-4 p-3 bg-red-50 border border-red-200 rounded-xl">
           <p class="text-xs text-red-700 font-medium" id="check-error-msg"></p>
         </div>
+      </div>
+    </div>
+  </div>
+
+  
+  <div id="update-help-modal" onclick="if (event.target === this) closeUpdateHelp()"
+       class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl mx-4 p-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-start justify-between gap-4 mb-1">
+        <h2 class="text-base font-semibold text-gray-900">How to update</h2>
+        <button onclick="closeUpdateHelp()" class="text-gray-400 hover:text-gray-600 text-xl leading-none" aria-label="Close">&times;</button>
+      </div>
+      <p class="text-sm text-gray-500 mb-4">Open a terminal on the server and run these commands one by one, waiting for each to finish before the next.</p>
+      <ol id="update-help-steps" class="space-y-3">
+        
+        
+        <li class="flex items-center gap-3">
+          <span class="shrink-0 w-6 h-6 rounded-full bg-indigo-50 text-indigo-700 text-xs font-semibold flex items-center justify-center">1</span>
+          <code class="update-cmd flex-1 min-w-0 text-[12px] font-mono bg-gray-900 text-green-400 rounded-lg px-3 py-2 whitespace-pre-wrap break-words">cd ~/omicz-gateway-component</code>
+          <button onclick="copyUpdateCmd(this)"
+            class="shrink-0 bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg text-xs font-medium hover:border-gray-400 hover:text-gray-800 transition">
+            Copy
+          </button>
+        </li>
+        
+        <li class="flex items-center gap-3">
+          <span class="shrink-0 w-6 h-6 rounded-full bg-indigo-50 text-indigo-700 text-xs font-semibold flex items-center justify-center">2</span>
+          <code class="update-cmd flex-1 min-w-0 text-[12px] font-mono bg-gray-900 text-green-400 rounded-lg px-3 py-2 whitespace-pre-wrap break-words">git checkout -- backend/core/config.py backend/services/worker.py docker-compose.yml</code>
+          <button onclick="copyUpdateCmd(this)"
+            class="shrink-0 bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg text-xs font-medium hover:border-gray-400 hover:text-gray-800 transition">
+            Copy
+          </button>
+        </li>
+        
+        <li class="flex items-center gap-3">
+          <span class="shrink-0 w-6 h-6 rounded-full bg-indigo-50 text-indigo-700 text-xs font-semibold flex items-center justify-center">3</span>
+          <code class="update-cmd flex-1 min-w-0 text-[12px] font-mono bg-gray-900 text-green-400 rounded-lg px-3 py-2 whitespace-pre-wrap break-words">git pull</code>
+          <button onclick="copyUpdateCmd(this)"
+            class="shrink-0 bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg text-xs font-medium hover:border-gray-400 hover:text-gray-800 transition">
+            Copy
+          </button>
+        </li>
+        
+        <li class="flex items-center gap-3">
+          <span class="shrink-0 w-6 h-6 rounded-full bg-indigo-50 text-indigo-700 text-xs font-semibold flex items-center justify-center">4</span>
+          <code class="update-cmd flex-1 min-w-0 text-[12px] font-mono bg-gray-900 text-green-400 rounded-lg px-3 py-2 whitespace-pre-wrap break-words">docker compose up -d --build</code>
+          <button onclick="copyUpdateCmd(this)"
+            class="shrink-0 bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg text-xs font-medium hover:border-gray-400 hover:text-gray-800 transition">
+            Copy
+          </button>
+        </li>
+        
+        <li class="flex items-center gap-3">
+          <span class="shrink-0 w-6 h-6 rounded-full bg-indigo-50 text-indigo-700 text-xs font-semibold flex items-center justify-center">5</span>
+          <code class="update-cmd flex-1 min-w-0 text-[12px] font-mono bg-gray-900 text-green-400 rounded-lg px-3 py-2 whitespace-pre-wrap break-words">docker exec fastapi_gateway_backend alembic upgrade head</code>
+          <button onclick="copyUpdateCmd(this)"
+            class="shrink-0 bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg text-xs font-medium hover:border-gray-400 hover:text-gray-800 transition">
+            Copy
+          </button>
+        </li>
+        
+      </ol>
+      <p class="text-xs text-gray-400 mt-4">
+        Step 2 discards local edits to those three files. Keep your own instrument folders in <code>docker-compose.override.yml</code>.
+        Running transfers are interrupted by the restart in step 4; use Retry afterwards, finished files are not sent again.
+      </p>
+      <div class="flex justify-end mt-5">
+        <button onclick="closeUpdateHelp()" class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition">Close</button>
       </div>
     </div>
   </div>
@@ -1000,6 +1059,68 @@
       </div>
       
       
+      <div class="px-5 py-4" id="row-reopen_scan_interval">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-800">reopen_scan_interval</p>
+            <p class="text-xs text-gray-400 mt-0.5">Seconds between checks of completed runs for new files (a new sample or run added to a finished project). A run with new files goes back to running and finishes by the instrument&#39;s own completion rule. Each check walks the folders of recently completed runs. 0 = never reopen completed runs</p>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            
+            <input
+              type="number"
+              id="input-reopen_scan_interval"
+              value="600"
+              min="1"
+              max="9999"
+              class="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#0C2461]"
+            />
+            
+            <span class="text-xs text-gray-400 w-14"></span>
+            <button
+              onclick="saveSetting('reopen_scan_interval')"
+              class="bg-[#0C2461] text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#091B4D] transition"
+            >
+              Save
+            </button>
+            <span id="status-reopen_scan_interval" class="text-xs w-16 text-center"></span>
+          </div>
+        </div>
+        
+      </div>
+      
+      
+      <div class="px-5 py-4" id="row-reopen_watch_days">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-800">reopen_watch_days</p>
+            <p class="text-xs text-gray-400 mt-0.5">Completed runs are checked for new files for this many days after they completed. Older runs are left alone</p>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            
+            <input
+              type="number"
+              id="input-reopen_watch_days"
+              value="30"
+              min="1"
+              max="9999"
+              class="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[#0C2461]"
+            />
+            
+            <span class="text-xs text-gray-400 w-14"></span>
+            <button
+              onclick="saveSetting('reopen_watch_days')"
+              class="bg-[#0C2461] text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[#091B4D] transition"
+            >
+              Save
+            </button>
+            <span id="status-reopen_watch_days" class="text-xs w-16 text-center"></span>
+          </div>
+        </div>
+        
+      </div>
+      
+      
       <div class="px-5 py-4" id="row-run_detection_delay">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           <div class="flex-1 min-w-0">
@@ -1389,7 +1510,7 @@
       .then(data => {
         latestEl.textContent = data.latest ? 'v' + data.latest : 'unavailable';
         if (!data.workspace_mounted) {
-          errorMsg.textContent = "Workspace not mounted — add '- .:/workspace' to frontend volumes in docker-compose.yml.";
+          errorMsg.textContent = "Workspace not mounted — add '- .:/workspace' to frontend volumes in docker-compose.yml to see the installed version.";
           errorBanner.classList.remove('hidden');
         } else if (data.update_available) {
           localStorage.setItem('update_available', 'true');
@@ -1420,53 +1541,22 @@
   // Always fetch fresh version data on page load
   checkVersion(true);
 
-  function runUpdate(force) {
-    const btn       = document.getElementById('update-btn');
-    const outputBox = document.getElementById('update-output');
-    const log       = document.getElementById('update-log');
-    btn.disabled    = true;
-    btn.textContent = 'Updating…';
-    outputBox.classList.remove('hidden');
-    log.textContent = 'Running git pull…\n';
-    fetch('/system/update' + (force ? '?force=1' : ''), { method: 'POST' })
-      .then(r => r.json())
-      .then(data => {
-        (data.local_changes_log || []).forEach(l => log.textContent += l + '\n');
-        if (!data.success) {
-          if (data.busy) {
-            log.textContent += '\n' + data.error + '\n';
-            btn.disabled = false;
-            btn.textContent = 'Update';
-            if (confirm(data.error + '\n\nUpdate anyway?')) return runUpdate(true);
-            log.textContent += '\nUpdate postponed.';
-            return;
-          }
-          log.textContent += '\nERROR:\n' + (data.error || 'unknown error');
-          btn.textContent = 'Failed';
-          btn.className = btn.className.replace('bg-[#0C2461]', 'bg-red-500');
-          return;
-        }
-        log.textContent += data.git_output + '\n';
-        if (data.migration_log && data.migration_log.length)
-          log.textContent += '\nDatabase:\n' + data.migration_log.join('\n') + '\n';
-        if (data.restart_log && data.restart_log.length)
-          log.textContent += '\n' + data.restart_log.join('\n') + '\n';
-        (data.warnings || []).forEach(w => log.textContent += '\n⚠ ' + w + '\n');
-        if (data.needs_rebuild)
-          log.textContent += '\n⚠ requirements.txt or Dockerfile changed — run: docker compose build && docker compose up -d\n';
-        log.textContent += '\nDone. Please refresh this page.';
-        localStorage.removeItem('update_available');
-        localStorage.removeItem('latest_version');
-        localStorage.removeItem('update_check_time');
-        document.getElementById('update-dot')?.classList.add('hidden');
-        btn.textContent = (data.warnings || []).length ? 'Done — see warnings' : 'Done ✓';
-        btn.disabled = false;
-        log.scrollTop = log.scrollHeight;
-      })
-      .catch(() => {
-        log.textContent += '\nRequest failed — the backend may be restarting. Refresh in a few seconds.';
-        btn.textContent = 'Error';
-      });
+  function openUpdateHelp() { document.getElementById('update-help-modal').classList.remove('hidden'); }
+  function closeUpdateHelp() { document.getElementById('update-help-modal').classList.add('hidden'); }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeUpdateHelp(); });
+  if (location.hash === '#how-to-update') openUpdateHelp();
+
+  function copyUpdateCmd(btn) {
+    const text = btn.parentElement.querySelector('.update-cmd').textContent;
+    const done = () => { btn.textContent = 'Copied'; setTimeout(() => btn.textContent = 'Copy', 1500); };
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done, () => {});
+    } else {   // plain http on a server address: no clipboard API
+      const ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); done(); } catch (e) {}
+      ta.remove();
+    }
   }
 </script>
 
@@ -1517,7 +1607,7 @@
           var msg    = document.getElementById('update-available-msg');
           if (data.update_available) {
             if (dot)   dot.classList.remove('hidden');
-            if (badge) badge.title = 'Update available: v' + data.latest + ' — click to update';
+            if (badge) badge.title = 'Update available: v' + data.latest + ' — see how to update';
             if (banner) {
               if (msg) msg.textContent = 'Version ' + data.latest + ' is available.';
               banner.classList.remove('hidden');

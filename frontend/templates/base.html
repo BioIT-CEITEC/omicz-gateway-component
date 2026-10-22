@@ -83,7 +83,7 @@
           var msg    = document.getElementById('update-available-msg');
           if (data.update_available) {
             if (dot)   dot.classList.remove('hidden');
-            if (badge) badge.title = 'Update available: v' + data.latest + ' — click to update';
+            if (badge) badge.title = 'Update available: v' + data.latest + ' — see how to update';
             if (banner) {
               if (msg) msg.textContent = 'Version ' + data.latest + ' is available.';
               banner.classList.remove('hidden');

@@ -352,7 +352,7 @@
     <span id="update-available-msg"></span>
   </p>
   <a href="settings/index.html" class="shrink-0 text-xs font-semibold text-indigo-700 bg-white border border-indigo-200 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition">
-    Update Now
+    How to update
   </a>
 </div>
 
@@ -501,7 +501,7 @@
             bg-blue-400
             "></span>
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium text-gray-800 truncate">2026-10-15_HeLa_QC_02</p>
+            <p class="text-sm font-medium text-gray-800 truncate">2026-10-22_HeLa_QC_02</p>
             <p class="text-[11px] text-gray-400 truncate">Orbitrap-Exploris-480</p>
           </div>
           <span class="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border
@@ -520,7 +520,7 @@
             bg-amber-400
             "></span>
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium text-gray-800 truncate">2026-10-15_Plasma_cohort_B15</p>
+            <p class="text-sm font-medium text-gray-800 truncate">2026-10-22_Plasma_cohort_B15</p>
             <p class="text-[11px] text-gray-400 truncate">Orbitrap-Exploris-480</p>
           </div>
           <span class="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border
@@ -539,7 +539,7 @@
             bg-blue-400
             "></span>
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium text-gray-800 truncate">20261015_0347_P2S-01234-A_PAW41502_5d2c8b71</p>
+            <p class="text-sm font-medium text-gray-800 truncate">20261022_0347_P2S-01234-A_PAW41502_5d2c8b71</p>
             <p class="text-[11px] text-gray-400 truncate">PromethION-24</p>
           </div>
           <span class="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border
@@ -558,7 +558,7 @@
             bg-blue-400
             "></span>
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium text-gray-800 truncate">261015_LH00419_0215_A22KN2LT3</p>
+            <p class="text-sm font-medium text-gray-800 truncate">261022_LH00419_0215_A22KN2LT3</p>
             <p class="text-[11px] text-gray-400 truncate">NovaSeq-X-01</p>
           </div>
           <span class="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border
@@ -577,7 +577,7 @@
             bg-amber-400
             "></span>
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium text-gray-800 truncate">261014_VH01237_0093_AAFGK8CM5</p>
+            <p class="text-sm font-medium text-gray-800 truncate">261021_VH01237_0093_AAFGK8CM5</p>
             <p class="text-[11px] text-gray-400 truncate">NextSeq-2000-01</p>
           </div>
           <span class="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border
@@ -595,7 +595,7 @@
             bg-amber-400
             "></span>
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium text-gray-800 truncate">261014_VH01237_0092_AAFGK7CM5</p>
+            <p class="text-sm font-medium text-gray-800 truncate">261021_VH01237_0092_AAFGK7CM5</p>
             <p class="text-[11px] text-gray-400 truncate">NextSeq-2000-01</p>
           </div>
           <span class="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border
@@ -740,8 +740,8 @@ const EMPTY_COLOR = DARK ? '#283548' : '#e5e7eb';
 (function() {
   const ctx = document.getElementById('activityBar');
   if (!ctx) return;
-  const labels = ["10/02", "10/03", "10/04", "10/05", "10/06", "10/07", "10/08", "10/09", "10/10", "10/11", "10/12", "10/13", "10/14", "10/15"];
-  const values = [1, 1, 0, 1, 1, 1, 1, 1, 1, 2, 2, 2, 4, 4];
+  const labels = ["10/09", "10/10", "10/11", "10/12", "10/13", "10/14", "10/15", "10/16", "10/17", "10/18", "10/19", "10/20", "10/21", "10/22"];
+  const values = [1, 1, 0, 1, 1, 1, 1, 1, 1, 2, 2, 2, 5, 3];
   new Chart(ctx, {
     type: 'bar',
     data: {
@@ -852,7 +852,7 @@ const EMPTY_COLOR = DARK ? '#283548' : '#e5e7eb';
           var msg    = document.getElementById('update-available-msg');
           if (data.update_available) {
             if (dot)   dot.classList.remove('hidden');
-            if (badge) badge.title = 'Update available: v' + data.latest + ' — click to update';
+            if (badge) badge.title = 'Update available: v' + data.latest + ' — see how to update';
             if (banner) {
               if (msg) msg.textContent = 'Version ' + data.latest + ' is available.';
               banner.classList.remove('hidden');

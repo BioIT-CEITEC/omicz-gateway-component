@@ -120,6 +120,21 @@ def conflict_detail(directory: str, modified: list[str], deleted: list[str]) -> 
     return "\n".join(lines)
 
 
+def run_conflict_detail(modified: list[str], deleted: list[str]) -> str:
+    """Run-level counterpart of conflict_detail: sent files that changed, found when the run finishes."""
+    lines = ["Files changed after they were sent to the TRE."]
+    if modified:
+        lines.append(f"Modified ({len(modified)}): " + ", ".join(modified[:_MAX_FILES_IN_DETAIL])
+                     + (" …" if len(modified) > _MAX_FILES_IN_DETAIL else ""))
+    if deleted:
+        lines.append(f"Deleted ({len(deleted)}): " + ", ".join(deleted[:_MAX_FILES_IN_DETAIL])
+                     + (" …" if len(deleted) > _MAX_FILES_IN_DETAIL else ""))
+    lines.append("Uploaded objects cannot be overwritten, so the TRE still holds the earlier version and would reject a new manifest "
+                 "that includes the changed content. If only the modification time changed, \"Send to TRE\" finishes the transfer. "
+                 "If the content changed, contact the TRE administrator.")
+    return "\n".join(lines)
+
+
 def list_top_level_dirs(run_folder: str, exclusions: list[str]) -> list[str]:
     """Top-level directory names of a run (includes empty ones), minus hidden/excluded names."""
     all_exclusions = BUILTIN_EXCLUSIONS + (exclusions or [])

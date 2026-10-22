@@ -375,6 +375,19 @@ def handle_run_created(name: str, sequencer_uuid: str):
         db.close()
 
 
+def _changed_after_sent(run, sequencer, db):
+    """(modified, deleted) among the files already sent for this run, or None when nothing changed."""
+    run_folder = os.path.join(sequencer.location, run.name)
+    if not os.path.isdir(run_folder):
+        return None
+    sent = dir_stability.uploaded_files(run.uuid, db)
+    if not sent:
+        return None
+    current = dir_stability.scan_tree(run_folder, sequencer.exclusions or [])
+    modified, deleted = dir_stability.diff_uploaded(current, sent)
+    return (modified, deleted) if modified or deleted else None
+
+
 def handle_run_completed(name: str, sequencer_uuid):
     """
     Completion signal detected by the watcher.
@@ -400,6 +413,13 @@ def handle_run_completed(name: str, sequencer_uuid):
         sequencer = get_sequencer(sequencer_uuid)
         if not sequencer:
             logger.error(f"sequencer {sequencer_uuid} not found — cannot determine sent_to_tre setting")
+            return
+
+        # A file that was sent and then changed can never be corrected on the TRE (no overwrites), and a
+        # manifest with its new hash would fail verification. Stop here and let a person decide.
+        changed = _changed_after_sent(run, sequencer, db)
+        if changed:
+            dir_stability.mark_run_conflict(run, db, dir_stability.run_conflict_detail(*changed))
             return
 
         if sequencer.sent_to_tre == "auto":

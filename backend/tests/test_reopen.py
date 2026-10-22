@@ -175,3 +175,47 @@ def test_directory_stability_sends_new_directory_early_after_reopen(env):
     assert env.published == [("run_directory_upload_requested", "SAMPLE_2")]   # sent early, not at the end
     states = {d.name: d.state for d in env.db.query(RunDirectories).all()}
     assert states == {"SAMPLE_1": ds.SENT, "SAMPLE_2": ds.QUEUED}
+
+
+# ── a sent file that changed stops the run at completion ──────────────────────
+
+@pytest.fixture
+def finishing(env, monkeypatch, tmp_path):
+    """env, but with a worker wired to the same database and the run waiting for run_completed."""
+    from services import worker, publisher
+    monkeypatch.setattr(worker, "SESSION_LOCAL", lambda: env.db)
+    monkeypatch.setattr(env.db, "close", lambda: None)
+    env.seq.sent_to_tre = "auto"
+    monkeypatch.setattr(worker, "get_sequencer", lambda uuid: env.seq)
+    sent = []
+    monkeypatch.setattr(publisher, "publish", lambda event, name, seq_uuid, **extra: sent.append(event))
+    env.run.status = "running"
+    env.db.commit()
+    env.worker, env.sent = worker, sent
+    return env
+
+
+def test_unchanged_sent_files_continue_to_the_pipeline(finishing):
+    write(finishing.folder / "SAMPLE_2" / "reads.bin")
+    finishing.worker.handle_run_completed("PROJECT_1", finishing.seq.uuid)
+    assert finishing.run.status == "running_finished"
+    assert finishing.sent == ["run_checksum_requested"]
+
+
+def test_modified_sent_file_stops_the_run_for_a_person(finishing):
+    write(finishing.folder / "SAMPLE_1" / "reads.fastq", b"rewritten after it was sent")
+    finishing.worker.handle_run_completed("PROJECT_1", finishing.seq.uuid)
+    finishing.db.refresh(finishing.run)
+    assert finishing.run.status == "transfer_conflict"
+    assert finishing.sent == []
+    entry = finishing.db.query(RunsStatusHistory).filter_by(run_uuid=finishing.run.uuid, status="transfer_conflict").one()
+    assert "SAMPLE_1/reads.fastq" in entry.detail and "contact the TRE administrator" in entry.detail
+
+
+def test_deleted_sent_file_stops_the_run_too(finishing):
+    os.remove(finishing.folder / "SAMPLE_1" / "reads.fastq")
+    finishing.worker.handle_run_completed("PROJECT_1", finishing.seq.uuid)
+    finishing.db.refresh(finishing.run)
+    assert finishing.run.status == "transfer_conflict"
+    entry = finishing.db.query(RunsStatusHistory).filter_by(run_uuid=finishing.run.uuid, status="transfer_conflict").one()
+    assert "Deleted (1)" in entry.detail

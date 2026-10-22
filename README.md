@@ -309,7 +309,7 @@ If a new sequencer machine is connected to this computer:
    ```
 
 2. **Add its volume in `docker-compose.override.yml`** — not in `docker-compose.yml`.
-   Docker Compose loads this file automatically, and it is git-ignored, so the in-app update never conflicts with it. Create it once from the example:
+   Docker Compose loads this file automatically, and it is git-ignored, so an update never conflicts with it. Create it once from the example:
    ```bash
    cp docker-compose.override.example.yml docker-compose.override.yml
    ```
@@ -322,16 +322,24 @@ If a new sequencer machine is connected to this computer:
 
 4. **Create a new Instrument in the UI** with Location `/runs/machine-2`
 
-> **Already added machines by editing `docker-compose.yml`?** That still works, and Settings → Update keeps your edits. If an update ever reports that your changes overlap with the new version, move your lines into `docker-compose.override.yml`, run `git checkout docker-compose.yml`, and click Update again.
+> **Already added machines by editing `docker-compose.yml`?** That still works, but `git pull` can refuse to run when the new version changes the same file. Move your lines into `docker-compose.override.yml`, run `git checkout docker-compose.yml`, and update again.
 
 ---
 
 ## Updating
 
-**Settings → Update** pulls the latest version from GitHub, updates the database (`alembic upgrade head`), and restarts the services. Local edits to tracked files are kept.
+**Settings → How to update** shows the commands to run on the server. Open a terminal there and run them one by one:
 
-- If transfers are running, you are asked first — the restart interrupts them (Retry resumes them without re-sending finished files).
-- If `requirements.txt`, a `Dockerfile`, or `docker-compose.yml` changed, the update log tells you to run `docker compose up -d --build` on the server once.
+```bash
+cd ~/omicz-gateway-component
+git checkout -- backend/core/config.py backend/services/worker.py docker-compose.yml
+git pull
+docker compose up -d --build
+docker exec fastapi_gateway_backend alembic upgrade head
+```
+
+- The `git checkout` line discards local edits to those three files. Keep your own instrument folders in `docker-compose.override.yml`, which is git-ignored.
+- The restart interrupts running transfers. Retry resumes them without re-sending finished files.
 - After the update that adds the login, the UI shows the setup page until the first administrator exists. Run `docker compose up -d` once so the new port settings (API, database and RabbitMQ on this host only) take effect, and remove the old Adminer container, which `up -d` leaves running: `docker rm -f fastapi_gateway_adminer`.
 
 ---

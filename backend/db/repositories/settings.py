@@ -143,6 +143,18 @@ DEFAULTS = [
         "category": "watcher",
         "description": "Seconds between directory stability checks. Each check walks every running run folder of instruments using the Directory Stability method",
     },
+    {
+        "key": "reopen_scan_interval",
+        "value": "600",
+        "category": "watcher",
+        "description": "Seconds between checks of completed runs for new files (a new sample or run added to a finished project). A run with new files goes back to running and finishes by the instrument's own completion rule. Each check walks the folders of recently completed runs. 0 = never reopen completed runs",
+    },
+    {
+        "key": "reopen_watch_days",
+        "value": "30",
+        "category": "watcher",
+        "description": "Completed runs are checked for new files for this many days after they completed. Older runs are left alone",
+    },
     # ── Backup ────────────────────────────────────────────────────────────────
     {
         "key": "backup_interval_days",
@@ -173,6 +185,8 @@ RANGES = {
     "upload_s5cmd_workers":      (1, 256),
     "upload_s5cmd_concurrency":  (1, 64),
     "upload_s5cmd_part_size_mb": (5, 5120),   # S3 multipart limits: 5 MiB to 5 GiB per part
+    "reopen_scan_interval":      (0, 86400),
+    "reopen_watch_days":         (1, 3650),
 }
 
 

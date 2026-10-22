@@ -2,7 +2,7 @@ import os
 import sys
 import time
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from watchdog.observers.polling import PollingObserver as Observer
 from watchdog.events import FileSystemEventHandler
@@ -16,7 +16,7 @@ from db.models.sequencers import Sequencers
 from db.models.runs import Runs
 from db.models.runs_status_history import RunsStatusHistory
 from services.publisher import publish
-from services import dir_stability
+from services import dir_stability, reopen
 from core.logger import get_logger
 from db.repositories.settings import get_setting_int
 
@@ -162,11 +162,13 @@ def query_sequencers():
         db.close()
 
 
-def is_completed(run_folder: str, sequencer) -> bool:
+def is_completed(run_folder: str, sequencer, newer_than: datetime | None = None) -> bool:
     """
     Checks whether the completion signal file already exists inside a run folder.
     Used during the initial scan to determine status of pre-existing runs.
     Only applicable to the "signal" completion method.
+    newer_than: a reopened run still holds its old signal file — only a file modified after
+    that time counts.
     """
     if not sequencer.type:
         return False
@@ -183,6 +185,8 @@ def is_completed(run_folder: str, sequencer) -> bool:
             (signal_match == "prefix" and filename.startswith(signal)) or
             (signal_match == "suffix" and filename.endswith(signal))
         )
+        if matched and newer_than is not None:
+            matched = os.path.getmtime(os.path.join(run_folder, filename)) > newer_than.timestamp()
         if matched:
             return True
     return False
@@ -221,7 +225,7 @@ def scan_existing_runs(sequencer):
                 # while the watcher was down — if so, re-publish run_completed
                 if existing.status == "running":
                     run_folder = os.path.join(location, run_name)
-                    if is_completed(run_folder, sequencer):
+                    if is_completed(run_folder, sequencer, reopen.last_completion_time(existing.uuid, db)):
                         logger.info(f"catch-up → '{run_name}' already has signal file, publishing run_completed")
                         publish("run_completed", run_name, sequencer.uuid)
                 skipped += 1
@@ -388,6 +392,42 @@ def check_directory_stability(sequencers: list):
             db.close()
 
 
+def check_completed_runs(sequencers: list):
+    """
+    Looks for new files in recently completed runs (a new sample or run added to a finished
+    project) and sets them back to running; the instrument's completion method then decides
+    when the new data is done. See services/reopen.py.
+    """
+    since  = datetime.now() - timedelta(days=get_setting_int("reopen_watch_days", _REOPEN_WATCH_DAYS_DEFAULT))
+    for sequencer in sequencers:
+        if not os.path.isdir(sequencer.location):
+            continue
+
+        db = SESSION_LOCAL()
+        try:
+            runs = (
+                db.query(Runs)
+                .filter(
+                    Runs.sequencer_uuid == sequencer.uuid,
+                    Runs.status == "completed",
+                    Runs.is_deleted == False,
+                    Runs.updated_at >= since,
+                )
+                .all()
+            )
+            for run in runs:
+                try:
+                    if reopen.process_completed_run(run, sequencer, db):
+                        _signal_published.discard(run.uuid)   # the signal check must be able to publish again
+                except Exception as e:
+                    db.rollback()
+                    logger.error(f"reopen: error checking '{run.name}': {e}", exc_info=True)
+        except Exception as e:
+            logger.error(f"reopen: failed to query runs for '{sequencer.name}': {e}")
+        finally:
+            db.close()
+
+
 _signal_published: set = set()  # run UUIDs already published this process lifetime
 
 
@@ -426,6 +466,8 @@ def check_signal_files(sequencers: list):
                 )
                 .all()
             )
+            # a reopened run still holds its old signal file — only a newer one counts
+            since = {run.uuid: reopen.last_completion_time(run.uuid, db) for run in runs}
         except Exception as e:
             logger.error(f"signal check: failed to query runs for '{sequencer.name}': {e}")
             continue
@@ -437,7 +479,7 @@ def check_signal_files(sequencers: list):
                 continue
             run_folder = os.path.join(sequencer.location, run.name)
             try:
-                if is_completed(run_folder, sequencer):
+                if is_completed(run_folder, sequencer, since[run.uuid]):
                     logger.info(f"run completed (signal check): {run.name} on sequencer '{sequencer.name}'")
                     _signal_published.add(run.uuid)
                     publish("run_completed", run.name, sequencer.uuid)
@@ -449,6 +491,8 @@ _SEQUENCER_CHECK_INTERVAL_DEFAULT = 60
 _RUN_DETECTION_DELAY_DEFAULT      = 15
 _RUN_SCAN_INTERVAL_DEFAULT        = 120  # re-scan run folders every 2 min to catch PollingObserver misses
 _DIR_STABILITY_POLL_DEFAULT       = 60   # full walk of running runs — heavier than the 10s checks
+_REOPEN_SCAN_DEFAULT            = 600  # completed runs are checked for new files this often (0 = off)
+_REOPEN_WATCH_DAYS_DEFAULT      = 30
 
 
 def watch_sequencer(sequencer, observer, watched_uuids: set, stability_tracker: dict):
@@ -501,6 +545,7 @@ def start():
     stability_elapsed   = 0
     run_scan_elapsed    = 0
     dir_stability_elapsed = 0
+    reopen_elapsed        = 0
     _STABILITY_POLL_INTERVAL = 10  # check stability every 10s (independent of sequencer poll)
 
     try:
@@ -510,6 +555,7 @@ def start():
             stability_elapsed += 1
             run_scan_elapsed  += 1
             dir_stability_elapsed += 1
+            reopen_elapsed        += 1
 
             # ── stability + signal check (every 10s) ──────────────────────────
             if stability_elapsed >= _STABILITY_POLL_INTERVAL:
@@ -521,6 +567,12 @@ def start():
             if dir_stability_elapsed >= get_setting_int("dir_stability_poll_interval", _DIR_STABILITY_POLL_DEFAULT):
                 dir_stability_elapsed = 0
                 check_directory_stability(current_sequencers)
+
+            # ── completed runs: new files in a finished project (every 10 min by default) ──
+            reopen_interval = get_setting_int("reopen_scan_interval", _REOPEN_SCAN_DEFAULT)
+            if reopen_interval and reopen_elapsed >= reopen_interval:
+                reopen_elapsed = 0
+                check_completed_runs(current_sequencers)
 
             # ── periodic run scan (every 2 min) — catch folders missed by PollingObserver ──
             # The PollingObserver can miss on_created when a folder is renamed on an SMB/NFS

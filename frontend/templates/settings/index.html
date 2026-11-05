@@ -98,6 +98,7 @@
           'git checkout -- backend/core/config.py backend/services/worker.py docker-compose.yml',
           'git pull',
           'docker compose up -d --build',
+          'docker compose restart frontend',
           'docker exec fastapi_gateway_backend alembic upgrade head',
         ] %}
         {% for cmd in update_steps %}
@@ -307,7 +308,7 @@
       .then(data => {
         latestEl.textContent = data.latest ? 'v' + data.latest : 'unavailable';
         if (!data.workspace_mounted) {
-          errorMsg.textContent = "Workspace not mounted — add '- .:/workspace' to frontend volumes in docker-compose.yml to see the installed version.";
+          errorMsg.textContent = "VERSION not mounted — add '- ./VERSION:/workspace/VERSION:ro' to frontend volumes in docker-compose.yml to see the installed version.";
           errorBanner.classList.remove('hidden');
         } else if (data.update_available) {
           localStorage.setItem('update_available', 'true');

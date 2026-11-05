@@ -60,5 +60,5 @@ def get_version(refresh: bool = Query(False)):
         "current": current,
         "latest": latest,
         "update_available": latest is not None and latest != current,
-        "workspace_mounted": os.path.isdir(WORKSPACE),
+        "workspace_mounted": os.path.isfile(os.path.join(WORKSPACE, "VERSION")),
     }

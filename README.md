@@ -353,9 +353,11 @@ cd ~/omicz-gateway-component
 git checkout -- backend/core/config.py backend/services/worker.py docker-compose.yml
 git pull
 docker compose up -d --build
+docker compose restart frontend
 docker exec fastapi_gateway_backend alembic upgrade head
 ```
 
+- `restart frontend` makes the UI show the new version: the frontend sees only the `VERSION` file, and a file mount keeps showing the old file until the container restarts.
 - The `git checkout` line discards local edits to those three files. Keep your own instrument folders in `docker-compose.override.yml`, which is git-ignored.
 - The restart interrupts running transfers. Retry resumes them without re-sending finished files.
 - After the update that adds the login, the UI shows the setup page until the first administrator exists. Run `docker compose up -d` once so the new port settings (API, database and RabbitMQ on this host only) take effect, and remove the old Adminer container, which `up -d` leaves running: `docker rm -f fastapi_gateway_adminer`.

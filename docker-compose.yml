@@ -76,11 +76,6 @@ services:
       # Windows example:    - C:\Sequencer\Illumina:/runs/machine-1
       - ${MACHINE_1_PATH}:/runs/machine-1
       # - ${MACHINE_1_PATH_SHARED}:/runs/machine-1-shared
-      # ── Docker socket (required for container management API) ──────────────────
-      # Linux / macOS:
-      - /var/run/docker.sock:/var/run/docker.sock
-      # Windows (Docker Desktop) — comment out the line above and uncomment this:
-      # - //var/run/docker.sock:/var/run/docker.sock
 
   frontend:
     build:
@@ -97,13 +92,9 @@ services:
       - backend
     volumes:
       - ./frontend:/app
-      # ── Repo root (required for one-click update feature) ──────────────────────
-      - .:/workspace
-      # ── Docker socket (required for container management UI) ───────────────────
-      # Linux / macOS:
-      - /var/run/docker.sock:/var/run/docker.sock
-      # Windows (Docker Desktop) — comment out the line above and uncomment this:
-      # - //var/run/docker.sock:/var/run/docker.sock
+      # ── Repo root, read-only (the UI reads VERSION from it) ─────────────────────
+      # No Docker socket is mounted: access to it amounts to root on the host.
+      - .:/workspace:ro
 
   worker:
     build:

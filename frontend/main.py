@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from shared_templates import templates
 
-from routers import home, sequencers, sequencers_type, runs, containers, settings, logs, changelog, system
+from routers import home, sequencers, sequencers_type, runs, settings, logs, changelog, system
 import auth
 from logger import get_logger
 
@@ -37,7 +37,6 @@ app.include_router(home.router)
 app.include_router(sequencers.router, prefix="/instruments")
 app.include_router(sequencers_type.router, prefix="/instrument-models")
 app.include_router(runs.router, prefix="/acquisition-runs")
-app.include_router(containers.router, prefix="/containers")
 app.include_router(settings.router, prefix="/settings")
 app.include_router(logs.router, prefix="/logs")
 app.include_router(changelog.router, prefix="/changelog")

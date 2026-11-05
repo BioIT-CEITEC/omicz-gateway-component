@@ -247,17 +247,6 @@ def _settings() -> list:
 
 SETTINGS = _settings()
 
-# ── Containers ────────────────────────────────────────────────────────────────
-CONTAINERS = [
-    {"id": f"{i:x}a3c9e1f07b"[:10], "name": f"fastapi_gateway_{n}", "status": "running", "image": img}
-    for i, (n, img) in enumerate([
-        ("adminer", "adminer:latest"), ("backend", "omicz-gateway-component-backend:latest"),
-        ("backup", "omicz-gateway-component-backup:latest"), ("db", "postgres:15"),
-        ("frontend", "omicz-gateway-component-frontend:latest"), ("rabbitmq", "rabbitmq:3-management"),
-        ("watcher", "omicz-gateway-component-watcher:latest"), ("worker", "omicz-gateway-component-worker:latest"),
-    ], start=1)
-]
-
 # ── Logs ──────────────────────────────────────────────────────────────────────
 def _log(minutes_ago, level, where, msg):
     ts = (NOW - timedelta(minutes=minutes_ago)).astimezone().strftime("%Y-%m-%d %H:%M:%S")

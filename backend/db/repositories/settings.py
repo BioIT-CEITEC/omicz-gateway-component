@@ -17,12 +17,6 @@ DEFAULTS = [
         "category": "ui",
         "description": "How often (seconds) the run detail page auto-refreshes while the run is still sequencing (running status)",
     },
-    {
-        "key": "containers_refresh_interval",
-        "value": "10",
-        "category": "ui",
-        "description": "How often (seconds) the Containers page auto-refreshes",
-    },
     # ── Checksum ──────────────────────────────────────────────────────────────
     {
         "key": "checksum_chunk_size_mb",

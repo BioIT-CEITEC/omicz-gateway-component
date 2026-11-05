@@ -34,7 +34,7 @@
     {# ── Service sidebar ── #}
     <div class="md:w-40 flex-shrink-0">
       <nav class="bg-white rounded-xl shadow overflow-hidden">
-        {% set backend_svcs = ['backend', 'containers', 'repositories', 'publisher'] %}
+        {% set backend_svcs = ['backend', 'repositories', 'publisher'] %}
         {% set worker_svcs  = ['worker', 'watcher', 'checksum', 'tre'] %}
 
         {% macro svc_link(svc) %}

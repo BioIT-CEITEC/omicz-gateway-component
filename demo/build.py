@@ -124,8 +124,7 @@ import shared_templates  # noqa: E402
 shared_templates._read_version = lambda: D.VERSION
 
 from main import app  # noqa: E402
-from routers import containers as r_containers, logs as r_logs  # noqa: E402
-r_containers._fetch_containers = lambda: D.CONTAINERS
+from routers import logs as r_logs  # noqa: E402
 r_logs._frontend_log_lines = lambda n: D.LOGS["frontend"][-n:]
 
 from fastapi.testclient import TestClient  # noqa: E402
@@ -158,7 +157,7 @@ def out_file(url: str) -> str:
 
 FAILED_LINK = "/acquisition-runs/?status=move_failed&status=verify_failed&status=failed&status=transfer_conflict"
 PAGES = ["/", "/instruments/", "/instruments/create", "/instrument-models/", "/instrument-models/create",
-         "/acquisition-runs/", "/acquisition-runs/queue/view", "/containers/", "/settings/", "/logs/", "/changelog/",
+         "/acquisition-runs/", "/acquisition-runs/queue/view", "/settings/", "/logs/", "/changelog/",
          "/acquisition-runs/?status=running", "/acquisition-runs/?status=running_finished",
          "/acquisition-runs/?status=completed", FAILED_LINK]
 PAGES += [f"/instruments/{s['uuid']}" for s in D.SEQUENCERS] + [f"/instruments/{s['uuid']}/edit" for s in D.SEQUENCERS]
@@ -169,7 +168,7 @@ PAGES += [f"/logs/?service={s}" for s in D.LOGS]
 
 # JSON endpoints that pages fetch from the browser → api/<path>.json
 API = {"/system/version": D.SYSTEM_VERSION}
-for path in ["/containers/data"] + [f"/logs/data/{s}" for s in D.LOGS] + \
+for path in [f"/logs/data/{s}" for s in D.LOGS] + \
             [f"/acquisition-runs/{r['uuid']}/history-data" for r in D.RUNS]:
     res = client.get(path)
     res.raise_for_status()

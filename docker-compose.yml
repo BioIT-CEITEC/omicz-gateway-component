@@ -93,9 +93,10 @@ services:
       - backend
     volumes:
       - ./frontend:/app
-      # ── Repo root, read-only (the UI reads VERSION from it) ─────────────────────
+      # ── VERSION file only, read-only (shown in the UI) ─────────────────────────
+      # Not the whole app folder: it holds backend/.env with the S3 keys.
       # No Docker socket is mounted: access to it amounts to root on the host.
-      - .:/workspace:ro
+      - ./VERSION:/workspace/VERSION:ro
 
   worker:
     build:

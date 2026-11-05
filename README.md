@@ -94,7 +94,18 @@ volumes:
   - ${MACHINE_1_PATH_SHARED}:/runs/machine-1-shared:ro   # already there
 ```
 
-`:ro` mounts the folder read-only. The app never writes into instrument folders: the checksum file of each run (`<hash>.CHECKSUM`) is written to `checksums/<instrument>/<run>/` in the app folder (`CHECKSUM_DIR` in `docker-compose.yml`) and uploaded last, as before.
+`:ro` mounts the folder read-only. The app never writes into instrument folders.
+
+**Checksum files — nothing to fill in.** Before uploading a run, the worker writes a checksum file (`<hash>.CHECKSUM`) listing the SHA256 of every file in the run, and uploads it last. It is written to the `checksums/` folder in the app folder, not into the run folder. `docker-compose.yml` sets this up in the `worker` service:
+
+```yaml
+environment:
+  CHECKSUM_DIR: /checksums        # path inside the container — do not change
+volumes:
+  - ./checksums:/checksums        # left side: folder on this computer
+```
+
+Docker creates `checksums/` on the first start. To keep the files elsewhere, change only the left side in `docker-compose.override.yml`, e.g. `- /data/omicz-checksums:/checksums` under `worker: volumes:`. The files are small, and you can delete them once a run is confirmed.
 
 The right side (`/runs/machine-2`) is the path **inside the container** — this is what you will enter in the **Location** field when creating the sequencer in the UI.
 
@@ -114,15 +125,20 @@ Windows (Command Prompt):
 copy backend/.env.example backend/.env
 ```
 
-Open `backend/.env` and fill in your S3 credentials:
+Open `backend/.env` and fill in your S3 settings (you get these from the TRE operators):
 
 ```env
 S3_ENDPOINT=https://your-s3-proxy-url
 S3_ACCESS_KEY=your_access_key
 S3_SECRET_KEY=your_secret_key
-S3_BUCKET=your-bucket-name
-S3_PREFIX=raw_run_data/
+S3_REGION=us-east-1
+S3_BUCKET=your-bucket-name           # where run data is uploaded
+S3_PREFIX=raw_run_data/              # folder in that bucket
+S3_CHECKSUM_BUCKET=your-bucket-name  # where the TRE confirms each run
+S3_CHECKSUM_PREFIX=checksums/        # folder in that bucket
 ```
+
+`S3_CHECKSUM_BUCKET` and `S3_CHECKSUM_PREFIX` are not where the app writes its checksum files (those stay on this computer, see Step 2). They tell the app where to look for the TRE's confirmation: after checking a run, the TRE writes an empty file with the same name as the run's checksum file there.
 
 The database settings in this file can be left as-is — they match the database container defined in `docker-compose.yml`.
 

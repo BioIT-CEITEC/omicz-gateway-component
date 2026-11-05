@@ -84,6 +84,7 @@ def db(monkeypatch):
     monkeypatch.setattr(worker, "SESSION_LOCAL", make)
     seq = SimpleNamespace(uuid=uuid4(), location="/runs/m1", slug="m1", exclusions=[])
     monkeypatch.setattr(worker, "get_sequencer", lambda uuid: seq)
+    monkeypatch.setattr(worker, "find_manifest", lambda loc, slug, name, filename: f"/checksums/{slug}/{name}/{filename}")
     session = make()
     session.seq = seq
     yield session
@@ -99,7 +100,7 @@ def set_status(db, run, status):
 
 
 def queued_run(db):
-    run = Runs(name="R", sequencer_uuid=db.seq.uuid, status="queued")
+    run = Runs(name="R", sequencer_uuid=db.seq.uuid, status="queued", checksum_file="m.CHECKSUM")
     db.add(run)
     db.commit()
     return run

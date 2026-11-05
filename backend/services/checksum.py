@@ -11,6 +11,45 @@ from core.logger import get_logger
 logger = get_logger("checksum")
 
 CHECKSUM_FILENAME = "checksum.CHECKSUM"
+
+# Where run manifests (<hash>.CHECKSUM) are written. Set: <CHECKSUM_DIR>/<instrument slug>/<run name>/,
+# so nothing is written into the instrument folders and they can be mounted read-only.
+# Unset: inside the run folder.
+CHECKSUM_DIR = os.getenv("CHECKSUM_DIR") or None
+
+
+def manifest_dir(sequencer_location: str, sequencer_slug: str, run_name: str) -> str:
+    """Folder that holds the run's manifest."""
+    if CHECKSUM_DIR:
+        return os.path.join(CHECKSUM_DIR, sequencer_slug, run_name)
+    return os.path.join(sequencer_location, run_name)
+
+
+def _manifest_dirs(sequencer_location: str, sequencer_slug: str, run_name: str) -> list[str]:
+    """The manifest folder, then the run folder, where versions before CHECKSUM_DIR wrote it."""
+    dirs = [manifest_dir(sequencer_location, sequencer_slug, run_name)]
+    run_folder = os.path.join(sequencer_location, run_name)
+    return dirs if run_folder in dirs else dirs + [run_folder]
+
+
+def find_manifest(sequencer_location: str, sequencer_slug: str, run_name: str, filename: str) -> str | None:
+    """Path of the run's manifest with this name, or None."""
+    for d in _manifest_dirs(sequencer_location, sequencer_slug, run_name):
+        path = os.path.join(d, filename)
+        if os.path.isfile(path):
+            return path
+    return None
+
+
+def remove_manifests(sequencer_location: str, sequencer_slug: str, run_name: str) -> None:
+    """Delete the run's manifests before a fresh checksum. One in a read-only run folder is left as it is."""
+    for d in _manifest_dirs(sequencer_location, sequencer_slug, run_name):
+        for f in glob.glob(os.path.join(d, "*.CHECKSUM")):
+            try:
+                os.remove(f)
+                logger.info(f"deleted old checksum file: {f}")
+            except OSError as e:
+                logger.warning(f"cannot delete old checksum file {f} ({e}) — ignored, it is not uploaded")
 _DEFAULT_CHUNK_MB = 5
 
 
@@ -139,6 +178,7 @@ def create_checksum_file(
     on_progress: Callable | None = None,
     known_digests: dict | None = None,
     on_digest: Callable | None = None,
+    out_dir: str | None = None,
 ) -> str:
     """
     Walk every file inside the run folder, compute SHA256 for each in parallel.
@@ -147,27 +187,31 @@ def create_checksum_file(
     known_digests: {rel_path: (size, mtime_ns, sha256)} of files hashed before — reused when unchanged.
     on_digest(rel_path, size, mtime_ns, sha256) is called for every file, so the caller can
     record digests (resume after a failure, skip re-hashing on retry).
+    out_dir: folder the manifest is written to (see manifest_dir); default the run folder.
     """
     PROGRESS_CHUNK_BYTES = 500 * 1024 * 1024  # report every 500 MB within a file
 
     run_folder    = os.path.join(sequencer_location, run_name)
-    checksum_path = os.path.join(run_folder, CHECKSUM_FILENAME)
+    out_dir       = out_dir or run_folder
+    checksum_path = os.path.join(out_dir, CHECKSUM_FILENAME)
 
     if not os.path.isdir(run_folder):
         raise RuntimeError(f"Run folder is not accessible (network share may be disconnected): {run_folder}")
 
     # if a *.CHECKSUM file already exists (e.g. retry after failed upload), reuse it
-    existing = glob.glob(os.path.join(run_folder, "*.CHECKSUM"))
+    existing = glob.glob(os.path.join(out_dir, "*.CHECKSUM"))
     if existing:
         logger.info(f"checksum file already exists — skipping creation: {os.path.basename(existing[0])}")
         return existing[0]
+
+    os.makedirs(out_dir, exist_ok=True)
 
     # collect all file paths first (fast walk — no hashing yet)
     all_exclusions = BUILTIN_EXCLUSIONS + (exclusions or [])
     file_paths = []
     for root, dirs, files in os.walk(run_folder):
         for filename in files:
-            if filename == CHECKSUM_FILENAME:
+            if filename.endswith(".CHECKSUM"):   # manifests are not part of the run data
                 continue
             fp = os.path.join(root, filename)
             relative = os.path.relpath(fp, run_folder)
@@ -239,7 +283,7 @@ def create_checksum_file(
 
     # hash the checksum file itself and rename to <hash>.CHECKSUM
     file_hash  = _sha256(checksum_path)
-    final_path = os.path.join(run_folder, f"{file_hash}.CHECKSUM")
+    final_path = os.path.join(out_dir, f"{file_hash}.CHECKSUM")
     os.rename(checksum_path, final_path)
 
     logger.info(f"checksum file renamed to: {file_hash}.CHECKSUM")

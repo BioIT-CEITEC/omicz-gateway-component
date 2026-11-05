@@ -4,6 +4,7 @@ __pycache__/
 env/
 run_outputs/
 backups/
+checksums/
 **/logs/
 REPORT/
 *.log

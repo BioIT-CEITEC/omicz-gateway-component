@@ -15,9 +15,8 @@ from db.models.runs import Runs
 from db.models.sequencers import Sequencers
 from db.repositories.runs import create_run, update_run_status
 from db.repositories.runs_status_history import add_run_status_history
-import glob
 
-from services.checksum import create_checksum_file, find_file_by_hash, _fmt_bytes, HashQueue
+from services.checksum import create_checksum_file, find_file_by_hash, _fmt_bytes, HashQueue, manifest_dir, find_manifest, remove_manifests
 from services.tre import send_to_tre, check_verify_status, find_checksum_filename_in_s3, upload_file_list, UploadCancelled
 from db.models.runs_status_history import RunsStatusHistory
 from sqlalchemy import func
@@ -439,7 +438,7 @@ def handle_run_checksum_requested(name: str, sequencer_uuid):
     """
     Triggered after running_finished (auto) or by the "Send to TRE" button (manual).
     1. Set status to checksumming
-    2. Generate checksum.txt inside the run folder (SHA256 per file)
+    2. Write the <hash>.CHECKSUM manifest (SHA256 per file) to manifest_dir — CHECKSUM_DIR or the run folder
     3. Publish run_upload_requested so the worker continues to S3 upload
     """
     logger.info(f"run_checksum_requested → name={name} sequencer_uuid={sequencer_uuid}")
@@ -467,11 +466,7 @@ def handle_run_checksum_requested(name: str, sequencer_uuid):
         # delete any stale .CHECKSUM file on disk so create_checksum_file re-generates it.
         # This prevents reusing an old checksum after the run folder contents have changed.
         if existing and not existing.checksum_file:
-            run_folder = os.path.join(sequencer.location, name)
-            stale_checksums = glob.glob(os.path.join(run_folder, "*.CHECKSUM"))
-            for f in stale_checksums:
-                os.remove(f)
-                logger.info(f"deleted stale checksum file before re-checksumming: {os.path.basename(f)}")
+            remove_manifests(sequencer.location, sequencer.slug, name)
 
         run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="checksumming", db=db)
         add_run_status_history(run_uuid=run.uuid, status="checksumming", db=db)
@@ -482,7 +477,8 @@ def handle_run_checksum_requested(name: str, sequencer_uuid):
         known   = dir_stability.known_digests(run.uuid, db)
         digests = {}
         checksum_path = create_checksum_file(run_name=name, sequencer_location=sequencer.location, exclusions=sequencer.exclusions or [], on_progress=_make_progress_callback(run.uuid), known_digests=known,
-                                             on_digest=lambda rel, size, mtime_ns, sha: digests.__setitem__(rel, (size, mtime_ns, sha)))
+                                             on_digest=lambda rel, size, mtime_ns, sha: digests.__setitem__(rel, (size, mtime_ns, sha)),
+                                             out_dir=manifest_dir(sequencer.location, sequencer.slug, name))
         record_digests(run.uuid, digests, db)
 
         # checksumming done — store filename in DB, set queued, clear progress
@@ -576,9 +572,12 @@ def handle_run_upload_requested(name: str, sequencer_uuid):
         run_folder = os.path.join(sequencer.location, name)
         if already:
             logger.info(f"[upload] '{name}': {len(already)} file(s) already sent — skipped if unchanged")
+        manifest = find_manifest(sequencer.location, sequencer.slug, name, run.checksum_file) if run.checksum_file else None
+        if not manifest:
+            raise RuntimeError(f"Checksum file '{run.checksum_file}' not found — use Retry to create it again")
         send_to_tre(run_name=name, sequencer_location=sequencer.location, sequencer_slug=sequencer.slug, exclusions=sequencer.exclusions or [], on_progress=_make_progress_callback(run.uuid, show_files=True), already_uploaded=already,
                     on_file_done=lambda local_path, _rel: mark_uploaded(run.uuid, os.path.relpath(local_path, run_folder).replace(os.sep, "/"), db),
-                    should_stop=_make_stop_check(run.uuid))
+                    should_stop=_make_stop_check(run.uuid), manifest_path=manifest)
         logger.info(f"run folder uploaded to S3 for run '{name}'")
 
     except UploadCancelled:
@@ -644,10 +643,7 @@ def handle_run_rechecksum_requested(name: str, sequencer_uuid):
             return
 
         run_folder = os.path.join(sequencer.location, name)
-        existing = glob.glob(os.path.join(run_folder, "*.CHECKSUM"))
-        for f in existing:
-            os.remove(f)
-            logger.info(f"deleted old checksum file: {os.path.basename(f)}")
+        remove_manifests(sequencer.location, sequencer.slug, name)
 
         run = update_run_status(name=name, sequencer_uuid=sequencer_uuid, new_status="checksumming", db=db)
         add_run_status_history(run_uuid=run.uuid, status="checksumming", db=db)
@@ -656,7 +652,8 @@ def handle_run_rechecksum_requested(name: str, sequencer_uuid):
         # forced fresh checksum: hash everything again, but record the result so the upload can resume
         digests = {}
         checksum_path = create_checksum_file(run_name=name, sequencer_location=sequencer.location, exclusions=sequencer.exclusions or [], on_progress=_make_progress_callback(run.uuid),
-                                             on_digest=lambda rel, size, mtime_ns, sha: digests.__setitem__(rel, (size, mtime_ns, sha)))
+                                             on_digest=lambda rel, size, mtime_ns, sha: digests.__setitem__(rel, (size, mtime_ns, sha)),
+                                             out_dir=manifest_dir(sequencer.location, sequencer.slug, name))
         record_digests(run.uuid, digests, db)
 
         # checksumming done — store filename in DB, set queued, clear progress

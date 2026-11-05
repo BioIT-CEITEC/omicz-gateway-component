@@ -72,10 +72,11 @@ services:
       # ── Sequencer machine output folders ──────────────────────────────────────
       # Add one line per machine: left side = real path on this machine (host)
       #                           right side = path inside container (always /runs/...)
-      # Linux/Mac example:  - /data/illumina/outputs:/runs/machine-1
-      # Windows example:    - C:\Sequencer\Illumina:/runs/machine-1
-      - ${MACHINE_1_PATH}:/runs/machine-1
-      # - ${MACHINE_1_PATH_SHARED}:/runs/machine-1-shared
+      # :ro = read-only: the app never writes into instrument folders (manifests go to ./checksums)
+      # Linux/Mac example:  - /data/illumina/outputs:/runs/machine-1:ro
+      # Windows example:    - C:\Sequencer\Illumina:/runs/machine-1:ro
+      - ${MACHINE_1_PATH}:/runs/machine-1:ro
+      # - ${MACHINE_1_PATH_SHARED}:/runs/machine-1-shared:ro
 
   frontend:
     build:
@@ -110,6 +111,8 @@ services:
       POSTGRES_DB: fastapi_gateway_db
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       LOG_LEVEL: DEBUG
+      # run manifests (<hash>.CHECKSUM) are written here, not into the run folders
+      CHECKSUM_DIR: /checksums
     depends_on:
       db:
         condition: service_started
@@ -117,8 +120,9 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app
-      - ${MACHINE_1_PATH}:/runs/machine-1
-      # - ${MACHINE_1_PATH_SHARED}:/runs/machine-1-shared
+      - ./checksums:/checksums
+      - ${MACHINE_1_PATH}:/runs/machine-1:ro
+      # - ${MACHINE_1_PATH_SHARED}:/runs/machine-1-shared:ro
 
   watcher:
     build:
@@ -141,8 +145,8 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app
-      - ${MACHINE_1_PATH}:/runs/machine-1
-      # - ${MACHINE_1_PATH_SHARED}:/runs/machine-1-shared
+      - ${MACHINE_1_PATH}:/runs/machine-1:ro
+      # - ${MACHINE_1_PATH_SHARED}:/runs/machine-1-shared:ro
 
   backup:
     build:

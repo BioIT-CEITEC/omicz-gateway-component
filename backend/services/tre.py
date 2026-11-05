@@ -576,9 +576,12 @@ def upload_file_list(upload_files: list[tuple[str, str]], sequencer_slug: str, o
 
 
 def send_to_tre(run_name: str, sequencer_location: str, sequencer_slug: str, exclusions: list[str] | None = None, on_progress=None,
-                already_uploaded: dict[str, tuple[int, int]] | None = None, on_file_done=None, should_stop=None) -> bool:
+                already_uploaded: dict[str, tuple[int, int]] | None = None, on_file_done=None, should_stop=None,
+                manifest_path: str | None = None) -> bool:
     """
-    Upload the run folder to S3.
+    Upload the run folder to S3, then the manifest (manifest_path) as the last file.
+    .CHECKSUM files in the run folder are not uploaded: the manifest is the one in manifest_path,
+    which may lie outside the run folder (CHECKSUM_DIR); its S3 key is <run name>/<file name>.
     Raises on failure so the caller can store the real error detail.
     on_progress(files_done, total_files, bytes_done, total_bytes) called after each file.
     already_uploaded {rel_to_run: (size, mtime_ns)}: files sent earlier (directory stability, or an
@@ -599,7 +602,7 @@ def send_to_tre(run_name: str, sequencer_location: str, sequencer_slug: str, exc
         for file in files:
             local_path    = os.path.join(root, file)
             rel_to_run    = os.path.relpath(local_path, local_folder)
-            if _is_excluded(rel_to_run, all_exclusions):
+            if _is_excluded(rel_to_run, all_exclusions) or file.endswith(".CHECKSUM"):
                 continue
             sent = already_uploaded.get(rel_to_run.replace(os.sep, "/"))
             if sent:
@@ -613,8 +616,10 @@ def send_to_tre(run_name: str, sequencer_location: str, sequencer_slug: str, exc
             relative_path = os.path.relpath(local_path, sequencer_location)
             upload_files.append((local_path, relative_path, rel_to_run))
 
-    # Sort so that the .CHECKSUM file is uploaded last — it is the S3 trigger
-    upload_files.sort(key=lambda t: t[2].endswith(".CHECKSUM"))
+    # the manifest goes last — it is the S3 trigger
+    if manifest_path:
+        name = os.path.basename(manifest_path)
+        upload_files.append((manifest_path, os.path.join(run_name, name), name))
 
     logger.info(f"[TRE upload] starting — endpoint={S3_ENDPOINT} bucket={S3_BUCKET} prefix={S3_PREFIX} folder={local_folder} "
                 f"files={len(upload_files)} already_sent={skipped}")

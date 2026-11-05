@@ -12,7 +12,7 @@ A web application for managing DNA sequencer runs. It monitors sequencer output 
 
 - Watches configured sequencer machine output folders for new run folders
 - Detects run completion via a **signal file** (e.g. `RTAComplete.txt`) or **file stability** (files stop growing)
-- Generates a SHA256 checksum file for the run
+- Generates a SHA256 checksum file for the run, outside the run folder: instrument folders are mounted read-only and never changed
 - Uploads the run folder to S3
 - Provides a web UI to manage sequencers, runs, and monitor upload status in real time
 
@@ -90,9 +90,11 @@ The `docker-compose.yml` already has volume lines that reference `${MACHINE_1_PA
 ```yaml
 volumes:
   - ./backend:/app
-  - ${MACHINE_1_PATH}:/runs/machine-1          # already there
-  - ${MACHINE_1_PATH_SHARED}:/runs/machine-1-shared   # already there
+  - ${MACHINE_1_PATH}:/runs/machine-1:ro          # already there
+  - ${MACHINE_1_PATH_SHARED}:/runs/machine-1-shared:ro   # already there
 ```
+
+`:ro` mounts the folder read-only. The app never writes into instrument folders: the checksum file of each run (`<hash>.CHECKSUM`) is written to `checksums/<instrument>/<run>/` in the app folder (`CHECKSUM_DIR` in `docker-compose.yml`) and uploaded last, as before.
 
 The right side (`/runs/machine-2`) is the path **inside the container** — this is what you will enter in the **Location** field when creating the sequencer in the UI.
 
@@ -262,7 +264,7 @@ Go to **Instruments → Create** in the top navigation.
 This is not a path on your computer — it is the path *inside the Docker container*. It always starts with `/runs/`. The mapping between your computer's folder and this path is defined in `docker-compose.yml`:
 
 ```yaml
-- ${MACHINE_2_PATH}:/runs/machine-2
+- ${MACHINE_2_PATH}:/runs/machine-2:ro
 #   ^ your computer       ^ container path (put this in Location field)
 ```
 

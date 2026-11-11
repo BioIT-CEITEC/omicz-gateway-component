@@ -120,6 +120,7 @@ def load_sequencers():
                     .filter(
                         Sequencers.is_deleted == False,
                         Sequencers.location != None,
+                        Sequencers.status == "active",
                     )
                     .all()
                 )
@@ -139,8 +140,8 @@ def load_sequencers():
 
 def query_sequencers():
     """
-    Simple one-shot DB query for active sequencers with a location.
-    Used by the polling loop — no retry (DB is already up by then).
+    Simple one-shot DB query for active, non-deleted sequencers with a location.
+    Used by the polling loop — no retry (DB is already up by then). Returns None on error.
     """
     db = SESSION_LOCAL()
     try:
@@ -149,6 +150,7 @@ def query_sequencers():
             .filter(
                 Sequencers.is_deleted == False,
                 Sequencers.location != None,
+                Sequencers.status == "active",
             )
             .all()
         )
@@ -157,7 +159,7 @@ def query_sequencers():
         return sequencers
     except Exception as e:
         logger.error(f"failed to query sequencers: {e}")
-        return []
+        return None  # caller keeps its current list, so a DB blip does not stop every watch
     finally:
         db.close()
 
@@ -495,11 +497,12 @@ _REOPEN_SCAN_DEFAULT            = 600  # completed runs are checked for new file
 _REOPEN_WATCH_DAYS_DEFAULT      = 30
 
 
-def watch_sequencer(sequencer, observer, watched_uuids: set, stability_tracker: dict):
+def watch_sequencer(sequencer, observer, watched: dict, stability_tracker: dict):
     """
     Start watching a single sequencer location.
     Scans existing run folders, schedules the filesystem handler,
-    and records the sequencer UUID so we don't watch it twice.
+    and records the sequencer UUID with its watch so we don't watch it twice
+    and can stop watching it later.
     """
     if not os.path.isdir(sequencer.location):
         logger.warning(f"location '{sequencer.location}' does not exist — skipping {sequencer.name}")
@@ -513,9 +516,19 @@ def watch_sequencer(sequencer, observer, watched_uuids: set, stability_tracker: 
     # Scanning run folder contents recursively on large SMB mounts is very slow
     # (each poll could take many minutes), causing missed detections.
     # Completion signal detection is handled by check_signal_files() in the main loop.
-    observer.schedule(handler, path=sequencer.location, recursive=False)
-    watched_uuids.add(str(sequencer.uuid))
+    watched[str(sequencer.uuid)] = observer.schedule(handler, path=sequencer.location, recursive=False)
     logger.info(f"watching: {sequencer.location} ({sequencer.name})")
+
+
+def unwatch_gone_sequencers(sequencers: list, observer, watched: dict, stability_tracker: dict):
+    """Stop watching sequencers that were set to inactive or deleted since they were scheduled."""
+    keep = {str(s.uuid) for s in sequencers}
+    for uuid in list(watched):
+        if uuid in keep:
+            continue
+        observer.unschedule(watched.pop(uuid))
+        stability_tracker.pop(uuid, None)
+        logger.info(f"sequencer {uuid} is inactive or deleted — stopped watching")
 
 
 def start():
@@ -525,17 +538,17 @@ def start():
     observer = Observer(timeout=5)  # poll filesystem every 10 seconds
     observer.start()
 
-    # track which sequencers are already being watched
-    watched_uuids = set()
+    # sequencers being watched: uuid → watch handle (needed to unschedule)
+    watched = {}
 
     # in-memory state for file_stability completion tracking
     # lost on watcher restart — tracker simply restarts fresh, worst case: one extra threshold wait
     stability_tracker = {}
 
     for sequencer in sequencers:
-        watch_sequencer(sequencer, observer, watched_uuids, stability_tracker)
+        watch_sequencer(sequencer, observer, watched, stability_tracker)
 
-    if not watched_uuids:
+    if not watched:
         logger.warning("no sequencers found with a location — will keep checking every 60s")
 
     logger.info("started. press Ctrl+C to stop.")
@@ -581,17 +594,20 @@ def start():
             if run_scan_elapsed >= get_setting_int("run_scan_interval", _RUN_SCAN_INTERVAL_DEFAULT):
                 run_scan_elapsed = 0
                 for sequencer in current_sequencers:
-                    if str(sequencer.uuid) in watched_uuids:
+                    if str(sequencer.uuid) in watched:
                         scan_existing_runs(sequencer)
 
-            # ── sequencer poll (every 60s) — detect newly added sequencers ────
+            # ── sequencer poll (every 60s) — detect added, deactivated and deleted sequencers ──
             if seq_elapsed >= get_setting_int("sequencer_check_interval", _SEQUENCER_CHECK_INTERVAL_DEFAULT):
                 seq_elapsed = 0
-                current_sequencers = query_sequencers()
+                fresh = query_sequencers()
+                if fresh is not None:
+                    current_sequencers = fresh
+                    unwatch_gone_sequencers(current_sequencers, observer, watched, stability_tracker)
                 for sequencer in current_sequencers:
-                    if str(sequencer.uuid) not in watched_uuids:
+                    if str(sequencer.uuid) not in watched:
                         logger.info(f"new sequencer detected: {sequencer.name} — starting watch")
-                        watch_sequencer(sequencer, observer, watched_uuids, stability_tracker)
+                        watch_sequencer(sequencer, observer, watched, stability_tracker)
 
     except KeyboardInterrupt:
         observer.stop()

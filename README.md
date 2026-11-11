@@ -1,27 +1,57 @@
 # OmiCZ Gateway
 
-A web application for managing DNA sequencer runs. It monitors sequencer output folders on your computer, detects when runs complete, generates checksums, and uploads run data to S3 storage automatically.
+A web application that moves raw data from sequencers and mass spectrometers into a trusted research environment (TRE). It watches the instrument output folders on a facility computer, detects when a run is complete, writes a SHA256 checksum file for the run, uploads the run to the TRE's S3 inbox, and waits until the TRE confirms that every file arrived intact.
 
 ![OmiCZ Gateway dashboard](readme-images/omicz-gateway-app.png)
 
 **[Try the interactive demo →](https://bioit-ceitec.github.io/omicz-gateway-component/)** a static copy of the web interface with sample data, so you can click through every page without installing anything.
 
+**TRE side:** the receipts that confirm each run are written by the [OmiCZ inbox bucket watcher](https://github.com/BioIT-CEITEC/omicz-inbox-bucket-watcher-component), which runs inside the TRE. You do not install it on the facility computer; the TRE operators run it.
+
+---
+
+## Contents
+
+1. [What it does](#what-it-does)
+2. [Requirements](#requirements)
+3. [How it works](#how-it-works-overview)
+4. [Try it with test data](#try-it-with-test-data-no-instrument-no-tre) — no instrument and no TRE needed
+5. [Installation](#installation) — Steps 1–6
+6. [First-time configuration in the UI](#first-time-configuration-in-the-ui) — Steps A–C
+7. [Run status reference](#run-status-reference)
+8. [Adding a new machine later](#adding-a-new-machine-later)
+9. [Updating](#updating)
+10. [Troubleshooting](#troubleshooting)
+
 ---
 
 ## What it does
 
-- Watches configured sequencer machine output folders for new run folders
-- Detects run completion via a **signal file** (e.g. `RTAComplete.txt`) or **file stability** (files stop growing)
-- Generates a SHA256 checksum file for the run, outside the run folder: instrument folders are mounted read-only and never changed
-- Uploads the run folder to S3
-- Provides a web UI to manage sequencers, runs, and monitor upload status in real time
+- Watches the output folders of configured instruments for new run folders
+- Detects when a run is complete in one of three ways:
+  - **Signal file**: the instrument writes a known file at the end (e.g. `RTAComplete.txt` on Illumina, `final_summary_*.txt` on Oxford Nanopore)
+  - **File stability**: chosen files stop changing for a set time (e.g. `analysis.tdf` in a Bruker timsTOF `.d` folder)
+  - **Directory stability**: each top-level folder of a run is sent once it stops changing, and the run is complete when nothing in it has changed for a set time
+- Writes a SHA256 checksum file (`<hash>.CHECKSUM`) listing every file of the run. It is kept outside the run folder: instrument folders are mounted read-only and never changed
+- Uploads the run to S3, skipping excluded files (e.g. thumbnails), and uploads the checksum file last
+- Waits for the TRE's receipt and marks the run **Transfer Complete** only when the TRE has found every file
+- Sends runs automatically or after a click, per instrument; retries resume without re-sending finished files
+- Web UI with user login: instruments, runs, transfer queue, logs and live progress
 
 ---
 
 ## Requirements
 
-- [Docker Desktop](https://docs.docker.com/get-docker/) installed and running / [Rancher Desktop](https://rancherdesktop.io/) installed and running with dockerd container engine
-- S3 storage credentials (endpoint URL, access key, secret key) — get these from the project administrator
+- A computer that can read the instrument output folders (a local disk or a mounted network share): Linux, macOS or Windows
+- Docker with Docker Compose v2 (the `docker compose` command):
+  - Linux: [Docker Engine](https://docs.docker.com/engine/install/) (recommended for servers; faster than Docker Desktop for large runs)
+  - macOS / Windows: [Docker Desktop](https://docs.docker.com/get-docker/), or [Rancher Desktop](https://rancherdesktop.io/) with the dockerd container engine
+- [Git](https://git-scm.com/downloads), to download and update the code
+- About 5 GB of free disk space for the images and the database. Runs are not copied, so they need no extra space
+- Network access from this computer to the TRE's S3 endpoint (some TREs allow it only over a VPN)
+- S3 settings from the TRE operators: endpoint URL, access key, secret key, the bucket and folder for uploads, and the bucket and folder for receipts
+
+To only try the gateway, Docker and Git are enough: see [Try it with test data](#try-it-with-test-data-no-instrument-no-tre).
 
 ---
 
@@ -46,7 +76,7 @@ cd omicz-gateway-component
 docker compose -f docker-compose.demo.yml up -d --build
 ```
 
-Open **http://localhost:18001** and log in as **demo** / **demo**. The three instruments are already set up, and the three runs reach **Completed** within about 2 minutes.
+Open **http://localhost:18001** and log in as **demo** / **demo**. The three instruments are already set up, and the three runs reach **Transfer Complete** within about 2 minutes.
 
 **What to look at**
 
@@ -88,11 +118,20 @@ cd omicz-gateway-component
 
 ---
 
-### Step 2 — Create your `.env` file
+### Step 2 — Tell the app where the instrument writes its runs
 
-The `.env` file tells Docker where your sequencer output folders are on **your** computer.
+The gateway needs one folder per instrument: the folder in which the instrument creates a new subfolder for every run. Point it at that parent folder, not at a single run:
 
-Linux / MacOS:
+```
+/data/sequencers/machine-1/              <- MACHINE_1_PATH points here
+├── 260101_A01234_0001_AHXXXXXX/         <- one run (a run folder)
+├── 260102_A01234_0002_AHYYYYYY/         <- the next run
+└── ...
+```
+
+Create the `.env` file in the project folder from the example:
+
+Linux / macOS:
 ```bash
 cp .env.example .env
 ```
@@ -101,37 +140,26 @@ Windows (Command Prompt):
 copy .env.example .env
 ```
 
-Open `.env` and replace the example paths with real paths on your machine:
+Open `.env` and set `MACHINE_1_PATH` to the real folder on this computer:
 
-
-**Linux / MacOS paths:**
 ```env
-# The real path to your sequencer output folder on this computer:
+# Linux / macOS
 MACHINE_1_PATH=/data/sequencers/machine-1
-MACHINE_1_PATH_SHARED=/data/sequencers/machine-1-shared
-```
 
-**Windows paths:**
-```env
+# Windows
 MACHINE_1_PATH=C:\Sequencer\Machine1
-MACHINE_1_PATH_SHARED=C:\Sequencer\Machine1Shared
 ```
 
-**Why these variable names?**
-The `docker-compose.yml` already has volume lines that reference `${MACHINE_1_PATH}` and `${MACHINE_1_PATH_SHARED}`. Docker reads your `.env` file and substitutes those values automatically. The names must match exactly.
-
-**If you are adding a new machine** that is not already in `docker-compose.yml`, add its volume lines to `docker-compose.override.yml` (see [Adding a new machine later](#adding-a-new-machine-later)) rather than to `docker-compose.yml` itself, so updates never conflict with your changes. For reference, the volume lines in `docker-compose.yml` look like this:
+`docker-compose.yml` already mounts this folder into the containers, read-only, as `/runs/machine-1`:
 
 ```yaml
-volumes:
-  - ./backend:/app
-  - ${MACHINE_1_PATH}:/runs/machine-1:ro          # already there
-  - ${MACHINE_1_PATH_SHARED}:/runs/machine-1-shared:ro   # already there
+  - ${MACHINE_1_PATH}:/runs/machine-1:ro
+#   ^ folder on this computer   ^ path inside the containers
 ```
 
-`:ro` mounts the folder read-only. The app never writes into instrument folders.
+Remember `/runs/machine-1`: it is what you enter as **Location** when you add the instrument in the UI (Step B). `:ro` means read-only: the app never writes into instrument folders. For a second instrument, see [Adding a new machine later](#adding-a-new-machine-later); put extra folders in `docker-compose.override.yml`, not in `docker-compose.yml`, so updates never conflict with your changes.
 
-**Checksum files — nothing to fill in.** Before uploading a run, the worker writes a checksum file (`<hash>.CHECKSUM`) listing the SHA256 of every file in the run, and uploads it last. It is written to the `checksums/` folder in the app folder, not into the run folder. `docker-compose.yml` sets this up in the `worker` service:
+**Checksum files — nothing to fill in.** Before uploading a run, the worker writes a checksum file (`<hash>.CHECKSUM`) listing the SHA256 of every file in the run, and uploads it last. It is written to the `checksums/` folder in the project folder, not into the run folder. `docker-compose.yml` sets this up in the `worker` service:
 
 ```yaml
 environment:
@@ -141,9 +169,6 @@ volumes:
 ```
 
 Docker creates `checksums/` on the first start. To keep the files elsewhere, change only the left side in `docker-compose.override.yml`, e.g. `- /data/omicz-checksums:/checksums` under `worker: volumes:`. The files are small, and you can delete them once a run is confirmed.
-
-The right side (`/runs/machine-2`) is the path **inside the container** — this is what you will enter in the **Location** field when creating the sequencer in the UI.
-
 
 ---
 
@@ -157,7 +182,7 @@ cp backend/.env.example backend/.env
 ```
 Windows (Command Prompt):
 ```cmd
-copy backend/.env.example backend/.env
+copy backend\.env.example backend\.env
 ```
 
 Open `backend/.env` and fill in your S3 settings (you get these from the TRE operators):
@@ -183,6 +208,10 @@ Optionally, name the first administrator of the web interface here. Otherwise yo
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=choose-a-long-password
 ```
+
+Use a password of at least 8 characters; the UI asks for 8 or more when a password is changed. To keep the password out of this file, leave both lines out and use the setup page instead.
+
+**Check the connection to S3 before you go on** (optional): from this computer, `curl -I https://your-s3-proxy-url` should print an HTTP status line. If it hangs, the network or VPN to the TRE is not set up yet; the gateway will start, but uploads will fail.
 
 ---
 
@@ -269,62 +298,83 @@ A login keeps you signed in for 7 days of inactivity: the browser holds a 15-min
 
 ## First-time configuration in the UI
 
-After the app is running, you need to configure it through the web interface before it can watch any sequencer runs.
+After the app is running, tell it about your instruments in the web interface. You do this once per instrument model (Step A) and once per instrument (Step B). Nothing needs a restart.
 
 ---
 
-### Step A — Create an Inst. Models
+### Step A — Create an Instrument Model
 
-An **Instrument Models** defines the model/brand of machine and how it signals that a run is complete. You create one type per machine model (not per machine).
+An **Instrument Model** says how to recognise that a run is complete. Create one per model of instrument, not per machine: two NovaSeq machines share one model.
 
-Go to **Inst. Models → Create** in the top navigation.
+Go to **Inst. Models → Create**.
 
-| Field | What to enter | Example |
-|-------|--------------|---------|
-| **Name** | A label for this machine model | `Illumina NovaSeq 6000` |
-| **Completion Method** | How the machine signals it is done | see below |
-| **Completion Signal** | The filename it creates when done *(signal method only)* | `RTAComplete.txt` |
-| **Signal Match** | How to match the filename | `exact` |
-| **Stability Files** | Files to watch for size changes *(file_stability method only)* | `RunParameters.xml` |
-| **Stability Threshold** | Minutes of no change before declaring done *(file_stability only)* | `10` |
+| Field | What to enter |
+|-------|--------------|
+| **Name** | A label for the model, e.g. `Illumina NovaSeq 6000` |
+| **Completion Method** | **Signal File**, **File Stability** or **Directory Stability** (see below) |
+| **Signal Filename** | *Signal File only:* the file the instrument writes when the run ends |
+| **Match Rule** | *Signal File only:* **Exact** (the whole name), **Prefix** (the name starts with it) or **Suffix** (the name ends with it) |
+| **Files to Monitor** | *File Stability only:* files in the run folder to watch for size changes |
+| **Stable after (minutes)** | *File Stability only:* how long those files must stay unchanged (default 10) |
+| **Send a folder after (minutes)** | *Directory Stability only:* how long a top-level folder must stay unchanged before it is sent (default 10) |
+| **Run complete after (minutes)** | *Directory Stability only:* how long the whole run must stay unchanged before it is complete (default 60) |
 
-**Completion Method options:**
+**Settings for common instruments** (the demo uses the same ones):
 
-- `signal` — the machine creates a specific file (e.g. `RTAComplete.txt`) when a run is done. The app watches for that file to appear.
-- `file_stability` — the app monitors specific files and waits until they stop growing (no size change for N minutes). Use this for machines that do not create a completion file.
-- `directory_stability` — each top-level folder of a run (e.g. `RUN_009/DIR1`) is sent to S3 on its own once no file in it has changed for **Send a folder after** minutes (default 10). The run is complete when nothing in the whole run folder has changed for **Run complete after** minutes (default 60); files in the run root, the rest of the data and the `.CHECKSUM` are then sent as usual, reusing the checksums of folders already sent. Folders are sent early only when **Send to TRE** is `auto`.
+| Instrument | Completion Method | Settings |
+|-----------|-------------------|----------|
+| Illumina (NovaSeq, NextSeq, MiSeq, …) | Signal File | Signal Filename `RTAComplete.txt`, Match Rule **Exact** |
+| Oxford Nanopore (MinKNOW) | Signal File | Signal Filename `final_summary_`, Match Rule **Prefix** |
+| Bruker timsTOF (`.d` folders) | File Stability | Files to Monitor `analysis.tdf`, Stable after `10` |
+| An instrument that writes nothing at the end | File Stability or Directory Stability | see below |
+
+The signal file and the monitored files must be directly in the run folder, not in a subfolder.
+
+**Completion methods in more detail:**
+
+- **Signal File** — the instrument creates a known file when the run is done. The app checks each run folder for it.
+- **File Stability** — the app watches the listed files and declares the run complete when none of them has changed in size for the set time. Use it for instruments that write no completion file. Choose a time longer than any pause of the instrument.
+- **Directory Stability** — for long runs that should start uploading before they end. Each top-level folder of a run (e.g. `RUN_009/DIR1`) is sent to S3 on its own once no file in it has changed for **Send a folder after** minutes. The run is complete when nothing in the whole run folder has changed for **Run complete after** minutes; files in the run root, the rest of the data and the `.CHECKSUM` are then sent as usual, reusing the checksums of folders already sent. Folders are sent early only when **Transfer to TRE** is **Auto**.
   Files already in S3 cannot be overwritten. If a folder that was already sent changes later (a file modified or deleted), the run goes to **Transfer Conflict** and the run page lists the changed files. New files added to a sent folder are fine — they are sent once the folder is quiet again. Choose a folder time longer than any pause of the instrument.
 
 ---
 
 ### Step B — Create an Instrument
 
-An **Instrument** represents a specific physical machine connected to this computer. You create one entry per machine.
+An **Instrument** is one physical machine whose output folder you mounted in Step 2.
 
-Go to **Instruments → Create** in the top navigation.
+Go to **Instruments → Create**.
 
 | Field | What to enter | Example |
 |-------|--------------|---------|
-| **Name** | A label for this specific machine | `Machine 2 - Illumina` |
-| **Location** | The path **inside the container** where this machine's folder is mounted | `/runs/machine-2` |
-| **Type** | Select the sequencer type you created in Step A | |
-| **Send to TRE** | When to upload to S3 | see below |
-| **Exclusions** | Files or patterns to skip during upload *(optional)* | `*.png`, `Thumbnail_Images` |
+| **Name** | A label for this machine | `NovaSeq 1` |
+| **Location** | The folder **inside the container**, from Step 2 — always starts with `/runs/` | `/runs/machine-1` |
+| **Instrument Model** | The model you created in Step A | `Illumina NovaSeq 6000` |
+| **Status** | **Active** watches the folder. **Inactive** stops watching it within a minute; runs already sent or queued are not affected | Active |
+| **Transfer to TRE** | **Auto**: upload as soon as a run is complete. **Manual**: wait until you click **Transfer to TRE** on the run page | Manual for the first run |
+| **Exclusions** | Files, folders or patterns to skip during upload *(optional)* | `Thumbnail_Images`, `*.png` |
 
-**Location field explained:**
-This is not a path on your computer — it is the path *inside the Docker container*. It always starts with `/runs/`. The mapping between your computer's folder and this path is defined in `docker-compose.yml`:
+**Location is not a path on your computer.** It is the right side of the volume line from Step 2:
 
 ```yaml
-- ${MACHINE_2_PATH}:/runs/machine-2:ro
-#   ^ your computer       ^ container path (put this in Location field)
+- ${MACHINE_1_PATH}:/runs/machine-1:ro
+#   ^ your computer   ^ container path (put this in Location)
 ```
 
-**Send to TRE options:**
+If you enter a path that is not mounted, the instrument is marked **inaccessible** in the **Instruments** list.
 
-- `auto` — upload to S3 automatically as soon as a run is detected as complete
-- `manual` — wait for you to click the "Send to TRE" button on the run detail page
+> After saving, the watcher picks up the instrument within 60 seconds. Run folders that are already in the folder are added as well, and with **Auto** the complete ones are sent too. If the folder holds old runs you do not want to send, start with **Manual**.
 
-> After saving the sequencer, the watcher detects it within 60 seconds — no restart needed.
+---
+
+### Step C — Check the first run
+
+1. Open **Acquisition Runs**. Each run folder of the instrument appears with its state. A run that is still being written shows **Data Acquisition**; a finished one moves to **Acquisition Complete**.
+2. Open a finished run and click **Transfer to TRE** (with **Auto** this happens by itself). The run goes through **Integrity Check** (hashing), **Data Transfer** (upload, with a progress bar) and **Transfer Validation** (waiting for the TRE's receipt).
+3. The run reaches **Transfer Complete** when the TRE has confirmed every file. How long this takes depends on the TRE; the run page shows a timestamp for every step.
+4. If a run stops in **Data Transfer Failed** or **Transfer Validation Failed**, see the table below; **Logs** in the navigation shows what the watcher and the worker did.
+
+When the first run went through, switch the instrument to **Auto** if you want runs sent without a click.
 
 ---
 
@@ -340,7 +390,7 @@ Data Acquisition → Acquisition Complete → Integrity Check → Data Transfer 
 | Status | What it means | What to do |
 |--------|--------------|------------|
 | `Data Acquisition` | New run folder detected, data acquisition in progress | Wait |
-| `Acquisition Complete` | Machine finished; waiting to start upload | Click **Send to TRE** (if manual mode) |
+| `Acquisition Complete` | Machine finished; waiting to start upload | Click **Transfer to TRE** (if Manual) |
 | `Integrity Check` | Generating SHA256 checksum file for the run | Wait |
 | `Queued` | Waiting after previous upload is finished | Wait |
 | `Data Transfer` | Uploading the run folder to S3 | Wait |

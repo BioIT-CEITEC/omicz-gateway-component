@@ -1,0 +1,5 @@
+instrument=DEMO
+flow_cell_id=FAKE0001
+protocol_run_id=demo
+pod5_files_in_final_dest=3
+fastq_files_in_final_dest=2

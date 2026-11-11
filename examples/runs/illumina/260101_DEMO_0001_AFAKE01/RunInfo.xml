@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<RunInfo Version="6">
+  <Run Id="260101_DEMO_0001_AFAKE01" Number="1">
+    <Flowcell>AFAKE01</Flowcell>
+    <Instrument>DEMO</Instrument>
+    <Date>2026-01-01</Date>
+  </Run>
+</RunInfo>

@@ -1,0 +1,163 @@
+# Local demo of OmiCZ Gateway with the example runs in examples/runs — no instrument and no TRE needed.
+#
+#   docker compose -f docker-compose.demo.yml up -d --build
+#   open http://localhost:18001   (user: demo, password: demo)
+#   docker compose -f docker-compose.demo.yml down -v      # removes the demo completely
+#
+# The demo is separate from a real installation: its own Compose project (omicz-gateway-component-demo),
+# containers, database, message queue and volumes, and only the web interface is published
+# (127.0.0.1, port DEMO_PORT, default 18001).
+# Uploads go to a local S3 server (s3mock); tre-standin plays the TRE and writes the receipts.
+# examples/demo/empty.env is mounted over /app/.env, so the real backend/.env is never read.
+
+name: omicz-gateway-component-demo
+
+x-backend-env: &backend-env
+  POSTGRES_HOST: db
+  POSTGRES_PORT: 5432
+  POSTGRES_USERNAME: postgres
+  POSTGRES_PASSWORD: postgres
+  POSTGRES_DB: omicz_demo
+  RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+  LOG_LEVEL: INFO
+  S3_ENDPOINT: http://s3mock:5000
+  S3_ACCESS_KEY: demo
+  S3_SECRET_KEY: demo-secret
+  S3_REGION: us-east-1
+  S3_BUCKET: demo-ingress
+  S3_PREFIX: raw_run_data/
+  S3_CHECKSUM_BUCKET: demo-receipts
+  S3_CHECKSUM_PREFIX: checksums/
+  ADMIN_USERNAME: demo
+  ADMIN_PASSWORD: demo
+
+x-example-runs: &example-runs
+  - ./examples/demo/empty.env:/app/.env:ro
+  - ./examples/runs/illumina:/runs/demo-illumina:ro
+  - ./examples/runs/nanopore:/runs/demo-nanopore:ro
+  - ./examples/runs/proteomics:/runs/demo-proteomics:ro
+
+services:
+  db:
+    image: postgres:15
+    container_name: fastapi_gateway_db-demo
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: omicz_demo
+    volumes:
+      - db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "omicz_demo"]
+      interval: 3s
+      retries: 20
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: fastapi_gateway_rabbitmq-demo
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  s3mock:
+    build:
+      context: ./examples/demo/s3mock
+    container_name: fastapi_gateway_s3mock-demo
+
+  tre-standin:
+    build:
+      context: ./backend
+    container_name: fastapi_gateway_tre_standin-demo
+    command: python /demo/tre_standin.py
+    environment: *backend-env
+    volumes:
+      - ./examples/demo/empty.env:/app/.env:ro
+      - ./examples/demo:/demo:ro
+    depends_on:
+      - s3mock
+
+  backend:
+    build:
+      context: ./backend
+    container_name: fastapi_gateway_backend-demo
+    command: sh -c "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000"
+    environment: *backend-env
+    volumes: *example-runs
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/auth/status')"]
+      interval: 3s
+      retries: 40
+
+  worker:
+    build:
+      context: ./backend
+    container_name: fastapi_gateway_worker-demo
+    command: python services/worker.py
+    environment:
+      <<: *backend-env
+      CHECKSUM_DIR: /checksums
+    volumes:
+      - ./examples/demo/empty.env:/app/.env:ro
+      - ./examples/runs/illumina:/runs/demo-illumina:ro
+      - ./examples/runs/nanopore:/runs/demo-nanopore:ro
+      - ./examples/runs/proteomics:/runs/demo-proteomics:ro
+      - checksums:/checksums
+    depends_on:
+      backend:
+        condition: service_healthy
+      s3mock:
+        condition: service_started
+
+  watcher:
+    build:
+      context: ./backend
+    container_name: fastapi_gateway_watcher-demo
+    command: python services/watcher.py
+    environment: *backend-env
+    volumes: *example-runs
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: fastapi_gateway_frontend-demo
+    command: uvicorn main:app --host 0.0.0.0 --port 8001
+    ports:
+      - "127.0.0.1:${DEMO_PORT:-18001}:8001"
+    environment:
+      BACKEND_URL: http://backend:8000
+      LOG_LEVEL: INFO
+    volumes:
+      - ./VERSION:/workspace/VERSION:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  setup:
+    build:
+      context: ./backend
+    container_name: fastapi_gateway_setup-demo
+    command: python /demo/demo_setup.py
+    environment:
+      BACKEND_URL: http://backend:8000
+      ADMIN_USERNAME: demo
+      ADMIN_PASSWORD: demo
+    volumes:
+      - ./examples/demo:/demo:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: "no"
+
+volumes:
+  db:
+  checksums:

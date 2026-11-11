@@ -36,6 +36,41 @@ e.g. /data/illumina          (docker-compose.yml)
 
 ---
 
+## Try it with test data (no instrument, no TRE)
+
+A local demo runs the whole pipeline on the small synthetic runs in [`examples/runs`](examples/README.md): an Illumina-style run, a Nanopore-style run and a timsTOF-style `.d` folder, one for each kind of completion rule. Uploads go to a local S3 server, and a stand-in for the TRE checks every file and writes the receipt. Nothing leaves your computer, and the demo is separate from a real installation: its own containers (`fastapi_gateway_*-demo`), database and volumes. Only the web interface is published, on `127.0.0.1:18001` (set `DEMO_PORT` to change it).
+
+```bash
+git clone https://github.com/BioIT-CEITEC/omicz-gateway-component.git
+cd omicz-gateway-component
+docker compose -f docker-compose.demo.yml up -d --build
+```
+
+Open **http://localhost:18001** and log in as **demo** / **demo**. The three instruments are already set up, and the three runs reach **Completed** within about 2 minutes.
+
+**What to look at**
+
+- **Acquisition runs**: each run with its state. Open a run to see its status history, with a timestamp for every step from detection to the TRE confirmation.
+- **Instruments** and **Inst. Models**: the completion rule of each demo instrument, and the exclusion patterns of the Illumina one (`Thumbnail_Images`, `*.png`).
+- **Logs**: the watcher detecting the runs and the worker hashing and uploading them.
+- **What the TRE received**: the files of each run, its manifest and its receipt:
+
+  ```bash
+  docker exec fastapi_gateway_tre_standin-demo python /demo/show_tre.py
+  ```
+
+  The Illumina run arrives with 6 of its 8 files: the two thumbnail images are excluded.
+
+**Try more:** copy a run folder under a new name, e.g. `cp -r examples/runs/illumina/260101_DEMO_0001_AFAKE01 examples/runs/illumina/260101_DEMO_0002_AFAKE02`; the gateway detects it within 2 minutes and sends it. `examples/make_test_runs.py` also writes larger runs (see [examples/README.md](examples/README.md)); keep them small in the demo, because the local S3 server holds everything in memory.
+
+**Remove the demo** (containers, database, volumes and images):
+
+```bash
+docker compose -f docker-compose.demo.yml down -v --rmi local
+```
+
+---
+
 ## Installation
 
 Follow these steps in order. Each step explains what you are doing and why.

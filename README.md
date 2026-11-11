@@ -350,7 +350,7 @@ Go to **Instruments → Create**.
 | **Name** | A label for this machine | `NovaSeq 1` |
 | **Location** | The folder **inside the container**, from Step 2 — always starts with `/runs/` | `/runs/machine-1` |
 | **Instrument Model** | The model you created in Step A | `Illumina NovaSeq 6000` |
-| **Status** | Leave **Active** | Active |
+| **Status** | **Active** watches the folder. **Inactive** stops watching it within a minute; runs already sent or queued are not affected | Active |
 | **Transfer to TRE** | **Auto**: upload as soon as a run is complete. **Manual**: wait until you click **Transfer to TRE** on the run page | Manual for the first run |
 | **Exclusions** | Files, folders or patterns to skip during upload *(optional)* | `Thumbnail_Images`, `*.png` |
 
